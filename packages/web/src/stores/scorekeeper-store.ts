@@ -6,11 +6,15 @@ import {
   type GameSettings,
   type Player,
   type GameType,
+  type BidEntry,
 } from '@250-500/shared';
 
 interface ScorekeeperActions {
   initGame: (settings: GameSettings) => void;
   resetGame: () => void;
+  recordBid: (playerId: string, amount: number) => void;
+  recordPass: (playerId: string) => void;
+  closeBidding: (winnerId: string, amount: number) => void;
 }
 
 type ScorekeeperStore = ScorekeeperState & ScorekeeperActions;
@@ -41,7 +45,41 @@ export const useScorekeeperStore = create<ScorekeeperStore>()(
           currentHand: { handNumber: 1, bidHistory: [], calledCards: [], partners: [] },
         });
       },
-      resetGame: () => set({ ...FRESH_STATE, settings: undefined, currentHand: undefined }),
+      resetGame: () =>
+        set({ ...FRESH_STATE, settings: undefined, currentHand: undefined }),
+      recordBid: (playerId, amount) =>
+        set((state) => {
+          if (!state.currentHand) return state;
+          const entry: BidEntry = { playerId, action: 'bid', amount };
+          return {
+            currentHand: {
+              ...state.currentHand,
+              bidHistory: [...state.currentHand.bidHistory, entry],
+            },
+          };
+        }),
+      recordPass: (playerId) =>
+        set((state) => {
+          if (!state.currentHand) return state;
+          const entry: BidEntry = { playerId, action: 'pass' };
+          return {
+            currentHand: {
+              ...state.currentHand,
+              bidHistory: [...state.currentHand.bidHistory, entry],
+            },
+          };
+        }),
+      closeBidding: (winnerId, amount) =>
+        set((state) => {
+          if (!state.currentHand) return state;
+          return {
+            currentHand: {
+              ...state.currentHand,
+              bidder: winnerId,
+              bidAmount: amount,
+            },
+          };
+        }),
     }),
     {
       name: 'scorekeeper-v1',
