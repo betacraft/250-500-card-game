@@ -1,0 +1,21 @@
+// vitest.config.ts
+import { defineConfig } from "file:///sessions/exciting-nice-maxwell/mnt/Georgetown/250-500-card-game/node_modules/vitest/dist/config.js";
+import react from "file:///sessions/exciting-nice-maxwell/mnt/Georgetown/250-500-card-game/node_modules/@vitejs/plugin-react/dist/index.js";
+import path from "node:path";
+var __vite_injected_original_dirname = "/sessions/exciting-nice-maxwell/mnt/Georgetown/250-500-card-game/packages/web";
+var vitest_config_default = defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: { "@": path.resolve(__vite_injected_original_dirname, "./src") }
+  },
+  test: {
+    globals: true,
+    environment: "jsdom",
+    setupFiles: ["./src/tests/setup.ts"],
+    include: ["src/**/*.test.{ts,tsx}"]
+  }
+});
+export {
+  vitest_config_default as default
+};
+//# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsidml0ZXN0LmNvbmZpZy50cyJdLAogICJzb3VyY2VzQ29udGVudCI6IFsiY29uc3QgX192aXRlX2luamVjdGVkX29yaWdpbmFsX2Rpcm5hbWUgPSBcIi9zZXNzaW9ucy9leGNpdGluZy1uaWNlLW1heHdlbGwvbW50L0dlb3JnZXRvd24vMjUwLTUwMC1jYXJkLWdhbWUvcGFja2FnZXMvd2ViXCI7Y29uc3QgX192aXRlX2luamVjdGVkX29yaWdpbmFsX2ZpbGVuYW1lID0gXCIvc2Vzc2lvbnMvZXhjaXRpbmctbmljZS1tYXh3ZWxsL21udC9HZW9yZ2V0b3duLzI1MC01MDAtY2FyZC1nYW1lL3BhY2thZ2VzL3dlYi92aXRlc3QuY29uZmlnLnRzXCI7Y29uc3QgX192aXRlX2luamVjdGVkX29yaWdpbmFsX2ltcG9ydF9tZXRhX3VybCA9IFwiZmlsZTovLy9zZXNzaW9ucy9leGNpdGluZy1uaWNlLW1heHdlbGwvbW50L0dlb3JnZXRvd24vMjUwLTUwMC1jYXJkLWdhbWUvcGFja2FnZXMvd2ViL3ZpdGVzdC5jb25maWcudHNcIjtpbXBvcnQgeyBkZWZpbmVDb25maWcgfSBmcm9tICd2aXRlc3QvY29uZmlnJztcbmltcG9ydCByZWFjdCBmcm9tICdAdml0ZWpzL3BsdWdpbi1yZWFjdCc7XG5pbXBvcnQgcGF0aCBmcm9tICdub2RlOnBhdGgnO1xuXG5leHBvcnQgZGVmYXVsdCBkZWZpbmVDb25maWcoe1xuICBwbHVnaW5zOiBbcmVhY3QoKV0sXG4gIHJlc29sdmU6IHtcbiAgICBhbGlhczogeyAnQCc6IHBhdGgucmVzb2x2ZShfX2Rpcm5hbWUsICcuL3NyYycpIH0sXG4gIH0sXG4gIHRlc3Q6IHtcbiAgICBnbG9iYWxzOiB0cnVlLFxuICAgIGVudmlyb25tZW50OiAnanNkb20nLFxuICAgIHNldHVwRmlsZXM6IFsnLi9zcmMvdGVzdHMvc2V0dXAudHMnXSxcbiAgICBpbmNsdWRlOiBbJ3NyYy8qKi8qLnRlc3Que3RzLHRzeH0nXSxcbiAgfSxcbn0pO1xuIl0sCiAgIm1hcHBpbmdzIjogIjtBQUE2WixTQUFTLG9CQUFvQjtBQUMxYixPQUFPLFdBQVc7QUFDbEIsT0FBTyxVQUFVO0FBRmpCLElBQU0sbUNBQW1DO0FBSXpDLElBQU8sd0JBQVEsYUFBYTtBQUFBLEVBQzFCLFNBQVMsQ0FBQyxNQUFNLENBQUM7QUFBQSxFQUNqQixTQUFTO0FBQUEsSUFDUCxPQUFPLEVBQUUsS0FBSyxLQUFLLFFBQVEsa0NBQVcsT0FBTyxFQUFFO0FBQUEsRUFDakQ7QUFBQSxFQUNBLE1BQU07QUFBQSxJQUNKLFNBQVM7QUFBQSxJQUNULGFBQWE7QUFBQSxJQUNiLFlBQVksQ0FBQyxzQkFBc0I7QUFBQSxJQUNuQyxTQUFTLENBQUMsd0JBQXdCO0FBQUEsRUFDcEM7QUFDRixDQUFDOyIsCiAgIm5hbWVzIjogW10KfQo=
