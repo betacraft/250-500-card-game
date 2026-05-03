@@ -15,6 +15,8 @@ interface ScorekeeperActions {
   recordBid: (playerId: string, amount: number) => void;
   recordPass: (playerId: string) => void;
   closeBidding: (winnerId: string, amount: number) => void;
+  declareTrump: (trump: 'spades' | 'hearts' | 'diamonds' | 'clubs') => void;
+  callPartners: (cards: Array<{ suit: 'spades' | 'hearts' | 'diamonds' | 'clubs'; rank: '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K' | 'A' }>) => void;
 }
 
 type ScorekeeperStore = ScorekeeperState & ScorekeeperActions;
@@ -79,6 +81,16 @@ export const useScorekeeperStore = create<ScorekeeperStore>()(
               bidAmount: amount,
             },
           };
+        }),
+      declareTrump: (trump) =>
+        set((state) => {
+          if (!state.currentHand) return state;
+          return { currentHand: { ...state.currentHand, trump } };
+        }),
+      callPartners: (cards) =>
+        set((state) => {
+          if (!state.currentHand) return state;
+          return { currentHand: { ...state.currentHand, calledCards: cards } };
         }),
     }),
     {
