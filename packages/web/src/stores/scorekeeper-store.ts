@@ -2,11 +2,14 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import {
   scorekeeperStateSchema,
+  scoreHand,
+  applyScoreDeltas,
   type ScorekeeperState,
   type GameSettings,
   type Player,
   type GameType,
   type BidEntry,
+  type HandRecord,
 } from '@250-500/shared';
 
 interface ScorekeeperActions {
@@ -17,6 +20,8 @@ interface ScorekeeperActions {
   closeBidding: (winnerId: string, amount: number) => void;
   declareTrump: (trump: 'spades' | 'hearts' | 'diamonds' | 'clubs') => void;
   callPartners: (cards: Array<{ suit: 'spades' | 'hearts' | 'diamonds' | 'clubs'; rank: '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K' | 'A' }>) => void;
+  applyHandResult: (bidMade: boolean, partners: string[]) => void;
+  startNextHand: () => void;
 }
 
 type ScorekeeperStore = ScorekeeperState & ScorekeeperActions;
@@ -91,6 +96,44 @@ export const useScorekeeperStore = create<ScorekeeperStore>()(
         set((state) => {
           if (!state.currentHand) return state;
           return { currentHand: { ...state.currentHand, calledCards: cards } };
+        }),
+      applyHandResult: (bidMade, partners) =>
+        set((state) => {
+          if (!state.currentHand || !state.settings) return state;
+          if (state.currentHand.bidder === undefined || state.currentHand.bidAmount === undefined || state.currentHand.trump === undefined) {
+            return state;
+          }
+          const result = scoreHand({
+            gameType: state.settings.gameType,
+            allPlayerIds: state.settings.players.map((p) => p.id),
+            bidder: state.currentHand.bidder,
+            bidAmount: state.currentHand.bidAmount,
+            partners,
+            bidMade,
+          });
+          const record: HandRecord = {
+            handNumber: state.currentHand.handNumber,
+            bidder: state.currentHand.bidder,
+            bidAmount: state.currentHand.bidAmount,
+            trump: state.currentHand.trump,
+            calledCards: state.currentHand.calledCards,
+            partners,
+            bidMade,
+            scoreDeltas: result.deltas,
+          };
+          return {
+            currentHand: { ...state.currentHand, bidMade, partners },
+            hands: [...state.hands, record],
+            runningScores: applyScoreDeltas(state.runningScores, result.deltas),
+          };
+        }),
+      startNextHand: () =>
+        set((state) => {
+          if (!state.settings) return state;
+          const nextNumber = state.hands.length + 1;
+          return {
+            currentHand: { handNumber: nextNumber, bidHistory: [], calledCards: [], partners: [] },
+          };
         }),
     }),
     {
