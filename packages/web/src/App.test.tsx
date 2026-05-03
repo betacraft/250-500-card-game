@@ -31,4 +31,13 @@ describe('App', () => {
     const onlineBtn = screen.getByRole('button', { name: /play online/i });
     expect(onlineBtn).toBeDisabled();
   });
+
+  it('navigates to setup page', () => {
+    render(
+      <MemoryRouter initialEntries={['/scorekeeper/setup']}>
+        <App />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('heading', { name: /new game/i })).toBeInTheDocument();
+  });
 });

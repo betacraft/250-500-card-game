@@ -1,0 +1,2 @@
+Icons should be PNG files: 192x192, 512x512, and 512x512 maskable.
+Placeholder SVG below; convert to PNGs in E06 polish.
