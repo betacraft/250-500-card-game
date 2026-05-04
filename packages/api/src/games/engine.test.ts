@@ -88,7 +88,7 @@ describe('GameEngine — full mini hand simulation', () => {
       const hand = s.hands[playerId] ?? [];
       // Pick first legal card
       const ledSuit = s.currentTrick[0]?.card.suit ?? null;
-      let chosen: Card | undefined = ledSuit
+      const chosen: Card | undefined = ledSuit
         ? hand.find((c) => c.suit === ledSuit) ?? hand[0]
         : hand[0];
       if (!chosen) break;

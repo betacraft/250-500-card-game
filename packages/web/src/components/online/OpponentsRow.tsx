@@ -18,7 +18,7 @@ export function OpponentsRow({ players }: OpponentsRowProps): JSX.Element {
     const palette = ['#1A6E4A', '#155539', '#8A6700', '#266150', '#0E3D29', '#5F5E5A', '#444441'];
     let h = 0;
     for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
-    return palette[Math.abs(h) % palette.length] ?? palette[0]!;
+    return palette[Math.abs(h) % palette.length] ?? palette[0] ?? '#1A6E4A';
   };
 
   return (

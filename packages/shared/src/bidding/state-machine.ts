@@ -17,8 +17,8 @@ interface AuctionState {
 /** Returns the current high bid amount and bidder, or null if no bids placed yet. */
 export function currentHighBid(history: readonly BidEntry[]): { amount: number; playerId: string } | null {
   for (let i = history.length - 1; i >= 0; i--) {
-    const entry = history[i]!;
-    if (entry.action === 'bid' && typeof entry.amount === 'number') {
+    const entry = history[i];
+    if (entry && entry.action === 'bid' && typeof entry.amount === 'number') {
       return { amount: entry.amount, playerId: entry.playerId };
     }
   }

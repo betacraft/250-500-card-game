@@ -48,7 +48,9 @@ export function applyCardToSlots(args: PlaySlotInput): {
     return { slots: args.slots.slice(), newPartner: null, slotIndex: null };
   }
   const updated = args.slots.slice();
-  updated[slotIndex] = { ...updated[slotIndex]!, filledBy: args.playerId };
+  const slot = updated[slotIndex];
+  if (!slot) return { slots: updated, newPartner: null, slotIndex: null };
+  updated[slotIndex] = { ...slot, filledBy: args.playerId };
   const newPartner = args.currentPartners.has(args.playerId) ? null : args.playerId;
   return { slots: updated, newPartner, slotIndex };
 }

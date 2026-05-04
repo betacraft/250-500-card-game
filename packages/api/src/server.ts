@@ -1,4 +1,8 @@
 import express from 'express';
+
+interface SocketData {
+  roomCode?: string;
+}
 import { createServer } from 'node:http';
 import { Server as SocketIOServer } from 'socket.io';
 import {
@@ -120,7 +124,7 @@ export function createApp(): { app: express.Express; httpServer: ReturnType<type
       });
       if (!add.ok) return sendError({ code: 'INTERNAL_ERROR', message: 'Failed to add host' });
       void socket.join(room.code);
-      socket.data.roomCode = room.code;
+      (socket.data as SocketData).roomCode = room.code;
       logger.info({ socketId: socket.id, code: room.code, gameType: room.gameType }, 'room created');
       socket.emit('room:created', { room: store.toPublicState(room), yourSeat: 1, rejoinToken: add.player.rejoinToken, code: room.code });
     });
@@ -133,7 +137,7 @@ export function createApp(): { app: express.Express; httpServer: ReturnType<type
       const room = store.getRoom(result.data.code);
       if (!room) return sendError({ code: 'ROOM_NOT_FOUND', message: 'Room not found' });
       void socket.join(room.code);
-      socket.data.roomCode = room.code;
+      (socket.data as SocketData).roomCode = room.code;
       socket.emit('room:joined', { room: store.toPublicState(room) });
       broadcastRoom(room.code);
     });
@@ -143,7 +147,7 @@ export function createApp(): { app: express.Express; httpServer: ReturnType<type
       if (!result.success) {
         return sendError({ code: 'INVALID_PAYLOAD', message: 'Invalid seat-claim payload' });
       }
-      const code = (socket.data.roomCode as string | undefined) ?? store.findRoomBySocket(socket.id)?.code;
+      const code = (socket.data as SocketData).roomCode ?? store.findRoomBySocket(socket.id)?.code;
       const room = code ? store.getRoom(code) : undefined;
       if (!room) return sendError({ code: 'ROOM_NOT_FOUND', message: 'You are not in a room' });
       const add = store.addPlayer(room.code, {
@@ -171,7 +175,7 @@ export function createApp(): { app: express.Express; httpServer: ReturnType<type
         return sendError({ code: r.reason === 'ROOM_NOT_FOUND' ? 'ROOM_NOT_FOUND' : 'TOKEN_INVALID', message: r.reason });
       }
       void socket.join(r.room.code);
-      socket.data.roomCode = r.room.code;
+      (socket.data as SocketData).roomCode = r.room.code;
       socket.emit('room:reconnected', {
         room: store.toPublicState(r.room),
         yourSeat: r.player.seat,
@@ -197,7 +201,7 @@ export function createApp(): { app: express.Express; httpServer: ReturnType<type
     socket.on('game:start-hand', (rawPayload: unknown) => {
       const ok = gameStartHandRequestSchema.safeParse(rawPayload);
       if (!ok.success) return sendError({ code: 'INVALID_PAYLOAD', message: 'Invalid game:start-hand' });
-      const room = store.getRoom((socket.data.roomCode as string | undefined) ?? '');
+      const room = store.getRoom((socket.data as SocketData).roomCode ?? '');
       if (!room) return sendError({ code: 'ROOM_NOT_FOUND', message: 'Room not found' });
       if (socket.id !== room.hostSocketId) return sendError({ code: 'NOT_HOST', message: 'Only the host can start a hand' });
       if (room.players.length !== room.capacity) return sendError({ code: 'INVALID_MOVE', message: 'Need all seats filled' });
@@ -213,7 +217,7 @@ export function createApp(): { app: express.Express; httpServer: ReturnType<type
     });
 
     socket.on('game:bid', (rawPayload: unknown) => {
-      const code = (socket.data.roomCode as string | undefined) ?? '';
+      const code = (socket.data as SocketData).roomCode ?? '';
       const game = games.get(code);
       if (!game) return sendError({ code: 'INVALID_MOVE', message: 'No game in progress' });
       const room = store.getRoom(code);
@@ -228,7 +232,7 @@ export function createApp(): { app: express.Express; httpServer: ReturnType<type
     });
 
     socket.on('game:pass', (rawPayload: unknown) => {
-      const code = (socket.data.roomCode as string | undefined) ?? '';
+      const code = (socket.data as SocketData).roomCode ?? '';
       const game = games.get(code);
       if (!game) return sendError({ code: 'INVALID_MOVE', message: 'No game in progress' });
       const room = store.getRoom(code);
@@ -243,7 +247,7 @@ export function createApp(): { app: express.Express; httpServer: ReturnType<type
     });
 
     socket.on('game:declare', (rawPayload: unknown) => {
-      const code = (socket.data.roomCode as string | undefined) ?? '';
+      const code = (socket.data as SocketData).roomCode ?? '';
       const game = games.get(code);
       if (!game) return sendError({ code: 'INVALID_MOVE', message: 'No game in progress' });
       const room = store.getRoom(code);
@@ -258,7 +262,7 @@ export function createApp(): { app: express.Express; httpServer: ReturnType<type
     });
 
     socket.on('game:play-card', (rawPayload: unknown) => {
-      const code = (socket.data.roomCode as string | undefined) ?? '';
+      const code = (socket.data as SocketData).roomCode ?? '';
       const game = games.get(code);
       if (!game) return sendError({ code: 'INVALID_MOVE', message: 'No game in progress' });
       const room = store.getRoom(code);

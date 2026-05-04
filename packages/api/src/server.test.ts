@@ -25,7 +25,7 @@ describe('server integration', () => {
   });
 
   afterEach(async () => {
-    app.io.close();
+    void app.io.close();
     await new Promise<void>((r) => app.httpServer.close(() => r()));
   });
 
@@ -107,7 +107,7 @@ describe('hand-privacy', () => {
   });
 
   afterEach(async () => {
-    app.io.close();
+    void app.io.close();
     await new Promise<void>((r) => app.httpServer.close(() => r()));
   });
 
@@ -163,7 +163,7 @@ describe('reconnection flow', () => {
   });
 
   afterEach(async () => {
-    app.io.close();
+    void app.io.close();
     await new Promise<void>((r) => app.httpServer.close(() => r()));
   });
 
@@ -220,7 +220,7 @@ describe('full game flow integration', () => {
   });
 
   afterEach(async () => {
-    app.io.close();
+    void app.io.close();
     await new Promise<void>((r) => app.httpServer.close(() => r()));
   });
 
@@ -312,7 +312,7 @@ describe('additional handler coverage', () => {
   });
 
   afterEach(async () => {
-    app.io.close();
+    void app.io.close();
     await new Promise<void>((r) => app.httpServer.close(() => r()));
   });
 

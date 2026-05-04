@@ -37,9 +37,13 @@ export function shuffle<T>(items: readonly T[], seed?: number): T[] {
   const out = items.slice();
   for (let i = out.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
-    const tmp = out[i]!;
-    out[i] = out[j]!;
-    out[j] = tmp;
+    // SAFETY: i and j are both within [0, out.length), out is a non-readonly slice.
+    const a = out[i];
+    const b = out[j];
+    if (a !== undefined && b !== undefined) {
+      out[i] = b;
+      out[j] = a;
+    }
   }
   return out;
 }
@@ -49,14 +53,12 @@ export function deal<T>(cards: readonly T[], handCount: number): T[][] {
   if (cards.length % handCount !== 0) {
     throw new Error(`Cannot deal ${cards.length} cards evenly to ${handCount} hands`);
   }
-  const cardsPerHand = cards.length / handCount;
   const hands: T[][] = Array.from({ length: handCount }, () => []);
   for (let i = 0; i < cards.length; i++) {
-    hands[i % handCount]!.push(cards[i]!);
+    const card = cards[i];
+    const hand = hands[i % handCount];
+    if (card !== undefined && hand) hand.push(card);
   }
-  // Optionally simplify so that each hand gets contiguous cards rather than round-robin
-  // Round-robin keeps deal-order deterministic with seed; either works.
-  void cardsPerHand;
   return hands;
 }
 

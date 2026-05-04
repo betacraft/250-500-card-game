@@ -130,7 +130,7 @@ export function ScorekeeperHandPage(): JSX.Element {
           players={settings.players}
           gameType={settings.gameType}
           bidder={bidder}
-          bidAmount={currentHand.bidAmount!}
+          bidAmount={currentHand.bidAmount ?? 0}
           onApply={applyHandResult}
         />
       </main>
@@ -191,7 +191,11 @@ export function ScorekeeperHandPage(): JSX.Element {
         <BiddingFlow
           players={settings.players}
           gameType={settings.gameType}
-          firstBidderId={settings.players[(currentHand.handNumber - 1) % settings.players.length]!.id}
+          firstBidderId={
+            settings.players[(currentHand.handNumber - 1) % settings.players.length]?.id ??
+            settings.players[0]?.id ??
+            ''
+          }
           bidHistory={currentHand.bidHistory}
           onBid={recordBid}
           onPass={recordPass}

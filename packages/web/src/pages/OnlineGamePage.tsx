@@ -157,7 +157,9 @@ export function OnlineGamePage(): JSX.Element {
         <BiddingFlow
           players={room.players.map((p) => ({ id: p.id, name: p.name, seat: p.seat }))}
           gameType={room.gameType}
-          firstBidderId={room.players[((handState?.handNumber ?? 1) - 1) % room.players.length]!.id}
+          firstBidderId={
+            room.players[((handState?.handNumber ?? 1) - 1) % room.players.length]?.id ?? room.players[0]?.id ?? ''
+          }
           bidHistory={handState.bidHistory}
           onBid={(_id, amount) => sendBid(amount)}
           onPass={() => sendPass()}

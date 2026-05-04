@@ -12,7 +12,7 @@ describe('OnlineGamePage', () => {
     expect(container).toBeInTheDocument();
   });
 
-  it('emits room:reconnect when status transitions disconnected → connected', async () => {
+  it('emits room:reconnect when status transitions disconnected → connected', () => {
     const emit = vi.fn();
     const fakeSocket = {
       id: 'socket-1',

@@ -143,15 +143,16 @@ export function playCard(state: GameHand, playerId: string, card: Card): PlayRes
   if (!state.trump) return { ok: false, code: 'NOT_DECLARED', message: 'Trump not declared yet' };
   const hand = state.hands[playerId] ?? [];
   const isLeading = state.currentTrick.length === 0;
-  const ledSuit = isLeading ? null : state.currentTrick[0]!.card.suit;
+  const firstPlayed = state.currentTrick[0];
+  const ledSuit = !isLeading && firstPlayed ? firstPlayed.card.suit : null;
   if (!isLegalPlay({ card, hand, ledSuit })) {
     return { ok: false, code: 'ILLEGAL_PLAY', message: 'Card violates follow-suit rules' };
   }
-  if (state.gameType === '500') {
+  if (state.gameType === '500' && state.bidder) {
     const lastTrick = state.trickCount === rulesFor('500').CARDS_PER_PLAYER - 1;
     if (
       !lastTrick &&
-      wouldBeSelfReveal({ playerId, card, isLeadingTrick: isLeading, bidderId: state.bidder!, slots: state.slots })
+      wouldBeSelfReveal({ playerId, card, isLeadingTrick: isLeading, bidderId: state.bidder, slots: state.slots })
     ) {
       return { ok: false, code: 'CANNOT_SELF_REVEAL', message: 'You cannot lead a called card to declare yourself partner' };
     }

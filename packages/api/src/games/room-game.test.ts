@@ -35,7 +35,7 @@ describe('room-game', () => {
   });
 
   it('recordBid validates min, increment, and turn', () => {
-    let g = beginHand(initRoomGame({ gameType: '250', seatOrder: SEATS_6, seed: 1 }));
+    const g = beginHand(initRoomGame({ gameType: '250', seatOrder: SEATS_6, seed: 1 }));
     expect(recordBid(g, 'p2', 165).ok).toBe(false); // not p2's turn
     expect(recordBid(g, 'p1', 100).ok).toBe(false); // below minimum
     expect(recordBid(g, 'p1', 163).ok).toBe(false); // not multiple of 5

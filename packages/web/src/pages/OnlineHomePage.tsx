@@ -6,7 +6,7 @@ import { useConnectionStore } from '../stores/connection-store';
 import { useOnlineRoomStore } from '../stores/online-room-store';
 import { GameTypeCard } from '../components/scorekeeper/GameTypeCard';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ?? '';
+const SOCKET_URL: string = (import.meta.env.VITE_SOCKET_URL as string | undefined) ?? '';
 
 /** Online mode entry point: host or join via code. Captures rejoin token from server. */
 export function OnlineHomePage(): JSX.Element {

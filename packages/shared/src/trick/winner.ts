@@ -27,8 +27,9 @@ function compareRank(a: Card, b: Card): number {
  * - In case of identical cards (only possible in 500 with two decks), the FIRST played wins.
  */
 export function trickWinner(played: readonly PlayedCard[], trump: Suit): PlayedCard | null {
-  if (played.length === 0) return null;
-  const led = played[0]!.card.suit;
+  const first = played[0];
+  if (!first) return null;
+  const led = first.card.suit;
   const trumps = played.filter((p) => p.card.suit === trump);
   if (trumps.length > 0) {
     return trumps.reduce((best, p) => (compareRank(p.card, best.card) > 0 ? p : best));

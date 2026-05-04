@@ -171,7 +171,8 @@ export class RoomStore {
     if (!room) return null;
     const idx = room.players.findIndex((p) => p.socketId === socketId);
     if (idx === -1) return null;
-    const removed = room.players[idx]!;
+    const removed = room.players[idx];
+    if (!removed) return null;
     if (removed.disconnectTimer) clearTimeout(removed.disconnectTimer);
     room.players.splice(idx, 1);
     if (room.players.length === 0) {

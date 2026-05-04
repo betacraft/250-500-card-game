@@ -3,7 +3,6 @@ import {
   type Card,
   type BidEntry,
   type Suit,
-  cardId,
   rulesFor,
   isAuctionClosed,
   getAuctionWinner,
@@ -44,7 +43,8 @@ export function initRoomGame(args: {
   return {
     gameType: args.gameType,
     seatOrder: args.seatOrder,
-    firstBidderId: args.seatOrder[0]!,
+    // SAFETY: room initialization requires at least one seat; caller ensures non-empty seatOrder.
+    firstBidderId: args.seatOrder[0] ?? (() => { throw new Error('initRoomGame: seatOrder must be non-empty'); })(),
     bidHistory: [],
     hand: null,
     runningScores: Object.fromEntries(args.seatOrder.map((id) => [id, 0])),
@@ -58,7 +58,10 @@ export function initRoomGame(args: {
 /** Deal a fresh hand. Rotates firstBidderId clockwise per hand. */
 export function beginHand(state: RoomGameState): RoomGameState {
   const startIdx = state.handsPlayed % state.seatOrder.length;
-  const firstBidderId = state.seatOrder[startIdx]!;
+  // SAFETY: startIdx is computed via `% state.seatOrder.length` which is non-zero (room init invariant).
+  const candidate = state.seatOrder[startIdx];
+  if (!candidate) throw new Error('beginHand: seatOrder must be non-empty');
+  const firstBidderId = candidate;
   const hand = startHand({
     gameType: state.gameType,
     seatOrder: state.seatOrder,
@@ -154,8 +157,9 @@ export function play(state: RoomGameState, playerId: string, card: Card): PlayRe
     breakdown = finalizeHand(result.state);
     // SAFETY: breakdown is set above when result.state.ended is true, which is the same condition gating this block.
     if (breakdown) {
+      const b = breakdown;
       next.runningScores = Object.fromEntries(
-        Object.entries(state.runningScores).map(([id, s]) => [id, s + (breakdown.scoreDeltas[id] ?? 0)]),
+        Object.entries(state.runningScores).map(([id, s]) => [id, s + (b.scoreDeltas[id] ?? 0)]),
       );
     }
     next.handsPlayed = state.handsPlayed + 1;
