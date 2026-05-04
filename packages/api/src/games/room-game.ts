@@ -53,15 +53,17 @@ export function initRoomGame(args: {
   };
 }
 
-/** Begin a new hand: deal cards. Returns updated game state + per-player hands map. */
+/** Begin a new hand: deal cards, rotate firstBidder per hand (clockwise from initial dealer). */
 export function beginHand(state: RoomGameState): RoomGameState {
+  const startIdx = state.handsPlayed % state.seatOrder.length;
+  const firstBidderId = state.seatOrder[startIdx]!;
   const hand = startHand({
     gameType: state.gameType,
     seatOrder: state.seatOrder,
-    firstBidderId: state.firstBidderId,
+    firstBidderId,
     seed: state.seed,
   });
-  return { ...state, hand, phase: 'bidding', bidHistory: [] };
+  return { ...state, hand, phase: 'bidding', bidHistory: [], firstBidderId };
 }
 
 export type BidActionResult =

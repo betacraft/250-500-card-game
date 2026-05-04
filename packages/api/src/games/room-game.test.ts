@@ -1,9 +1,24 @@
 import { describe, it, expect } from 'vitest';
-import { initRoomGame, beginHand, recordBid, recordPass, declare, play } from './room-game';
+import { initRoomGame, beginHand, recordBid, recordPass, declare } from './room-game';
 
 const SEATS_6 = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'];
 
 describe('room-game', () => {
+  it('beginHand rotates firstBidderId per hand', () => {
+    let g = initRoomGame({ gameType: '250', seatOrder: SEATS_6, seed: 1 });
+    g = beginHand(g);
+    expect(g.firstBidderId).toBe('p1');
+    g = { ...g, handsPlayed: 1 };
+    g = beginHand(g);
+    expect(g.firstBidderId).toBe('p2');
+    g = { ...g, handsPlayed: 5 };
+    g = beginHand(g);
+    expect(g.firstBidderId).toBe('p6');
+    g = { ...g, handsPlayed: 6 };
+    g = beginHand(g);
+    expect(g.firstBidderId).toBe('p1');
+  });
+
   it('initRoomGame creates fresh state with running scores zero', () => {
     const g = initRoomGame({ gameType: '250', seatOrder: SEATS_6 });
     expect(g.phase).toBe('lobby');

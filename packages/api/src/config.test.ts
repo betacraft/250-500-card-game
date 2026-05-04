@@ -20,4 +20,13 @@ describe('config', () => {
   it('rejects invalid NODE_ENV', () => {
     expect(() => loadConfig({ NODE_ENV: 'staging' })).toThrow();
   });
+
+  it('refuses production with CORS_ORIGIN=* (default)', () => {
+    expect(() => loadConfig({ NODE_ENV: 'production' })).toThrow(/CORS_ORIGIN/);
+  });
+
+  it('accepts production with explicit CORS_ORIGIN', () => {
+    const c = loadConfig({ NODE_ENV: 'production', CORS_ORIGIN: 'https://app.example.com' });
+    expect(c.CORS_ORIGIN).toBe('https://app.example.com');
+  });
 });
