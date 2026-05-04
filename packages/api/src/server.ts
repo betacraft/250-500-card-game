@@ -9,6 +9,8 @@ import {
 } from '@250-500/shared';
 import { loadConfig } from './config';
 import { logger } from './logger';
+import { installGracefulShutdown } from './lifecycle';
+import { checkRateLimit, clearRateLimit } from './middleware/rate-limit';
 import { RoomStore } from './rooms/room-store';
 import {
   initRoomGame,
@@ -87,6 +89,13 @@ export function createApp(): { app: express.Express; httpServer: ReturnType<type
 
   io.on('connection', (socket) => {
     logger.info({ socketId: socket.id }, 'socket connected');
+    socket.use(([_event], next) => {
+      if (!checkRateLimit(socket.id)) {
+        return next(new Error('rate limited'));
+      }
+      next();
+    });
+    socket.on('disconnect', () => clearRateLimit(socket.id));
 
     const sendError = (e: ErrorEvent) => socket.emit('error', e);
     const broadcastRoom = (code: string) => {
@@ -260,10 +269,23 @@ export function createApp(): { app: express.Express; httpServer: ReturnType<type
   return { app, httpServer, io, store };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+async function bootstrap() {
   const config = loadConfig();
-  const { httpServer } = createApp();
+  const { app, httpServer, io } = createApp();
+  if (config.NODE_ENV === 'production') {
+    const path = (await import('node:path')).default;
+    const url = (await import('node:url')).default;
+    const here = path.dirname(url.fileURLToPath(import.meta.url));
+    const webDist = path.resolve(here, '../../web/dist');
+    app.use(express.static(webDist));
+    app.get('*', (_req, res) => res.sendFile(path.join(webDist, 'index.html')));
+  }
+  installGracefulShutdown(httpServer, io);
   httpServer.listen(config.PORT, () => {
     logger.info({ port: config.PORT, env: config.NODE_ENV }, 'server listening');
   });
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  void bootstrap();
 }

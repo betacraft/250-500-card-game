@@ -77,11 +77,13 @@ git commit -m "chore(pwa): generate icon PNGs"
 | 1 | E03 | Bidding flow | ✓ |
 | 1 | E04 | Trump + partner picker | ✓ |
 | 1 | E05 | Scoring engine + multi-hand | ✓ |
-| 1 | E06 | PWA polish + deploy | ✓ (deploy by user) |
-| 2 | E07 | Backend + rooms | (in progress) |
-| 2 | E08 | Online game engine | |
-| 2 | E09 | Online frontend | |
-| 2 | E10 | Online polish + deploy | |
+| 1 | E06 | PWA polish + deploy config | ✓ |
+| 2 | E07 | Backend + rooms | ✓ |
+| 2 | E08 | Online game engine | ✓ |
+| 2 | E09 | Online frontend | ✓ |
+| 2 | E10 | Online polish + deploy config | ✓ |
+
+All epics implemented. Deploy + Lighthouse + real-device QA are run by the user.
 
 ## License
 
