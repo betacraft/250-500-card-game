@@ -22,7 +22,9 @@ function isSelected(card: Card, selected: Card[]): boolean {
   return selected.some((c) => c.suit === card.suit && c.rank === card.rank);
 }
 
-/** 4 suit rows × 12 rank columns; tap to toggle selection up to maxCount. */
+/** 4 suits × 12 ranks; tap to toggle up to maxCount.
+ * Mobile layout: each suit gets two rows of 6 ranks (no horizontal scroll, ≥44px tap targets,
+ * ≥8px adjacent spacing). Fits comfortably at 360px portrait. */
 export function PartnerPicker({ selected, maxCount, onChange }: PartnerPickerProps): JSX.Element {
   const toggle = (card: Card) => {
     const exists = isSelected(card, selected);
@@ -35,7 +37,7 @@ export function PartnerPicker({ selected, maxCount, onChange }: PartnerPickerPro
 
   return (
     <div className="rounded-xl bg-white p-3">
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between">
         <div className="text-xs font-medium uppercase tracking-wider text-stone-500">
           Tap to select
         </div>
@@ -43,16 +45,16 @@ export function PartnerPicker({ selected, maxCount, onChange }: PartnerPickerPro
           {selected.length} / {maxCount}
         </div>
       </div>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-3">
         {SUITS_ORDERED.map((suit: Suit) => (
-          <SuitRow key={suit} suit={suit} selected={selected} onToggle={toggle} />
+          <SuitBlock key={suit} suit={suit} selected={selected} onToggle={toggle} />
         ))}
       </div>
     </div>
   );
 }
 
-function SuitRow({
+function SuitBlock({
   suit,
   selected,
   onToggle,
@@ -62,13 +64,17 @@ function SuitRow({
   onToggle: (card: Card) => void;
 }): JSX.Element {
   const color = suitColor(suit);
+  // Split 12 ranks into 2 rows of 6
+  const rowA = RANKS_ORDERED.slice(0, 6);
+  const rowB = RANKS_ORDERED.slice(6);
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex h-11 w-8 shrink-0 items-center justify-center">
-        <SuitIcon suit={suit} size={20} />
+    <div>
+      <div className="mb-1.5 flex items-center gap-1.5">
+        <SuitIcon suit={suit} size={16} />
+        <span className="text-xs font-medium capitalize text-stone-600">{suit}</span>
       </div>
-      <div className="flex flex-1 gap-1.5 overflow-x-auto">
-        {RANKS_ORDERED.map((rank) => {
+      <div className="grid grid-cols-6 gap-2">
+        {[...rowA, ...rowB].map((rank) => {
           const card: Card = { suit, rank };
           const sel = isSelected(card, selected);
           return (
@@ -79,7 +85,7 @@ function SuitRow({
               aria-pressed={sel}
               aria-label={`${rank} of ${suit}`}
               className={clsx(
-                'h-11 min-w-[44px] shrink-0 rounded-md border px-2 text-sm font-medium tabular-nums transition-transform active:scale-95',
+                'h-11 rounded-md border text-sm font-medium tabular-nums transition-transform active:scale-95',
                 sel
                   ? 'border-gold-border bg-gold text-gold-dark'
                   : 'border-stone-200 bg-white',

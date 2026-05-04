@@ -23,7 +23,7 @@ export function OpponentsRow({ players }: OpponentsRowProps): JSX.Element {
   return (
     <div className="rounded-xl bg-white p-2">
       <div className="text-xs text-stone-500 uppercase tracking-wider px-1 pb-1">Other players</div>
-      <div className="flex gap-2 overflow-x-auto px-1 pb-1">
+      <div className="flex flex-wrap gap-3 px-1 pb-1">
         {players.map((p) => (
           <div key={p.id} className="flex flex-shrink-0 flex-col items-center gap-1">
             <div
