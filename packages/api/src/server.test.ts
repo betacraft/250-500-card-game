@@ -150,3 +150,152 @@ describe('hand-privacy', () => {
     clients.forEach((c) => c.disconnect());
   });
 });
+
+describe('reconnection flow', () => {
+  let app: ReturnType<typeof createApp>;
+  let url: string;
+
+  beforeEach(async () => {
+    app = createApp();
+    await new Promise<void>((r) => app.httpServer.listen(0, r));
+    const addr = app.httpServer.address() as AddressInfo;
+    url = `http://localhost:${addr.port}`;
+  });
+
+  afterEach(async () => {
+    app.io.close();
+    await new Promise<void>((r) => app.httpServer.close(() => r()));
+  });
+
+  it('host reconnects via rejoinToken; same seat restored', async () => {
+    const host = ioClient(url, { transports: ['websocket'], reconnection: false });
+    await new Promise<void>((r) => host.on('connect', () => r()));
+    host.emit('room:create', { gameType: '250', hostName: 'Host' });
+    const created = await waitForEvent<{ room: { code: string }; rejoinToken: string }>(host, 'room:created');
+    const code = created.room.code;
+    const token = created.rejoinToken;
+    expect(typeof token).toBe('string');
+    expect(token.length).toBeGreaterThanOrEqual(8);
+
+    // Disconnect
+    host.disconnect();
+
+    // New socket, reconnect with token
+    const reconn = ioClient(url, { transports: ['websocket'], reconnection: false });
+    await new Promise<void>((r) => reconn.on('connect', () => r()));
+    reconn.emit('room:reconnect', { code, rejoinToken: token });
+    const rejoined = await waitForEvent<{ yourSeat: number; room: { code: string } }>(reconn, 'room:reconnected');
+    expect(rejoined.yourSeat).toBe(1);
+    expect(rejoined.room.code).toBe(code);
+
+    reconn.disconnect();
+  });
+
+  it('rejects bad rejoinToken with TOKEN_INVALID', async () => {
+    const host = ioClient(url, { transports: ['websocket'], reconnection: false });
+    await new Promise<void>((r) => host.on('connect', () => r()));
+    host.emit('room:create', { gameType: '250', hostName: 'Host' });
+    const created = await waitForEvent<{ room: { code: string } }>(host, 'room:created');
+
+    const reconn = ioClient(url, { transports: ['websocket'], reconnection: false });
+    await new Promise<void>((r) => reconn.on('connect', () => r()));
+    reconn.emit('room:reconnect', { code: created.room.code, rejoinToken: 'bogus-token-xx' });
+    const err = await waitForEvent<{ code: string }>(reconn, 'error');
+    expect(err.code).toBe('TOKEN_INVALID');
+
+    host.disconnect();
+    reconn.disconnect();
+  });
+});
+
+describe('full game flow integration', () => {
+  let app: ReturnType<typeof createApp>;
+  let url: string;
+
+  beforeEach(async () => {
+    app = createApp();
+    await new Promise<void>((r) => app.httpServer.listen(0, r));
+    const addr = app.httpServer.address() as AddressInfo;
+    url = `http://localhost:${addr.port}`;
+  });
+
+  afterEach(async () => {
+    app.io.close();
+    await new Promise<void>((r) => app.httpServer.close(() => r()));
+  });
+
+  it('250: 6 clients can reach declare phase via game:bid + game:pass', async () => {
+    const clients = Array.from({ length: 6 }, () => ioClient(url, { transports: ['websocket'], reconnection: false }));
+    await Promise.all(clients.map((c) => new Promise<void>((r) => c.on('connect', () => r()))));
+
+    clients[0]!.emit('room:create', { gameType: '250', hostName: 'Host' });
+    const created = await waitForEvent<{ room: { code: string } }>(clients[0]!, 'room:created');
+    const code = created.room.code;
+
+    for (let i = 1; i < 6; i++) {
+      clients[i]!.emit('room:join', { code });
+      await waitForEvent(clients[i]!, 'room:joined');
+      clients[i]!.emit('room:claim-seat', { seat: i + 1, name: `P${i + 1}` });
+      await waitForEvent(clients[i]!, 'room:seat-claimed');
+    }
+    clients[0]!.emit('game:start-hand', {});
+    await waitForEvent(clients[0]!, 'game:hand-dealt');
+
+    // p1 (host) bids 165
+    const declaringPromise = new Promise<{ phase: string; bidder: string; bidAmount: number }>((resolve) => {
+      const handler = (s: { phase: string; bidder: string; bidAmount: number }) => {
+        if (s.phase === 'declaring') {
+          clients[0]!.off('game:state-updated', handler);
+          resolve(s);
+        }
+      };
+      clients[0]!.on('game:state-updated', handler);
+    });
+    clients[0]!.emit('game:bid', { amount: 165 });
+    // Sequential passes, awaiting the broadcast each time
+    for (let i = 1; i < 6; i++) {
+      const passed = new Promise<void>((resolve) => {
+        const h = (s: { bidHistory: { playerId: string }[] }) => {
+          const lastIsPass = s.bidHistory[s.bidHistory.length - 1]?.playerId === `p${i + 1}`;
+          if (lastIsPass) {
+            clients[i]!.off('game:state-updated', h);
+            resolve();
+          }
+        };
+        clients[i]!.on('game:state-updated', h);
+      });
+      clients[i]!.emit('game:pass', {});
+      await passed;
+    }
+    const finalState = await declaringPromise;
+    expect(finalState.phase).toBe('declaring');
+    expect(finalState.bidder).toBe('p1');
+    expect(finalState.bidAmount).toBe(165);
+
+    clients.forEach((c) => c.disconnect());
+  });
+
+  it('rejects out-of-turn bid with INVALID_MOVE', async () => {
+    const clients = Array.from({ length: 6 }, () => ioClient(url, { transports: ['websocket'], reconnection: false }));
+    await Promise.all(clients.map((c) => new Promise<void>((r) => c.on('connect', () => r()))));
+
+    clients[0]!.emit('room:create', { gameType: '250', hostName: 'Host' });
+    const created = await waitForEvent<{ room: { code: string } }>(clients[0]!, 'room:created');
+    const code = created.room.code;
+    for (let i = 1; i < 6; i++) {
+      clients[i]!.emit('room:join', { code });
+      await waitForEvent(clients[i]!, 'room:joined');
+      clients[i]!.emit('room:claim-seat', { seat: i + 1, name: `P${i + 1}` });
+      await waitForEvent(clients[i]!, 'room:seat-claimed');
+    }
+    clients[0]!.emit('game:start-hand', {});
+    await waitForEvent(clients[0]!, 'game:hand-dealt');
+
+    // p3 tries to bid first (turn order is p1 -> p2 -> ...; p3 is third)
+    clients[2]!.emit('game:bid', { amount: 165 });
+    const err = await waitForEvent<{ code: string }>(clients[2]!, 'error');
+    expect(err.code).toBe('INVALID_MOVE');
+
+    clients.forEach((c) => c.disconnect());
+  });
+});
