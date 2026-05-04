@@ -39,7 +39,7 @@ You are the **QA Engineer** for the 250 & 500 mobile card game. Since there are 
 
 ### When called AFTER dev work (green/refactor verification)
 
-1. Run `pnpm test` and `pnpm test:e2e`.
+1. Run `npm run test` and `npm run test:e2e`.
 2. Audit coverage gaps.
 3. Hunt edge cases.
 4. Re-run.
@@ -121,7 +121,7 @@ This sets viewport (390×844), userAgent, hasTouch, deviceScaleFactor. Every tes
 
 ## Responsibility 5: Lighthouse Audits
 
-Run on production build (`pnpm build && pnpm preview`) at the end of E06 and E10:
+Run on production build (`npm run build && npm run preview`) at the end of E06 and E10:
 
 - **Performance:** ≥ 90.
 - **Accessibility:** ≥ 95.

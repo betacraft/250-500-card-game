@@ -229,7 +229,7 @@ The first close of this project skipped steps 3–5 and shipped 11 critical bugs
 
 ### Phase 2 (adds backend; restructures to monorepo)
 
-When E07 begins, restructure to pnpm workspaces:
+When E07 begins, restructure to npm workspaces:
 
 ```
 250-500-card-game/
@@ -399,7 +399,7 @@ Same as Phase 1 but at workspace root, runs across all packages.
 | 1 | 6-agent team (full pattern) | Medium-large project, real-time multiplayer in Phase 2, complex partner mechanics in 500 | 2026-05-03 |
 | 2 | Server-authoritative architecture, in-memory state (Phase 2) | Card games require hand privacy and cheat resistance; clients can never be trusted with full state | 2026-05-03 |
 | 3 | Socket.io over raw WebSockets (Phase 2) | Built-in room support, automatic reconnection, fallback to polling | 2026-05-03 |
-| 4 | Monorepo with pnpm workspaces (Phase 2 only) | Phase 1 is single-package; restructure when backend lands. Avoid premature complexity. | 2026-05-03 |
+| 4 | Monorepo with npm workspaces (Phase 2 only) | Phase 1 is single-package; restructure when backend lands. Avoid premature complexity. | 2026-05-03 |
 | 5 | No database for MVP | Ephemeral games don't need persistence beyond localStorage in Phase 1 / in-memory in Phase 2 | 2026-05-03 |
 | 6 | No user authentication | Just enter a name and a room code (Phase 2) or just play (Phase 1). Removes signup friction. | 2026-05-03 |
 | 7 | Tailwind + shadcn/ui | Mobile-first responsive comes free. shadcn/ui gives us accessible primitives without lock-in. | 2026-05-03 |
@@ -415,6 +415,10 @@ Same as Phase 1 but at workspace root, runs across all packages.
 | 17 | **Stable rejoin token issued at seat-claim, used to reconnect across socket reconnects** | The original reconnection logic looked up the player by `socketId` — which changes on every reconnect — so it could never find the disconnected player. New `room:reconnect` event takes `{ code, rejoinToken }`, looks up by token, updates the socketId in-place, clears the 60s grace timer, re-emits the private hand. | 2026-05-04 |
 | 18 | **Player-count Zod schema discriminated by gameType** | Original `min(6).max(8)` accepted invalid 7-player games. Refined to require exactly 6 for 250 and exactly 8 for 500. | 2026-05-04 |
 | 19 | **Code-reviewer audit is mandatory and BLOCKS commit** | The first close of this project skipped the code-reviewer subagent and shipped 11 critical bugs (scoring math wrong, clockwise-default disabled, reconnection broken, CORS open, tap targets <44px, missing tests). Process now requires an independent subagent audit before every commit; tech-lead may not commit without it. | 2026-05-04 |
+| 20 | **firstBidderId rotates per hand on the server, not just the FE** | Original bug: server.beginHand always reset firstBidderId to seatOrder[0]; the FE rotated it independently for display only. The auction order would always start with seat 1 in online play regardless of hand number. Fix: beginHand now sets firstBidderId = seatOrder[handsPlayed % seatOrder.length] so the auction rotates clockwise from the dealer position. | 2026-05-04 |
+| 21 | **Production refuses to start with CORS_ORIGIN='*'** | Original bug: config.CORS_ORIGIN.default('*') silently allowed wide-open CORS in production deployments. Fix: loadConfig now throws when NODE_ENV='production' AND CORS_ORIGIN='*'. Operator must set explicit origin (or comma-separated allowlist; whitespace trimmed). | 2026-05-04 |
+| 22 | **Reconnection requires both server-side AND client-side participation** | First close: server had room:reconnect handler + rejoinToken issuance, but the WEB CLIENT never captured the token from room:created/seat-claimed payloads, never persisted it, never emitted room:reconnect. Reconnection was end-to-end broken despite server appearing correct. Fix: online-room-store persists rejoinToken+code via Zustand persist (localStorage); OnlineHomePage + OnlineLobbyPage capture from server payloads; OnlineGamePage emits room:reconnect on socket-status transition (disconnected/error→connected) gated via useRef. | 2026-05-04 |
+| 23 | **Multi-round audit until all subagents PASS** | Single audit pass is insufficient — the round-2 audit found 4 NEW critical issues introduced by fixes for round-1's 11 issues. Process clarified: re-spawn all three subagents (code-reviewer, qa-engineer, docs-updater) after EVERY round of fixes. Continue until all three return PASS with no new criticals. The first deploy-ready state required THREE rounds of audit. | 2026-05-04 |
 
 ---
 

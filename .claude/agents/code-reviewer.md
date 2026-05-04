@@ -123,7 +123,7 @@ E2E (15%) — Phase 2:
 
 ```
 Phase 1 PWA:
-- [ ] Initial bundle <150KB gzipped (`pnpm build && check dist/ sizes`)
+- [ ] Initial bundle <150KB gzipped (`npm run build && check dist/ sizes`)
 - [ ] No inline objects in JSX props (causes re-renders)
 - [ ] Animations use transform/opacity only
 - [ ] React.memo / useMemo justified by measurements

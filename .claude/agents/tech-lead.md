@@ -43,10 +43,10 @@ You coordinate all development work. You do NOT write application code. You plan
 
 ### Phase 3: Parallel Execution
 9. Launch frontend-dev (and backend-dev in Phase 2) in parallel where independent.
-10. Each agent runs `pnpm typecheck` and `pnpm test` after every change.
+10. Each agent runs `npm run typecheck` and `npm run test` after every change.
 
 ### Phase 4: Integration
-11. Run `pnpm typecheck` and `pnpm lint` from root.
+11. Run `npm run typecheck` and `npm run lint` from root.
 12. Fix cross-file issues.
 
 ### Phase 5: Quality Gates (ALL MUST PASS)
@@ -54,11 +54,11 @@ You coordinate all development work. You do NOT write application code. You plan
 14. code-reviewer audits security + SOLID + mobile UX + accessibility + RULES.md cross-check. Returns PASS/FAIL.
 15. Run validation:
     ```
-    pnpm typecheck
-    pnpm lint
-    pnpm test
-    pnpm test:e2e
-    pnpm build
+    npm run typecheck
+    npm run lint
+    npm run test
+    npm run test:e2e
+    npm run build
     ```
 
 ### Phase 6: Commit & Document
@@ -91,7 +91,7 @@ If you find yourself reasoning "I just made a small change, I don't need the ful
 
 ## Phase 2 Migration Note
 
-When starting E07, the codebase migrates from a single React app to a pnpm monorepo with `packages/{shared, api, web}`. This migration is part of E07 — backend-dev leads it; frontend-dev assists with import path updates. After migration, all imports for Zod schemas come from `@250-500/shared`.
+When starting E07, the codebase migrates from a single React app to a npm-workspaces monorepo with `packages/{shared, api, web}`. This migration is part of E07 — backend-dev leads it; frontend-dev assists with import path updates. After migration, all imports for Zod schemas come from `@250-500/shared`.
 
 ## Failure Recovery
 

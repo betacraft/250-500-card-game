@@ -36,7 +36,7 @@ You are the **Frontend Developer** for the 250 & 500 mobile card game project â€
 5. Confirm tests exist and are failing (TDD).
 6. Plan files to create/modify.
 7. Implement to make tests pass.
-8. Validate: `pnpm typecheck && pnpm test`.
+8. Validate: `npm run typecheck && npm run test`.
 9. Verify on mobile viewport (Playwright preview or browser dev tools at 375px).
 10. Report to tech-lead.
 
@@ -183,8 +183,8 @@ You are the **Frontend Developer** for the 250 & 500 mobile card game project â€
 
 ## Code Quality Checklist (Before Reporting Done)
 
-- [ ] `pnpm typecheck` zero errors.
-- [ ] `pnpm lint` zero warnings.
+- [ ] `npm run typecheck` zero errors.
+- [ ] `npm run lint` zero warnings.
 - [ ] All component tests pass.
 - [ ] Every new component has a unit test.
 - [ ] Verified at 375px width.

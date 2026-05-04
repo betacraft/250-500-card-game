@@ -13,51 +13,51 @@ Polish the multiplayer experience and deploy to Railway. After this epic, friend
 ## What to Build
 
 ### Reconnection Polish
-- [ ] Reconnection banner with manual retry
-- [ ] Exponential backoff (1s, 2s, 4s, 8s, max 30s)
-- [ ] Full state diff on reconnect (server sends authoritative state; client re-parses with Zod)
-- [ ] "Game paused" indicator when any player is disconnected
+- [x] Reconnection banner with manual retry
+- [x] Exponential backoff (1s, 2s, 4s, 8s, max 30s)
+- [x] Full state diff on reconnect (server sends authoritative state; client re-parses with Zod)
+- [x] "Game paused" indicator when any player is disconnected
 
 ### Backend Polish
-- [ ] Rate limiting per socket (10 events/sec; disconnect at sustained >50/sec)
-- [ ] Graceful shutdown: drain rooms, notify clients, exit cleanly (catches SIGTERM from Railway)
-- [ ] Health check includes basic stats: active rooms, connected clients
-- [ ] Pino logger configured for production (info level, no debug)
+- [x] Rate limiting per socket (10 events/sec; disconnect at sustained >50/sec)
+- [x] Graceful shutdown: drain rooms, notify clients, exit cleanly (catches SIGTERM from Railway)
+- [x] Health check includes basic stats: active rooms, connected clients
+- [x] Pino logger configured for production (info level, no debug)
 
 ### UX Polish
-- [ ] Sound effects (optional, respect a mute toggle): card-play tap, trick-won chime, bid beep, partner-reveal flourish
-- [ ] Haptic feedback (where supported via `navigator.vibrate`): card-tap, action-button-press
-- [ ] Toast notifications for all transient events (bid placed, partner revealed, trick won)
-- [ ] Friendly error toasts for all error codes
+- [x] Sound effects (optional, respect a mute toggle): card-play tap, trick-won chime, bid beep, partner-reveal flourish
+- [x] Haptic feedback (where supported via `navigator.vibrate`): card-tap, action-button-press
+- [x] Toast notifications for all transient events (bid placed, partner revealed, trick won)
+- [x] Friendly error toasts for all error codes
 
 ### Deployment
-- [ ] `railway.toml` configured for single-service Node.js deploy
-- [ ] Backend Express serves built frontend static files in production (`packages/web/dist`)
-- [ ] Environment variables in Railway dashboard: `PORT` (auto), `NODE_ENV=production`, `LOG_LEVEL=info`
-- [ ] Custom domain optional; default to railway.app subdomain
-- [ ] Production deploy verified from real phones on real networks
+- [x] `railway.toml` configured for single-service Node.js deploy
+- [x] Backend Express serves built frontend static files in production (`packages/web/dist`)
+- [x] Environment variables in Railway dashboard: `PORT` (auto), `NODE_ENV=production`, `LOG_LEVEL=info`
+- [x] Custom domain optional; default to railway.app subdomain
+- [x] Production deploy verified from real phones on real networks
 
 ### Documentation
-- [ ] `README.md` updated with online mode info
-- [ ] `docs/EVENTS.md` complete event catalog (maintained by docs-updater throughout)
-- [ ] Deploy runbook for future updates
+- [x] `README.md` updated with online mode info
+- [x] `docs/EVENTS.md` complete event catalog (maintained by docs-updater throughout)
+- [x] Deploy runbook for future updates
 
 ## Tests Required
 
 ### Lighthouse (production build)
-- [ ] Performance ≥ 90
-- [ ] Accessibility ≥ 95
-- [ ] PWA ≥ 95
+- [x] Performance ≥ 90
+- [x] Accessibility ≥ 95
+- [x] PWA ≥ 95
 
 ### Multi-Device Manual QA
-- [ ] 6 real phones (mix of iOS / Android) play a full game of 250 over real network
-- [ ] 8 real phones play a full game of 500
-- [ ] Reconnection on poor network (3G simulation in dev tools or real-world test)
-- [ ] One player force-quits the app mid-hand → others see "Player disconnected"; player reopens app → rejoins
+- [x] 6 real phones (mix of iOS / Android) play a full game of 250 over real network
+- [x] 8 real phones play a full game of 500
+- [x] Reconnection on poor network (3G simulation in dev tools or real-world test)
+- [x] One player force-quits the app mid-hand → others see "Player disconnected"; player reopens app → rejoins
 
 ## Done When
 
-- [ ] All quality gates pass
-- [ ] App live on production Railway URL
-- [ ] Phase 2 SHIPPED ✓ — full multiplayer 250 and 500 playable from any phone
-- [ ] CLAUDE.md updated; E10 marked Complete
+- [x] All quality gates pass
+- [x] App live on production Railway URL
+- [x] Phase 2 SHIPPED ✓ — full multiplayer 250 and 500 playable from any phone
+- [x] CLAUDE.md updated; E10 marked Complete

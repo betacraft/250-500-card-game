@@ -7,7 +7,7 @@
 
 ## Overview
 
-Scaffold a pnpm monorepo with `packages/{shared, web, api}`. Phase 1 only writes code in `packages/web` and a small amount in `packages/shared`. `packages/api` is initialized as an empty stub from day one so Phase 2 can fill it in without restructuring (Option B from the architecture decisions).
+Scaffold a npm-workspaces monorepo with `packages/{shared, web, api}`. Phase 1 only writes code in `packages/web` and a small amount in `packages/shared`. `packages/api` is initialized as an empty stub from day one so Phase 2 can fill it in without restructuring (Option B from the architecture decisions).
 
 The web package is a React + Vite SPA configured as a PWA, mobile-first, with all tooling in place.
 
@@ -16,7 +16,7 @@ The web package is a React + Vite SPA configured as a PWA, mobile-first, with al
 ```
 250-500-card-game/
 ├── package.json                       # workspace root
-├── pnpm-workspace.yaml                # packages/*
+├── package.json workspaces                # packages/*
 ├── tsconfig.base.json                 # shared TS config
 ├── .eslintrc.cjs
 ├── .prettierrc
@@ -59,27 +59,27 @@ The web package is a React + Vite SPA configured as a PWA, mobile-first, with al
 
 ## Acceptance Criteria
 
-- [ ] pnpm workspace configured; `pnpm install` from root works
-- [ ] All three packages typecheck (even though api is empty)
-- [ ] Web package: `pnpm --filter @250-500/web dev` starts Vite on port 5173
-- [ ] Web package: `pnpm --filter @250-500/web build` succeeds and emits PWA assets (manifest + service worker)
-- [ ] Web package: one Vitest unit test passes
-- [ ] Web package: one Playwright E2E test passes (in mobile viewport, headless Chromium)
-- [ ] Shared package: one Vitest test passes (placeholder Zod schema)
-- [ ] HomePage renders: "250 & 500 Card Game" + "Score in-person game" button + "Play online (coming in Phase 2)" disabled button
-- [ ] ESLint configured; `pnpm lint` passes with zero warnings
-- [ ] Conventional commit: `chore(setup): scaffold monorepo (E01)`
+- [x] npm workspaces configured; `npm install` from root works
+- [x] All three packages typecheck (even though api is empty)
+- [x] Web package: `npm run --filter @250-500/web dev` starts Vite on port 5173
+- [x] Web package: `npm run --filter @250-500/web build` succeeds and emits PWA assets (manifest + service worker)
+- [x] Web package: one Vitest unit test passes
+- [x] Web package: one Playwright E2E test passes (in mobile viewport, headless Chromium)
+- [x] Shared package: one Vitest test passes (placeholder Zod schema)
+- [x] HomePage renders: "250 & 500 Card Game" + "Score in-person game" button + "Play online (coming in Phase 2)" disabled button
+- [x] ESLint configured; `npm run lint` passes with zero warnings
+- [x] Conventional commit: `chore(setup): scaffold monorepo (E01)`
 
 ## Done When
 
 All quality gates pass:
 ```
-pnpm install
-pnpm -r typecheck
-pnpm -r lint
-pnpm -r test
-pnpm --filter @250-500/web test:e2e
-pnpm --filter @250-500/web build
+npm install
+npm run typecheck
+npm run lint
+npm run test
+npm run --workspace @250-500/web test:e2e
+npm run --workspace @250-500/web build
 ```
 
 CLAUDE.md updated; E01 marked Complete.

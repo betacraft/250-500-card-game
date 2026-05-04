@@ -47,7 +47,7 @@ Phase 2 adds the multiplayer layer on top of validated UX. The bidding flow, tru
 
 ## Architectural Migration in E07
 
-E07 begins with a structural refactor: single React app → pnpm monorepo with `packages/{shared, api, web}`. The current `src/` becomes `packages/web/src/`. Pure-logic modules (`src/lib/games/`, `src/lib/cards/`, scoring schemas) extract into `packages/shared/`. New `packages/api/` is a fresh Node + Express + Socket.io project.
+E07 begins with a structural refactor: single React app → npm-workspaces monorepo with `packages/{shared, api, web}`. The current `src/` becomes `packages/web/src/`. Pure-logic modules (`src/lib/games/`, `src/lib/cards/`, scoring schemas) extract into `packages/shared/`. New `packages/api/` is a fresh Node + Express + Socket.io project.
 
 This refactor is mechanical and tracked as the first part of E07.
 
