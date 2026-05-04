@@ -11,3 +11,7 @@ playwright-report
 test-results
 .turbo
 *.timestamp-*.mjs
+
+# Stale directories left from sandbox-permission constraints
+dist.stale-*
+*.stale-*
