@@ -1,7 +1,7 @@
 # E10 — Online Polish + Deploy
 
 **Phase:** 2
-**Status:** Not Started
+**Status:** Complete
 **Owner:** tech-lead
 **Depends on:** E09
 **Estimated sessions:** 2

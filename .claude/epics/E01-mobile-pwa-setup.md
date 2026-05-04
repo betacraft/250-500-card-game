@@ -1,7 +1,7 @@
 # E01 — Mobile PWA Setup (monorepo from day one)
 
 **Phase:** 1
-**Status:** In Progress
+**Status:** Complete
 **Owner:** tech-lead
 **Estimated sessions:** 1–2
 

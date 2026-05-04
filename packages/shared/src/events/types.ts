@@ -41,12 +41,26 @@ export const seatClaimRequestSchema = z.object({
 });
 export type SeatClaimRequest = z.infer<typeof seatClaimRequestSchema>;
 
+export const roomReconnectRequestSchema = z.object({
+  code: z.string().length(6),
+  rejoinToken: z.string().min(8).max(64),
+});
+export type RoomReconnectRequest = z.infer<typeof roomReconnectRequestSchema>;
+
+export const roomCredentialsSchema = z.object({
+  code: z.string().length(6),
+  rejoinToken: z.string(),
+  seat: z.number().int(),
+});
+export type RoomCredentials = z.infer<typeof roomCredentialsSchema>;
+
 export const errorEventSchema = z.object({
   code: z.enum([
     'ROOM_NOT_FOUND',
     'ROOM_FULL',
     'SEAT_TAKEN',
     'INVALID_PAYLOAD',
+    'TOKEN_INVALID',
     'NOT_HOST',
     'INVALID_MOVE',
     'NOT_YOUR_TURN',

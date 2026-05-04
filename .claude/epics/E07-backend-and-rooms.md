@@ -1,7 +1,7 @@
 # E07 — Backend + Rooms (Phase 2 begins)
 
 **Phase:** 2
-**Status:** Not Started
+**Status:** Complete
 **Owner:** tech-lead
 **Depends on:** E06
 **Estimated sessions:** 2–3

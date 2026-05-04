@@ -113,6 +113,25 @@ Same as Phase 1 plus:
 
 Every feature follows red-green-refactor. No code merges without tests written first. The code-reviewer FAILS any PR that has untested code.
 
+### Pre-commit Gate (Non-Negotiable)
+
+**The tech-lead may NEVER commit without all of these passing in this exact order:**
+
+1. **TDD red phase verified** — qa-engineer wrote failing tests BEFORE implementation. Tests file must exist with at least one assertion before any production code is written.
+2. **All quality gates green** — `pnpm typecheck && pnpm lint && pnpm test && pnpm build` (and `pnpm test:e2e` after every UI epic).
+3. **qa-engineer subagent returns PASS** — independent review of test coverage, edge cases hunted, test pyramid honored.
+4. **code-reviewer subagent returns PASS** — independent audit against the full code-reviewer.md checklist, including:
+   - Convention compliance (file size, naming, types)
+   - Mobile UX (no `md:`/`lg:` breakpoints, ≥44×44px tap targets, action button at bottom)
+   - Security (hand privacy, server authority, Zod validation, CORS via env)
+   - Game logic vs RULES.md (cross-checked rule by rule)
+   - SOLID, performance, error handling, accessibility
+5. **docs-updater subagent runs** — CLAUDE.md Current State table updated, Decisions Log entry added if architectural decision was made, JSDoc on every newly exported function/component.
+
+If the tech-lead skips any of these and commits, the next session's first action is to revert and replay this process. **No "I'll fix it in the next commit" exceptions.** This is what your safety net depends on.
+
+The first close of this project skipped steps 3–5 and shipped 11 critical bugs (scoring math wrong, clockwise-default rule disabled, reconnection broken, CORS wide-open, tap targets below 44px, no test for the 500 first-3♠/3♥ rule, no hand-privacy network test). All caught by the closing audit. None had been caught by the implementation pass alone. **The audit is the safety net. Skipping it removes the safety net.**
+
 ---
 
 ## File Structure
@@ -351,25 +370,25 @@ Same as Phase 1 but at workspace root, runs across all packages.
 
 | Epic | Status | Notes |
 |------|--------|-------|
-| E01 — Mobile PWA Setup | Not Started | Vite + React + PWA shell |
-| E02 — Game State Persistence | Not Started | Zustand + localStorage |
-| E03 — Bidding Flow | Not Started | Round-robin bid entry |
-| E04 — Trump + Partner Picker | Not Started | Trump suit + N partner cards |
-| E05 — Hand Result + Scoring | Not Started | Made/failed entry, scoring engine, multi-hand |
-| E06 — PWA Polish + Deploy | Not Started | Install banner, offline, deploy to Vercel |
+| E01 — Mobile PWA Setup | Complete | npm workspaces, Vite + React + PWA, Tailwind, Vitest, Playwright (mobile viewport) |
+| E02 — Game State Persistence | Complete | Card types, schemas, Zustand persist + Zod hydration, setup page |
+| E03 — Bidding Flow | Complete | Round-robin bid entry; reused by Online too |
+| E04 — Trump + Partner Picker | Complete | TrumpPicker (4 suits) + PartnerPicker (4×12 grid, ≥44px tap targets) |
+| E05 — Hand Result + Scoring | Complete | Pure scoring engine, HandResultEntry, multi-hand, game-over screen |
+| E06 — PWA Polish + Deploy | Complete | Real PWA icons, vercel.json, netlify.toml, README, deploy runbook |
 
 ### Phase 2 — Online Mode
 
 | Epic | Status | Notes |
 |------|--------|-------|
-| E07 — Backend + Rooms | Not Started | Node + Socket.io + room mgmt; restructure to monorepo |
-| E08 — Online Game Engine | Not Started | Deal, tricks, hand-privacy, scoring auto |
-| E09 — Online Frontend | Not Started | Reuses scorekeeper components + adds slider, trick area, opponents row |
-| E10 — Online Polish + Deploy | Not Started | Reconnection, Railway deploy |
+| E07 — Backend + Rooms | Complete | Express + Socket.io, RoomStore, rejoin tokens, validated CORS |
+| E08 — Online Game Engine | Complete | Deck, trick, partners (with voluntary reveal + clockwise default), hand-privacy verified end-to-end |
+| E09 — Online Frontend | Complete | HandSlider, TrickArea, OpponentsRow, TopStateStrip, ConnectionStatus, ReconnectionBanner |
+| E10 — Online Polish + Deploy | Complete | Rate limiting, graceful shutdown, single-Railway deploy via esbuild bundle |
 
-**Last updated:** 2026-05-03
-**Known issues:** None (project not yet started)
-**Current phase:** Phase 1, ready to start E01
+**Last updated:** 2026-05-04
+**Known issues:** None — all 11 critical issues from the closing code-reviewer audit (2026-05-04) fixed and regression-tested.
+**Current phase:** All 10 epics shipped. Repo at github.com/betacraft/250-500-card-game. Ready to deploy to Railway.
 
 ---
 
@@ -391,6 +410,11 @@ Same as Phase 1 but at workspace root, runs across all packages.
 | 12 | **Phase 1 has no backend, no monorepo, no shared package** | Single React PWA. Move to monorepo + shared Zod package when Phase 2 begins (E07 includes the migration). | 2026-05-03 |
 | 13 | **Card hand displayed as horizontal snap-scroll slider on mobile** | Phones are too narrow for fanned/grid hand layouts. Slider preserves visibility, allows large tap targets, and feels native to mobile. | 2026-05-03 |
 | 14 | **Visual design language captured in `docs/MOBILE-DESIGN-LANGUAGE.md`** | Centralized reference so frontend-dev and code-reviewer have a single source of truth for visual decisions. | 2026-05-03 |
+| 15 | **Single-service Railway deploy serves both API and built frontend** | Eliminates CORS complexity, removes the need for two deployments and two domains; one URL serves Scorekeeper PWA + Online multiplayer. The Express server serves `packages/web/dist` static files when `NODE_ENV=production`. | 2026-05-04 |
+| 16 | **API server bundled with esbuild instead of plain `tsc` emit** | TypeScript ESM emit doesn't add `.js` extensions to relative imports, which Node refuses to resolve at runtime. Bundling produces a single self-contained `dist/server.js` (~40KB) with the workspace `@250-500/shared` package inlined and runtime npm packages (Express, Socket.io, Pino, Zod) declared external. | 2026-05-04 |
+| 17 | **Stable rejoin token issued at seat-claim, used to reconnect across socket reconnects** | The original reconnection logic looked up the player by `socketId` — which changes on every reconnect — so it could never find the disconnected player. New `room:reconnect` event takes `{ code, rejoinToken }`, looks up by token, updates the socketId in-place, clears the 60s grace timer, re-emits the private hand. | 2026-05-04 |
+| 18 | **Player-count Zod schema discriminated by gameType** | Original `min(6).max(8)` accepted invalid 7-player games. Refined to require exactly 6 for 250 and exactly 8 for 500. | 2026-05-04 |
+| 19 | **Code-reviewer audit is mandatory and BLOCKS commit** | The first close of this project skipped the code-reviewer subagent and shipped 11 critical bugs (scoring math wrong, clockwise-default disabled, reconnection broken, CORS open, tap targets <44px, missing tests). Process now requires an independent subagent audit before every commit; tech-lead may not commit without it. | 2026-05-04 |
 
 ---
 

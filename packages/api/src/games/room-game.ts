@@ -133,7 +133,7 @@ export function declare(
 }
 
 export type PlayResult =
-  | { ok: true; state: RoomGameState; trickWinnerId: string | null; newPartner: string | null; handEnded: boolean }
+  | { ok: true; state: RoomGameState; trickWinnerId: string | null; newPartner: string | null; handEnded: boolean; breakdown: { bidMade: boolean; pointsCollected: number; partners: string[]; scoreDeltas: Record<string, number> } | null }
   | { ok: false; code: string; message: string };
 
 export function play(state: RoomGameState, playerId: string, card: Card): PlayResult {
@@ -141,17 +141,11 @@ export function play(state: RoomGameState, playerId: string, card: Card): PlayRe
   const result = playCard(state.hand, playerId, card);
   if (!result.ok) return { ok: false, code: result.code, message: result.message };
   const next: RoomGameState = { ...state, hand: result.state };
+  let breakdown: { bidMade: boolean; pointsCollected: number; partners: string[]; scoreDeltas: Record<string, number> } | null = null;
   if (result.state.ended) {
-    // Build holders map for clockwise-default
-    const holders = new Map<string, Set<string>>();
-    // We don't have the original deal anymore (cards have been redistributed).
-    // For clockwise-default we only need who STILL holds an unplayed copy of the called card —
-    // since the hand ended, all cards have been played, so unfilled slots can only be filled if
-    // the bidder held both copies. We'll let finalizeHand's logic handle that case via empty set.
-    // For accurate tracking we'd need to capture deal-time holders; skipping for MVP.
-    const score = finalizeHand(result.state, holders);
+    breakdown = finalizeHand(result.state);
     next.runningScores = Object.fromEntries(
-      Object.entries(state.runningScores).map(([id, s]) => [id, s + (score.scoreDeltas[id] ?? 0)]),
+      Object.entries(state.runningScores).map(([id, s]) => [id, s + (breakdown!.scoreDeltas[id] ?? 0)]),
     );
     next.handsPlayed = state.handsPlayed + 1;
     next.phase = 'scored';
@@ -163,14 +157,12 @@ export function play(state: RoomGameState, playerId: string, card: Card): PlayRe
     trickWinnerId: result.trickWinnerId,
     newPartner: result.newPartner,
     handEnded: result.state.ended,
+    breakdown,
   };
 }
 
 /** Finalize for clients: returns score breakdown to broadcast via game:hand-scored. */
-export function getScoreBreakdown(
-  state: RoomGameState,
-  holdersByCardId: ReadonlyMap<string, ReadonlySet<string>>,
-): { bidMade: boolean; pointsCollected: number; partners: string[]; scoreDeltas: Record<string, number> } | null {
+export function getScoreBreakdown(state: RoomGameState): { bidMade: boolean; pointsCollected: number; partners: string[]; scoreDeltas: Record<string, number> } | null {
   if (!state.hand || !state.hand.ended) return null;
-  return finalizeHand(state.hand, holdersByCardId);
+  return finalizeHand(state.hand);
 }

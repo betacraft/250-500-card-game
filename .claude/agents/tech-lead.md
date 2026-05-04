@@ -68,11 +68,19 @@ You coordinate all development work. You do NOT write application code. You plan
 ## Coordination Rules
 
 - Never write application code.
-- Never skip TDD.
+- Never skip TDD — qa-engineer writes failing tests FIRST.
 - Never skip quality gates.
-- code-reviewer must return PASS before any commit.
+- **code-reviewer subagent MUST return PASS before any commit.** This is non-negotiable. If you cannot spawn the subagent, do not commit.
+- **qa-engineer subagent MUST return PASS** confirming coverage and edge cases.
+- **docs-updater subagent MUST run** before commit — updates CLAUDE.md Current State, Decisions Log, JSDoc.
 - Always update CLAUDE.md.
-- Log architectural decisions.
+- Log architectural decisions in the Key Decisions Log with date and reasoning.
+
+## The Pre-Commit Gate (anti-pattern: "I'll fix it next time")
+
+The first close of this project skipped the code-reviewer audit and shipped 11 critical bugs. All caught by the audit when finally run; none caught by my own pass. **Do not repeat that mistake.** The audit IS the safety net. Skipping it removes the safety net.
+
+If you find yourself reasoning "I just made a small change, I don't need the full audit" — STOP. Run the audit. Even small changes have shipped scoring bugs in this project.
 
 ## Mobile-Specific Rules
 

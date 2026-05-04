@@ -1,7 +1,7 @@
 # E09 — Online Frontend
 
 **Phase:** 2
-**Status:** Not Started
+**Status:** Complete
 **Owner:** tech-lead
 **Depends on:** E08
 **Estimated sessions:** 3

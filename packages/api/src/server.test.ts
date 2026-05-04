@@ -94,3 +94,59 @@ describe('server integration', () => {
     client.disconnect();
   });
 });
+
+describe('hand-privacy', () => {
+  let app: ReturnType<typeof createApp>;
+  let url: string;
+
+  beforeEach(async () => {
+    app = createApp();
+    await new Promise<void>((r) => app.httpServer.listen(0, r));
+    const addr = app.httpServer.address() as AddressInfo;
+    url = `http://localhost:${addr.port}`;
+  });
+
+  afterEach(async () => {
+    app.io.close();
+    await new Promise<void>((r) => app.httpServer.close(() => r()));
+  });
+
+  it('game:state-updated never includes any player hands; private hands go only to owning socket', async () => {
+    // Connect 6 clients, fill the room, start a 250 hand, capture all events for client A
+    const clients = Array.from({ length: 6 }, () => ioClient(url, { transports: ['websocket'], reconnection: false }));
+    await Promise.all(clients.map((c) => new Promise<void>((r) => c.on('connect', () => r()))));
+
+    const aliceEvents: Array<{ event: string; payload: unknown }> = [];
+    clients[0]!.onAny((event: string, payload: unknown) => aliceEvents.push({ event, payload }));
+
+    clients[0]!.emit('room:create', { gameType: '250', hostName: 'Alice' });
+    const created = await waitForEvent<{ room: { code: string } }>(clients[0]!, 'room:created');
+    const code = created.room.code;
+
+    for (let i = 1; i < 6; i++) {
+      clients[i]!.emit('room:join', { code });
+      await waitForEvent(clients[i]!, 'room:joined');
+      clients[i]!.emit('room:claim-seat', { seat: i + 1, name: `P${i + 1}` });
+      await waitForEvent(clients[i]!, 'room:seat-claimed');
+    }
+    clients[0]!.emit('game:start-hand', {});
+    // Wait for the hand to be dealt and state broadcast
+    await waitForEvent(clients[0]!, 'game:state-updated');
+    await new Promise((r) => setTimeout(r, 100));
+
+    // Alice should have received exactly one game:hand-dealt addressed to her (her own hand)
+    const handDealtEvents = aliceEvents.filter((e) => e.event === 'game:hand-dealt');
+    expect(handDealtEvents.length).toBe(1);
+
+    // No game:state-updated payload should contain a `hands` field
+    const stateEvents = aliceEvents.filter((e) => e.event === 'game:state-updated');
+    expect(stateEvents.length).toBeGreaterThan(0);
+    for (const evt of stateEvents) {
+      expect(evt.payload).not.toHaveProperty('hands');
+      // It SHOULD have cardsPerPlayer (counts only)
+      expect(evt.payload).toHaveProperty('cardsPerPlayer');
+    }
+
+    clients.forEach((c) => c.disconnect());
+  });
+});

@@ -53,7 +53,7 @@ export function ScorekeeperSetupPage(): JSX.Element {
         <Link
           to="/"
           aria-label="Back to home"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-stone-700 active:bg-stone-200"
+          className="flex h-11 w-11 items-center justify-center rounded-full text-stone-700 active:bg-stone-200"
         >
           <ChevronLeft size={20} />
         </Link>

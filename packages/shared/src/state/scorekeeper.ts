@@ -10,12 +10,18 @@ export const playerSchema = z.object({
 });
 export type Player = z.infer<typeof playerSchema>;
 
-/** Settings selected at the start of a game. */
-export const gameSettingsSchema = z.object({
-  gameType: gameTypeSchema,
-  targetScore: z.number().int().min(100).max(2000),
-  players: z.array(playerSchema).min(6).max(8),
-});
+/** Settings selected at the start of a game.
+ * Player count is enforced by gameType: 250 requires exactly 6, 500 requires exactly 8. */
+export const gameSettingsSchema = z
+  .object({
+    gameType: gameTypeSchema,
+    targetScore: z.number().int().min(100).max(2000),
+    players: z.array(playerSchema).min(6).max(8),
+  })
+  .refine(
+    (s) => (s.gameType === '250' ? s.players.length === 6 : s.players.length === 8),
+    { message: '250 requires exactly 6 players; 500 requires exactly 8' },
+  );
 export type GameSettings = z.infer<typeof gameSettingsSchema>;
 
 /** Bid attempt by a player during the bidding round. */

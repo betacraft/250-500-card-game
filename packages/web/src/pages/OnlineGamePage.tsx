@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
-import { type Card, type Suit, cardId, isLegalPlay, rulesFor } from '@250-500/shared';
+import { type Card, type Suit, cardId, isLegalPlay, rulesFor, wouldBeSelfReveal } from '@250-500/shared';
 import { useConnectionStore } from '../stores/connection-store';
 import { useOnlineRoomStore } from '../stores/online-room-store';
 import { TopStateStrip } from '../components/online/TopStateStrip';
@@ -8,6 +8,7 @@ import { OpponentsRow } from '../components/online/OpponentsRow';
 import { TrickArea } from '../components/online/TrickArea';
 import { HandSlider } from '../components/online/HandSlider';
 import { ConnectionStatus } from '../components/online/ConnectionStatus';
+import { ReconnectionBanner } from '../components/online/ReconnectionBanner';
 import { TrumpPicker } from '../components/shared/TrumpPicker';
 import { PartnerPicker } from '../components/shared/PartnerPicker';
 import { BiddingFlow } from '../components/shared/BiddingFlow';
@@ -31,6 +32,7 @@ interface PublicHandState {
 export function OnlineGamePage(): JSX.Element {
   const socket = useConnectionStore((s) => s.socket);
   const status = useConnectionStore((s) => s.status);
+  const connect = useConnectionStore((s) => s.connect);
   const room = useOnlineRoomStore((s) => s.room);
 
   const [handState, setHandState] = useState<PublicHandState | null>(null);
@@ -65,9 +67,25 @@ export function OnlineGamePage(): JSX.Element {
   const partnersNeeded = rulesFor(room.gameType).PARTNERS_TO_CALL;
 
   const ledSuit = handState?.currentTrick[0]?.card.suit ?? null;
+  const isLeading = (handState?.currentTrick.length ?? 0) === 0;
   const legalIds = new Set<string>();
   for (const c of myHand) {
-    if (isLegalPlay({ card: c, hand: myHand, ledSuit })) legalIds.add(cardId(c));
+    if (!isLegalPlay({ card: c, hand: myHand, ledSuit })) continue;
+    // 500: cannot self-lead a called card (server enforces; surface in UI as illegal).
+    if (
+      room.gameType === '500' &&
+      handState?.bidder &&
+      wouldBeSelfReveal({
+        playerId: myPlayer.id,
+        card: c,
+        isLeadingTrick: isLeading,
+        bidderId: handState.bidder,
+        slots: handState.calledCards.map((cc, i) => ({ card: cc, filledBy: handState.partners[i] ?? null })),
+      })
+    ) {
+      continue;
+    }
+    legalIds.add(cardId(c));
   }
 
   const sendBid = (amount: number) => socket?.emit('game:bid', { amount });
@@ -86,6 +104,10 @@ export function OnlineGamePage(): JSX.Element {
         <h1 className="text-lg font-medium">Hand {handState?.handNumber ?? 1}</h1>
         <ConnectionStatus status={status} />
       </div>
+
+      {(status === 'disconnected' || status === 'error' || status === 'connecting') && (
+        <ReconnectionBanner status={status} onRetry={() => connect(window.location.origin)} />
+      )}
 
       <TopStateStrip
         trump={handState?.trump ?? null}
@@ -114,7 +136,7 @@ export function OnlineGamePage(): JSX.Element {
         <BiddingFlow
           players={room.players.map((p) => ({ id: p.id, name: p.name, seat: p.seat }))}
           gameType={room.gameType}
-          firstBidderId={room.players[0]!.id}
+          firstBidderId={room.players[((handState?.handNumber ?? 1) - 1) % room.players.length]!.id}
           bidHistory={handState.bidHistory}
           onBid={(_id, amount) => sendBid(amount)}
           onPass={() => sendPass()}

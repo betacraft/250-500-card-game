@@ -13,7 +13,8 @@ interface OpponentsRowProps {
 
 export function OpponentsRow({ players }: OpponentsRowProps): JSX.Element {
   const colorFor = (id: string): string => {
-    const palette = ['#c97f2c', '#5a8fb5', '#6a9c5b', '#b56a8a', '#8a6ab5', '#509a8a', '#b58a4a'];
+    // Derived from the brand palette (felt, gold, accent shades) — kept on-palette per design language.
+    const palette = ['#1A6E4A', '#155539', '#8A6700', '#266150', '#0E3D29', '#5F5E5A', '#444441'];
     let h = 0;
     for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
     return palette[Math.abs(h) % palette.length] ?? palette[0]!;

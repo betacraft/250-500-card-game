@@ -43,28 +43,16 @@ export function PartnerPicker({ selected, maxCount, onChange }: PartnerPickerPro
           {selected.length} / {maxCount}
         </div>
       </div>
-      <div className="overflow-x-auto">
-        <div
-          className="grid gap-1"
-          style={{ gridTemplateColumns: `28px repeat(${RANKS_ORDERED.length}, minmax(0, 1fr))` }}
-        >
-          <div></div>
-          {RANKS_ORDERED.map((r) => (
-            <div key={r} className="text-center text-[10px] font-medium text-stone-400 tabular-nums">
-              {r}
-            </div>
-          ))}
-
-          {SUITS_ORDERED.map((suit: Suit) => (
-            <ContentForSuit key={suit} suit={suit} selected={selected} onToggle={toggle} />
-          ))}
-        </div>
+      <div className="flex flex-col gap-2">
+        {SUITS_ORDERED.map((suit: Suit) => (
+          <SuitRow key={suit} suit={suit} selected={selected} onToggle={toggle} />
+        ))}
       </div>
     </div>
   );
 }
 
-function ContentForSuit({
+function SuitRow({
   suit,
   selected,
   onToggle,
@@ -73,35 +61,37 @@ function ContentForSuit({
   selected: Card[];
   onToggle: (card: Card) => void;
 }): JSX.Element {
+  const color = suitColor(suit);
   return (
-    <>
-      <div className="flex items-center justify-center">
-        <SuitIcon suit={suit} size={14} />
+    <div className="flex items-center gap-2">
+      <div className="flex h-11 w-8 shrink-0 items-center justify-center">
+        <SuitIcon suit={suit} size={20} />
       </div>
-      {RANKS_ORDERED.map((rank) => {
-        const card: Card = { suit, rank };
-        const sel = isSelected(card, selected);
-        const color = suitColor(suit);
-        return (
-          <button
-            key={cardId(card)}
-            type="button"
-            onClick={() => onToggle(card)}
-            aria-pressed={sel}
-            aria-label={`${rank} of ${suit}`}
-            className={clsx(
-              'h-9 rounded-md border text-xs font-medium tabular-nums transition-transform active:scale-95',
-              sel
-                ? 'border-gold-border bg-gold text-gold-dark'
-                : 'border-stone-200 bg-white',
-              !sel && color === 'red' && 'text-suit-red',
-              !sel && color === 'black' && 'text-suit-black',
-            )}
-          >
-            {rank}
-          </button>
-        );
-      })}
-    </>
+      <div className="flex flex-1 gap-1.5 overflow-x-auto">
+        {RANKS_ORDERED.map((rank) => {
+          const card: Card = { suit, rank };
+          const sel = isSelected(card, selected);
+          return (
+            <button
+              key={cardId(card)}
+              type="button"
+              onClick={() => onToggle(card)}
+              aria-pressed={sel}
+              aria-label={`${rank} of ${suit}`}
+              className={clsx(
+                'h-11 min-w-[44px] shrink-0 rounded-md border px-2 text-sm font-medium tabular-nums transition-transform active:scale-95',
+                sel
+                  ? 'border-gold-border bg-gold text-gold-dark'
+                  : 'border-stone-200 bg-white',
+                !sel && color === 'red' && 'text-suit-red',
+                !sel && color === 'black' && 'text-suit-black',
+              )}
+            >
+              {rank}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }

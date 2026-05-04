@@ -1,7 +1,7 @@
 # E04 — Trump + Partner Picker
 
 **Phase:** 1
-**Status:** Not Started
+**Status:** Complete
 **Owner:** tech-lead
 **Depends on:** E03
 **Estimated sessions:** 1

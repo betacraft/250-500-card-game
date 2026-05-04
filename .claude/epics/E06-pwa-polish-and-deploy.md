@@ -1,7 +1,7 @@
 # E06 — PWA Polish + Deploy
 
 **Phase:** 1
-**Status:** Not Started
+**Status:** Complete
 **Owner:** tech-lead
 **Depends on:** E05
 **Estimated sessions:** 1

@@ -26,25 +26,22 @@ describe('scorekeeper schemas', () => {
     expect(result.success).toBe(false);
   });
 
-  it('gameSettingsSchema requires 6-8 players', () => {
+  it('gameSettingsSchema: 250 requires exactly 6 players', () => {
     const players = (n: number) =>
       Array.from({ length: n }, (_, i) => ({ id: `p${i}`, name: `P${i}`, seat: i + 1 }));
-    expect(
-      gameSettingsSchema.safeParse({ gameType: '250', targetScore: 1000, players: players(5) })
-        .success,
-    ).toBe(false);
-    expect(
-      gameSettingsSchema.safeParse({ gameType: '250', targetScore: 1000, players: players(6) })
-        .success,
-    ).toBe(true);
-    expect(
-      gameSettingsSchema.safeParse({ gameType: '500', targetScore: 1000, players: players(8) })
-        .success,
-    ).toBe(true);
-    expect(
-      gameSettingsSchema.safeParse({ gameType: '500', targetScore: 1000, players: players(9) })
-        .success,
-    ).toBe(false);
+    expect(gameSettingsSchema.safeParse({ gameType: '250', targetScore: 1000, players: players(5) }).success).toBe(false);
+    expect(gameSettingsSchema.safeParse({ gameType: '250', targetScore: 1000, players: players(6) }).success).toBe(true);
+    expect(gameSettingsSchema.safeParse({ gameType: '250', targetScore: 1000, players: players(7) }).success).toBe(false);
+    expect(gameSettingsSchema.safeParse({ gameType: '250', targetScore: 1000, players: players(8) }).success).toBe(false);
+  });
+
+  it('gameSettingsSchema: 500 requires exactly 8 players', () => {
+    const players = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({ id: `p${i}`, name: `P${i}`, seat: i + 1 }));
+    expect(gameSettingsSchema.safeParse({ gameType: '500', targetScore: 1000, players: players(6) }).success).toBe(false);
+    expect(gameSettingsSchema.safeParse({ gameType: '500', targetScore: 1000, players: players(7) }).success).toBe(false);
+    expect(gameSettingsSchema.safeParse({ gameType: '500', targetScore: 1000, players: players(8) }).success).toBe(true);
+    expect(gameSettingsSchema.safeParse({ gameType: '500', targetScore: 1000, players: players(9) }).success).toBe(false);
   });
 
   it('scorekeeperStateSchema accepts a fresh state', () => {

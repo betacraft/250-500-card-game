@@ -49,8 +49,12 @@ export interface GameHand {
   trickCount: number;
   /** Hand finished? */
   ended: boolean;
-  /** First-played 30-pt card tracking (500): which copy of 3♠ / 3♥ was the first */
-  first3sPlayed: { spades: boolean; hearts: boolean };
+  /** First-played 30-pt card tracking (500): which copy of 3♠ / 3♥ was the first.
+   * Records which playerId played the first copy, or null if not played yet. */
+  first3sPlayed: { spades: string | null; hearts: string | null };
+  /** Initial holders by cardId — captured at deal time for clockwise-default rule.
+   * Maps cardId (e.g. "Qh") to the set of playerIds who were dealt that card. */
+  holdersByCardId: Map<string, Set<string>>;
 }
 
 /** Build a fresh hand state. Optionally pass a seed for deterministic dealing. */
@@ -69,11 +73,21 @@ export function startHand(args: {
   const dealt = deal(deck, rules.PLAYER_COUNT);
   const hands: Record<string, Card[]> = {};
   const collected: Record<string, Card[]> = {};
+  const holdersByCardId = new Map<string, Set<string>>();
   args.seatOrder.forEach((id, i) => {
-    hands[id] = dealt[i] ?? [];
+    const hand = dealt[i] ?? [];
+    hands[id] = hand;
     collected[id] = [];
+    for (const c of hand) {
+      const k = `${c.rank}${c.suit[0]}`;
+      let set = holdersByCardId.get(k);
+      if (!set) {
+        set = new Set();
+        holdersByCardId.set(k, set);
+      }
+      set.add(id);
+    }
   });
-  void args.firstBidderId;
   return {
     gameType: args.gameType,
     seatOrder: args.seatOrder,
@@ -89,7 +103,8 @@ export function startHand(args: {
     collected,
     trickCount: 0,
     ended: false,
-    first3sPlayed: { spades: false, hearts: false },
+    first3sPlayed: { spades: null, hearts: null },
+    holdersByCardId,
   };
 }
 
@@ -162,11 +177,11 @@ export function playCard(state: GameHand, playerId: string, card: Card): PlayRes
     }
   }
   const newFirst3s = { ...state.first3sPlayed };
-  if (state.gameType === '500') {
-    if (card.suit === 'spades' && card.rank === '3' && !newFirst3s.spades) newFirst3s.spades = true;
-    if (card.suit === 'hearts' && card.rank === '3' && !newFirst3s.hearts) newFirst3s.hearts = true;
-  } else if (state.gameType === '250' && card.suit === 'spades' && card.rank === '3') {
-    newFirst3s.spades = true;
+  if (card.suit === 'spades' && card.rank === '3' && newFirst3s.spades === null) {
+    newFirst3s.spades = playerId;
+  }
+  if (state.gameType === '500' && card.suit === 'hearts' && card.rank === '3' && newFirst3s.hearts === null) {
+    newFirst3s.hearts = playerId;
   }
 
   const updated: GameHand = {
@@ -217,12 +232,8 @@ export function playCard(state: GameHand, playerId: string, card: Card): PlayRes
 }
 
 /** Compute final score for the hand (after all tricks played). Applies clockwise-default
- * for any unfilled partner slots in 500. */
-export function finalizeHand(
-  state: GameHand,
-  /** Map of cardId -> set of playerIds who hold a copy of that card */
-  holdersByCardId: ReadonlyMap<string, ReadonlySet<string>>,
-): {
+ * for any unfilled partner slots, using the deal-time holder tracking captured in state. */
+export function finalizeHand(state: GameHand): {
   bidMade: boolean;
   pointsCollected: number;
   partners: string[];
@@ -232,49 +243,37 @@ export function finalizeHand(
     throw new Error('Cannot finalize hand without bidder + bid');
   }
 
-  // Apply clockwise-default for unfilled slots
   const finalSlots = applyClockwiseDefault({
     slots: state.slots,
     bidderId: state.bidder,
     seatOrder: state.seatOrder,
-    holdersByCardId,
+    holdersByCardId: state.holdersByCardId,
   });
   const partners = partnersFromSlots(finalSlots, state.bidder);
   const teamIds = new Set([state.bidder, ...partners]);
 
-  // Tally points
+  // Find which player won the FIRST 3♠ and 3♥ tricks (RULES.md: only first-played counts)
+  const collectorOf = (predicate: (c: Card) => boolean): string | null => {
+    for (const [pid, cards] of Object.entries(state.collected)) {
+      if (cards.some(predicate)) return pid;
+    }
+    return null;
+  };
+
   let teamPoints = 0;
   for (const playerId of teamIds) {
     for (const card of state.collected[playerId] ?? []) {
       teamPoints += cardPointValue(card);
-      // Special handling: first 3♠ played = 30, first 3♥ played = 30 (500 only); 3♠ = 30 always for 250
-      if (state.gameType === '250' && card.suit === 'spades' && card.rank === '3') {
-        teamPoints += 30;
-      }
-      // For 500 we add 30 for the FIRST 3♠ and FIRST 3♥ played overall, regardless of who collected.
-      // But only the team-collected ones matter for team-points; the first-played flag already true.
     }
   }
-  // 500 first-played 30-pt bonuses for the TEAM if they collected the first-played 3♠/3♥
-  if (state.gameType === '500') {
-    for (const playerId of teamIds) {
-      const collected = state.collected[playerId] ?? [];
-      for (const c of collected) {
-        if (c.suit === 'spades' && c.rank === '3') {
-          teamPoints += 30;
-          break;
-        }
-      }
-    }
-    for (const playerId of teamIds) {
-      const collected = state.collected[playerId] ?? [];
-      for (const c of collected) {
-        if (c.suit === 'hearts' && c.rank === '3') {
-          teamPoints += 30;
-          break;
-        }
-      }
-    }
+  // 30-point bonuses, applied ONCE (for the first-played copy only)
+  if (state.first3sPlayed.spades) {
+    const winner3s = collectorOf((c) => c.suit === 'spades' && c.rank === '3');
+    if (winner3s && teamIds.has(winner3s)) teamPoints += 30;
+  }
+  if (state.gameType === '500' && state.first3sPlayed.hearts) {
+    const winner3h = collectorOf((c) => c.suit === 'hearts' && c.rank === '3');
+    if (winner3h && teamIds.has(winner3h)) teamPoints += 30;
   }
   void cardId;
 

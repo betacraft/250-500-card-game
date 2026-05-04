@@ -1,7 +1,7 @@
 # E03 — Bidding Flow
 
 **Phase:** 1
-**Status:** Not Started
+**Status:** Complete
 **Owner:** tech-lead
 **Depends on:** E02
 **Estimated sessions:** 1–2

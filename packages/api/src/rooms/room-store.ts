@@ -1,4 +1,19 @@
 import type { GameType, RoomState } from '@250-500/shared';
+
+function generateRejoinToken(): string {
+  const ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const bytes = new Uint8Array(24);
+  if (typeof globalThis.crypto?.getRandomValues === 'function') {
+    globalThis.crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < 24; i++) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  let out = '';
+  for (let i = 0; i < 24; i++) {
+    out += ALPHABET[(bytes[i] ?? 0) % ALPHABET.length];
+  }
+  return out;
+}
 import { rulesFor } from '@250-500/shared';
 import { generateUniqueRoomCode } from './room-codes';
 
@@ -8,6 +23,8 @@ interface InternalPlayer {
   seat: number;
   name: string;
   connected: boolean;
+  /** Stable identifier issued at first seat-claim; client uses it to reconnect after disconnect. */
+  rejoinToken: string;
   /** Timer id for the disconnect grace period; clear on reconnect. */
   disconnectTimer?: NodeJS.Timeout;
 }
@@ -98,6 +115,7 @@ export class RoomStore {
       seat: args.seat,
       name: args.name,
       connected: true,
+      rejoinToken: generateRejoinToken(),
     };
     room.players.push(player);
     return { ok: true, player };
@@ -126,6 +144,26 @@ export class RoomStore {
     }
     player.connected = true;
     return room;
+  }
+
+  /** Re-link a returning client by rejoin token. Updates the socketId, clears the
+   * disconnect grace timer, marks connected. Returns the room + player on success. */
+  rejoinByToken(args: { code: string; rejoinToken: string; newSocketId: string }):
+    | { ok: true; room: InternalRoom; player: InternalPlayer }
+    | { ok: false; reason: 'ROOM_NOT_FOUND' | 'TOKEN_INVALID' } {
+    const room = this.rooms.get(args.code);
+    if (!room) return { ok: false, reason: 'ROOM_NOT_FOUND' };
+    const player = room.players.find((p) => p.rejoinToken === args.rejoinToken);
+    if (!player) return { ok: false, reason: 'TOKEN_INVALID' };
+    // Update host's socket id if they reconnected
+    if (room.hostSocketId === player.socketId) room.hostSocketId = args.newSocketId;
+    player.socketId = args.newSocketId;
+    player.connected = true;
+    if (player.disconnectTimer) {
+      clearTimeout(player.disconnectTimer);
+      player.disconnectTimer = undefined;
+    }
+    return { ok: true, room, player };
   }
 
   removePlayer(code: string, socketId: string): InternalRoom | null {

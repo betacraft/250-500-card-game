@@ -1,7 +1,7 @@
 # E05 — Hand Result Entry + Scoring Engine + Multi-Hand Games
 
 **Phase:** 1
-**Status:** Not Started
+**Status:** Complete
 **Owner:** tech-lead
 **Depends on:** E04
 **Estimated sessions:** 2

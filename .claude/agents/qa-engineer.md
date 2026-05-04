@@ -152,6 +152,18 @@ If any score drops below threshold, it's a FAIL — file the issue, return to de
 - Player tries to lead a called card in 500 (must be rejected).
 - Both copies of called card held by bidder — slot stays empty, scoring handles correctly.
 
+## Mandatory Coverage Per File
+
+Before approving a commit:
+- Every exported function in `src/lib/` and `packages/*/src/` (excluding `.test.{ts,tsx}`) has at least one unit test that covers a happy path.
+- Every React page and component has at least a render test.
+- Every Zod schema has at least one valid + one invalid input test.
+- Every Socket.io event handler has an integration test that exercises it via a real client.
+- Hand-privacy is explicitly verified via network-event inspection, not assumed.
+- Game-rule edge cases (especially 500 voluntary-reveal, clockwise-default, first-3♠/3♥-played) have dedicated unit tests with explicit assertions.
+
+If any of the above is missing, the verdict is FAIL — do not soften.
+
 ## Anti-Patterns (NEVER DO)
 
 - No type-unsafe code in tests (`any` forbidden in tests).

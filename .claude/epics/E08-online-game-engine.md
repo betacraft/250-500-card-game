@@ -1,7 +1,7 @@
 # E08 — Online Game Engine
 
 **Phase:** 2
-**Status:** Not Started
+**Status:** Complete
 **Owner:** tech-lead
 **Depends on:** E07
 **Estimated sessions:** 3–4

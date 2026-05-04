@@ -5,6 +5,7 @@ import {
   roomCreateRequestSchema,
   roomJoinRequestSchema,
   seatClaimRequestSchema,
+  roomReconnectRequestSchema,
   type ErrorEvent,
 } from '@250-500/shared';
 import { loadConfig } from './config';
@@ -32,8 +33,9 @@ import {
 export function createApp(): { app: express.Express; httpServer: ReturnType<typeof createServer>; io: SocketIOServer; store: RoomStore } {
   const app = express();
   const httpServer = createServer(app);
+  const config = loadConfig();
   const io = new SocketIOServer(httpServer, {
-    cors: { origin: '*' },
+    cors: { origin: config.CORS_ORIGIN === '*' ? '*' : config.CORS_ORIGIN.split(',') },
     transports: ['websocket', 'polling'],
   });
   const store = new RoomStore();
@@ -91,7 +93,8 @@ export function createApp(): { app: express.Express; httpServer: ReturnType<type
     logger.info({ socketId: socket.id }, 'socket connected');
     socket.use(([_event], next) => {
       if (!checkRateLimit(socket.id)) {
-        return next(new Error('rate limited'));
+        // Silently drop the event rather than tearing down the socket.
+        return;
       }
       next();
     });
@@ -118,7 +121,7 @@ export function createApp(): { app: express.Express; httpServer: ReturnType<type
       void socket.join(room.code);
       socket.data.roomCode = room.code;
       logger.info({ socketId: socket.id, code: room.code, gameType: room.gameType }, 'room created');
-      socket.emit('room:created', { room: store.toPublicState(room), yourSeat: 1 });
+      socket.emit('room:created', { room: store.toPublicState(room), yourSeat: 1, rejoinToken: add.player.rejoinToken, code: room.code });
     });
 
     socket.on('room:join', (rawPayload: unknown) => {
@@ -153,8 +156,33 @@ export function createApp(): { app: express.Express; httpServer: ReturnType<type
           message: add.reason,
         });
       }
-      socket.emit('room:seat-claimed', { yourSeat: add.player.seat });
+      socket.emit('room:seat-claimed', { yourSeat: add.player.seat, rejoinToken: add.player.rejoinToken, code: room.code });
       broadcastRoom(room.code);
+    });
+
+    socket.on('room:reconnect', (rawPayload: unknown) => {
+      const result = roomReconnectRequestSchema.safeParse(rawPayload);
+      if (!result.success) {
+        return sendError({ code: 'INVALID_PAYLOAD', message: 'Invalid room:reconnect payload' });
+      }
+      const r = store.rejoinByToken({ code: result.data.code, rejoinToken: result.data.rejoinToken, newSocketId: socket.id });
+      if (!r.ok) {
+        return sendError({ code: r.reason === 'ROOM_NOT_FOUND' ? 'ROOM_NOT_FOUND' : 'TOKEN_INVALID', message: r.reason });
+      }
+      void socket.join(r.room.code);
+      socket.data.roomCode = r.room.code;
+      socket.emit('room:reconnected', {
+        room: store.toPublicState(r.room),
+        yourSeat: r.player.seat,
+        rejoinToken: r.player.rejoinToken,
+      });
+      // Re-send private hand if game is in progress
+      const game = games.get(r.room.code);
+      if (game?.hand) {
+        const hand = game.hand.hands[r.player.id] ?? [];
+        socket.emit('game:hand-dealt', { hand });
+      }
+      broadcastRoom(r.room.code);
     });
 
     socket.on('room:leave', () => {
@@ -241,17 +269,11 @@ export function createApp(): { app: express.Express; httpServer: ReturnType<type
       if (!result.ok) return sendError({ code: 'INVALID_MOVE', message: result.message });
       games.set(code, result.state);
       broadcastGame(code, io);
-      if (result.handEnded) {
-        const breakdown = result.state.hand
-          ? {
-              bidMade: result.state.runningScores[result.state.hand.bidder!] !== undefined,
-              pointsCollected: 0,
-              partners: Array.from(result.state.hand.partners),
-              scoreDeltas: {},
-              runningScores: result.state.runningScores,
-            }
-          : null;
-        if (breakdown) io.to(code).emit('game:hand-scored', breakdown);
+      if (result.handEnded && result.breakdown) {
+        io.to(code).emit('game:hand-scored', {
+          ...result.breakdown,
+          runningScores: result.state.runningScores,
+        });
       }
     });
 
