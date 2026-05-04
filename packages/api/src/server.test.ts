@@ -299,3 +299,109 @@ describe('full game flow integration', () => {
     clients.forEach((c) => c.disconnect());
   });
 });
+
+describe('additional handler coverage', () => {
+  let app: ReturnType<typeof createApp>;
+  let url: string;
+
+  beforeEach(async () => {
+    app = createApp();
+    await new Promise<void>((r) => app.httpServer.listen(0, r));
+    const addr = app.httpServer.address() as AddressInfo;
+    url = `http://localhost:${addr.port}`;
+  });
+
+  afterEach(async () => {
+    app.io.close();
+    await new Promise<void>((r) => app.httpServer.close(() => r()));
+  });
+
+  it('room:leave removes the player and broadcasts room:state-updated', async () => {
+    const host = ioClient(url, { transports: ['websocket'], reconnection: false });
+    const guest = ioClient(url, { transports: ['websocket'], reconnection: false });
+    await Promise.all([
+      new Promise<void>((r) => host.on('connect', () => r())),
+      new Promise<void>((r) => guest.on('connect', () => r())),
+    ]);
+
+    host.emit('room:create', { gameType: '250', hostName: 'Host' });
+    const created = await waitForEvent<{ room: { code: string } }>(host, 'room:created');
+    guest.emit('room:join', { code: created.room.code });
+    await waitForEvent(guest, 'room:joined');
+    guest.emit('room:claim-seat', { seat: 2, name: 'Guest' });
+    await waitForEvent(guest, 'room:seat-claimed');
+    // Wait for host to see Guest in state
+    await new Promise<void>((resolve) => {
+      const handler = (s: { players: { name: string }[] }) => {
+        if (s.players.find((p) => p.name === 'Guest')) {
+          host.off('room:state-updated', handler);
+          resolve();
+        }
+      };
+      host.on('room:state-updated', handler);
+    });
+
+    // Now Guest leaves
+    const guestGone = new Promise<void>((resolve) => {
+      const handler = (s: { players: { name: string }[] }) => {
+        if (!s.players.find((p) => p.name === 'Guest')) {
+          host.off('room:state-updated', handler);
+          resolve();
+        }
+      };
+      host.on('room:state-updated', handler);
+    });
+    guest.emit('room:leave');
+    await guestGone;
+
+    host.disconnect();
+    guest.disconnect();
+  });
+
+  it('out-of-turn game:play-card is rejected with INVALID_MOVE', async () => {
+    const clients = Array.from({ length: 6 }, () => ioClient(url, { transports: ['websocket'], reconnection: false }));
+    await Promise.all(clients.map((c) => new Promise<void>((r) => c.on('connect', () => r()))));
+    clients[0]!.emit('room:create', { gameType: '250', hostName: 'Host' });
+    const created = await waitForEvent<{ room: { code: string } }>(clients[0]!, 'room:created');
+    for (let i = 1; i < 6; i++) {
+      clients[i]!.emit('room:join', { code: created.room.code });
+      await waitForEvent(clients[i]!, 'room:joined');
+      clients[i]!.emit('room:claim-seat', { seat: i + 1, name: `P${i + 1}` });
+      await waitForEvent(clients[i]!, 'room:seat-claimed');
+    }
+    clients[0]!.emit('game:start-hand', {});
+    await waitForEvent(clients[0]!, 'game:hand-dealt');
+
+    // Players haven't bid yet — game is in 'bidding'. Try play-card from p3 (way out of context).
+    clients[2]!.emit('game:play-card', { card: { suit: 'spades', rank: 'A' } });
+    const err = await waitForEvent<{ code: string }>(clients[2]!, 'error');
+    expect(err.code).toBe('INVALID_MOVE');
+
+    clients.forEach((c) => c.disconnect());
+  });
+
+  it('all-pass auction: getAuctionWinner returns null path is reachable', async () => {
+    // We test the engine pure-function path here rather than the full multi-client choreography
+    // (auction-with-no-bids is a degenerate case the UI prevents at the bid floor, but unit-testing
+    // the state-machine null-return behavior is part of the test pyramid).
+    const { isAuctionClosed, getAuctionWinner } = await import('@250-500/shared');
+    const allPassed = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'].map((pid) => ({
+      playerId: pid,
+      action: 'pass' as const,
+    }));
+    const closed = isAuctionClosed({
+      gameType: '250',
+      playerIds: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'],
+      firstBidderId: 'p1',
+      bidHistory: allPassed,
+    });
+    expect(closed).toBe(true);
+    const winner = getAuctionWinner({
+      gameType: '250',
+      playerIds: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'],
+      firstBidderId: 'p1',
+      bidHistory: allPassed,
+    });
+    expect(winner).toBeNull();
+  });
+});
