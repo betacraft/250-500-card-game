@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { Copy, Check } from 'lucide-react';
 import type { RoomState } from '@250-500/shared';
 import { useConnectionStore } from '../stores/connection-store';
 import { useOnlineRoomStore } from '../stores/online-room-store';
 
 export function OnlineLobbyPage(): JSX.Element {
+  const navigate = useNavigate();
   const socket = useConnectionStore((s) => s.socket);
   const room = useOnlineRoomStore((s) => s.room);
   const yourSeat = useOnlineRoomStore((s) => s.yourSeat);
@@ -21,13 +22,16 @@ export function OnlineLobbyPage(): JSX.Element {
     const onUpdate = (next: RoomState) => setRoom(next);
     const onSeatClaimed = (payload: { yourSeat: number }) => setSeat(payload.yourSeat);
     const onError = (e: { code: string; message: string }) => setError(e.message);
+    const onGameState = () => navigate('/online/game');
     socket.on('room:state-updated', onUpdate);
     socket.on('room:seat-claimed', onSeatClaimed);
     socket.on('error', onError);
+    socket.on('game:state-updated', onGameState);
     return () => {
       socket.off('room:state-updated', onUpdate);
       socket.off('room:seat-claimed', onSeatClaimed);
       socket.off('error', onError);
+      socket.off('game:state-updated', onGameState);
     };
   }, [socket, setRoom, setSeat]);
 
@@ -106,8 +110,15 @@ export function OnlineLobbyPage(): JSX.Element {
 
       <div className="mt-auto flex flex-col gap-2 pt-6">
         {allFilled && socket?.id === room.hostSocketId && (
-          <button type="button" disabled className="rounded-xl bg-felt p-4 text-base font-medium text-white opacity-60">
-            Start hand (E08+)
+          <button
+            type="button"
+            onClick={() => {
+              socket.emit('game:start-hand', {});
+              navigate('/online/game');
+            }}
+            className="rounded-xl bg-felt p-4 text-base font-medium text-white active:scale-95 active:bg-felt-dark"
+          >
+            Start hand
           </button>
         )}
         {allFilled && socket?.id !== room.hostSocketId && (

@@ -5,6 +5,7 @@ import { ScorekeeperHandPage } from './pages/ScorekeeperHandPage';
 import { ScorekeeperHistoryPage } from './pages/ScorekeeperHistoryPage';
 import { OnlineHomePage } from './pages/OnlineHomePage';
 import { OnlineLobbyPage } from './pages/OnlineLobbyPage';
+import { OnlineGamePage } from './pages/OnlineGamePage';
 
 export function App(): JSX.Element {
   return (
@@ -15,6 +16,7 @@ export function App(): JSX.Element {
       <Route path="/scorekeeper/history" element={<ScorekeeperHistoryPage />} />
       <Route path="/online" element={<OnlineHomePage />} />
       <Route path="/online/lobby" element={<OnlineLobbyPage />} />
+      <Route path="/online/game" element={<OnlineGamePage />} />
     </Routes>
   );
 }
