@@ -54,7 +54,7 @@ describe('event schemas', () => {
     expect(roomStateSchema.safeParse({ ...valid, phase: 'invalid' }).success).toBe(false);
   });
 
-  it('roomCreatedSchema: room + yourSeat', () => {
+  it('roomCreatedSchema: room + yourSeat + rejoinToken + code', () => {
     const valid = {
       room: {
         code: 'ABCDEF',
@@ -65,7 +65,11 @@ describe('event schemas', () => {
         phase: 'lobby' as const,
       },
       yourSeat: 1,
+      rejoinToken: 'a'.repeat(24),
+      code: 'ABCDEF',
     };
     expect(roomCreatedSchema.safeParse(valid).success).toBe(true);
+    // Missing rejoinToken
+    expect(roomCreatedSchema.safeParse({ room: valid.room, yourSeat: 1 }).success).toBe(false);
   });
 });

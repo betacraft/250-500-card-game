@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Navigate } from 'react-router-dom';
 import { type Card, type Suit, cardId, isLegalPlay, rulesFor, wouldBeSelfReveal } from '@250-500/shared';
 import { useConnectionStore } from '../stores/connection-store';
@@ -55,12 +55,16 @@ export function OnlineGamePage(): JSX.Element {
     };
   }, [socket]);
 
-  // When the socket reconnects (status moves to 'connected' after a disconnect),
-  // re-link to the seat using the stored rejoin token.
+  // When the socket reconnects (status transitions from disconnected/error → connected),
+  // re-link to the seat using the stored rejoin token. We track the previous status with a ref
+  // so we don't emit room:reconnect on the first connect of a fresh session (which is unnecessary).
+  const prevStatusRef = useRef<typeof status | null>(null);
   useEffect(() => {
-    if (status === 'connected' && socket && rejoinToken && rememberedCode) {
+    const wasOffline = prevStatusRef.current === 'disconnected' || prevStatusRef.current === 'error';
+    if (status === 'connected' && wasOffline && socket && rejoinToken && rememberedCode) {
       socket.emit('room:reconnect', { code: rememberedCode, rejoinToken });
     }
+    prevStatusRef.current = status;
   }, [status, socket, rejoinToken, rememberedCode]);
 
   const myPlayer = useMemo(

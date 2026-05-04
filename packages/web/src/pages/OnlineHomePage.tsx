@@ -51,7 +51,7 @@ export function OnlineHomePage(): JSX.Element {
       socket.off('room:joined', onJoined);
       socket.off('error', onError);
     };
-  }, [socket, navigate, setRoom, setSeat]);
+  }, [socket, navigate, setRoom, setSeat, setRejoinCredentials]);
 
   const handleHost = () => {
     if (!socket || name.trim().length === 0) return;

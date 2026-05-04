@@ -45,14 +45,20 @@ describe('room-game', () => {
 
   it('auction closes when N-1 players pass; bidder is set', () => {
     let g = beginHand(initRoomGame({ gameType: '250', seatOrder: SEATS_6, seed: 1 }));
-    g = recordBid(g, 'p1', 165).ok ? (recordBid(g, 'p1', 165) as any).state : g;
+    const bid = recordBid(g, 'p1', 165);
+    if (!bid.ok) throw new Error('test setup: bid failed');
+    g = bid.state;
     for (const id of ['p2', 'p3', 'p4', 'p5', 'p6']) {
       const r = recordPass(g, id);
-      if (r.ok) g = r.state;
+      if (!r.ok) throw new Error(`test setup: pass failed for ${id}`);
+      g = r.state;
     }
     expect(g.phase).toBe('declaring');
-    expect(g.hand!.bidder).toBe('p1');
-    expect(g.hand!.bidAmount).toBe(165);
+    // SAFETY: phase 'declaring' is only reached when bidder + bidAmount are set.
+    if (g.hand) {
+      expect(g.hand.bidder).toBe('p1');
+      expect(g.hand.bidAmount).toBe(165);
+    }
   });
 
   it('declare requires bidder to be the caller and correct partner count', () => {

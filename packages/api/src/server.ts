@@ -36,7 +36,7 @@ export function createApp(): { app: express.Express; httpServer: ReturnType<type
   const httpServer = createServer(app);
   const config = loadConfig();
   const io = new SocketIOServer(httpServer, {
-    cors: { origin: config.CORS_ORIGIN === '*' ? '*' : config.CORS_ORIGIN.split(',') },
+    cors: { origin: config.CORS_ORIGIN === '*' ? '*' : config.CORS_ORIGIN.split(',').map((s) => s.trim()) },
     transports: ['websocket', 'polling'],
   });
   const store = new RoomStore();

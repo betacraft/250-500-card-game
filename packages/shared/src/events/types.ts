@@ -25,12 +25,31 @@ export const roomCreateRequestSchema = z.object({
 });
 export type RoomCreateRequest = z.infer<typeof roomCreateRequestSchema>;
 
-/** Sent to host on successful room creation; includes rejoin token. */
+/** Sent to host on successful room creation. Includes the stable rejoin token + room code
+ * so the client can persist them and reconnect after a socket disconnect. */
 export const roomCreatedSchema = z.object({
   room: roomStateSchema,
   yourSeat: z.number().int().min(1),
+  rejoinToken: z.string().min(8).max(64),
+  code: z.string().length(6),
 });
 export type RoomCreated = z.infer<typeof roomCreatedSchema>;
+
+/** Sent to a client after they successfully claim a seat. Includes credentials for reconnection. */
+export const roomSeatClaimedSchema = z.object({
+  yourSeat: z.number().int().min(1),
+  rejoinToken: z.string().min(8).max(64),
+  code: z.string().length(6),
+});
+export type RoomSeatClaimed = z.infer<typeof roomSeatClaimedSchema>;
+
+/** Sent to a client after they successfully reconnect via room:reconnect. */
+export const roomReconnectedSchema = z.object({
+  room: roomStateSchema,
+  yourSeat: z.number().int().min(1),
+  rejoinToken: z.string().min(8).max(64),
+});
+export type RoomReconnected = z.infer<typeof roomReconnectedSchema>;
 
 /** Client joins an existing room by code. */
 export const roomJoinRequestSchema = z.object({

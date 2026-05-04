@@ -152,13 +152,15 @@ export function play(state: RoomGameState, playerId: string, card: Card): PlayRe
   let breakdown: { bidMade: boolean; pointsCollected: number; partners: string[]; scoreDeltas: Record<string, number> } | null = null;
   if (result.state.ended) {
     breakdown = finalizeHand(result.state);
-    next.runningScores = Object.fromEntries(
-      Object.entries(state.runningScores).map(([id, s]) => [id, s + (breakdown!.scoreDeltas[id] ?? 0)]),
-    );
+    // SAFETY: breakdown is set above when result.state.ended is true, which is the same condition gating this block.
+    if (breakdown) {
+      next.runningScores = Object.fromEntries(
+        Object.entries(state.runningScores).map(([id, s]) => [id, s + (breakdown.scoreDeltas[id] ?? 0)]),
+      );
+    }
     next.handsPlayed = state.handsPlayed + 1;
     next.phase = 'scored';
   }
-  void cardId;
   return {
     ok: true,
     state: next,

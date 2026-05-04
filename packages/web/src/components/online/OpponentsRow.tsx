@@ -29,7 +29,7 @@ export function OpponentsRow({ players }: OpponentsRowProps): JSX.Element {
           <div key={p.id} className="flex flex-shrink-0 flex-col items-center gap-1">
             <div
               className={clsx(
-                'flex h-9 w-9 items-center justify-center rounded-full text-xs font-medium text-white',
+                'flex h-11 w-11 items-center justify-center rounded-full text-xs font-medium text-white',
                 p.status === 'turn' && 'ring-2 ring-gold',
                 p.status === 'disconnected' && 'opacity-50',
               )}

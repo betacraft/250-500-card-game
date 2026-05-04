@@ -40,7 +40,7 @@ export function OnlineLobbyPage(): JSX.Element {
       socket.off('error', onError);
       socket.off('game:state-updated', onGameState);
     };
-  }, [socket, setRoom, setSeat]);
+  }, [socket, setRoom, setSeat, setRejoinCredentials, navigate]);
 
   if (!room) return <Navigate to="/online" replace />;
 
