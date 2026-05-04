@@ -10,6 +10,22 @@ import {
 import { loadConfig } from './config';
 import { logger } from './logger';
 import { RoomStore } from './rooms/room-store';
+import {
+  initRoomGame,
+  beginHand,
+  recordBid as gameRecordBid,
+  recordPass as gameRecordPass,
+  declare as gameDeclare,
+  play as gamePlay,
+  type RoomGameState,
+} from './games/room-game';
+import {
+  gameBidRequestSchema,
+  gamePassRequestSchema,
+  gameDeclareRequestSchema,
+  gamePlayCardRequestSchema,
+  gameStartHandRequestSchema,
+} from '@250-500/shared';
 
 export function createApp(): { app: express.Express; httpServer: ReturnType<typeof createServer>; io: SocketIOServer; store: RoomStore } {
   const app = express();
@@ -21,6 +37,45 @@ export function createApp(): { app: express.Express; httpServer: ReturnType<type
   const store = new RoomStore();
 
   app.use(express.json({ limit: '10kb' }));
+
+  const games = new Map<string, RoomGameState>();
+
+  function publicHandState(code: string) {
+    const game = games.get(code);
+    if (!game?.hand) return null;
+    const cardsPerPlayer: Record<string, number> = {};
+    for (const id of game.seatOrder) cardsPerPlayer[id] = game.hand.hands[id]?.length ?? 0;
+    return {
+      phase: game.phase === 'lobby' ? 'bidding' : game.phase,
+      handNumber: game.handsPlayed + 1,
+      bidHistory: game.bidHistory,
+      bidder: game.hand.bidder,
+      bidAmount: game.hand.bidAmount,
+      trump: game.hand.trump,
+      calledCards: game.hand.calledCards,
+      partners: Array.from(game.hand.partners),
+      currentTrick: game.hand.currentTrick,
+      toPlayerId: game.hand.toPlayerId,
+      trickCount: game.hand.trickCount,
+      cardsPerPlayer,
+      runningScores: game.runningScores,
+    };
+  }
+
+  function broadcastGame(code: string, io_: typeof io) {
+    const state = publicHandState(code);
+    if (state) io_.to(code).emit('game:state-updated', state);
+  }
+
+  function emitPrivateHands(code: string, io_: typeof io) {
+    const room = store.getRoom(code);
+    const game = games.get(code);
+    if (!room || !game?.hand) return;
+    for (const player of room.players) {
+      const hand = game.hand.hands[player.id] ?? [];
+      io_.to(player.socketId).emit('game:hand-dealt', { hand });
+    }
+  }
 
   app.get('/health', (_req, res) => {
     res.json({
@@ -99,6 +154,96 @@ export function createApp(): { app: express.Express; httpServer: ReturnType<type
       void socket.leave(room.code);
       const updated = store.removePlayer(room.code, socket.id);
       if (updated) broadcastRoom(updated.code);
+    });
+
+    socket.on('game:start-hand', (rawPayload: unknown) => {
+      const ok = gameStartHandRequestSchema.safeParse(rawPayload);
+      if (!ok.success) return sendError({ code: 'INVALID_PAYLOAD', message: 'Invalid game:start-hand' });
+      const room = store.getRoom((socket.data.roomCode as string | undefined) ?? '');
+      if (!room) return sendError({ code: 'ROOM_NOT_FOUND', message: 'Room not found' });
+      if (socket.id !== room.hostSocketId) return sendError({ code: 'NOT_HOST', message: 'Only the host can start a hand' });
+      if (room.players.length !== room.capacity) return sendError({ code: 'INVALID_MOVE', message: 'Need all seats filled' });
+      const seatOrder = [...room.players].sort((a, b) => a.seat - b.seat).map((p) => p.id);
+      let game = games.get(room.code);
+      if (!game) {
+        game = initRoomGame({ gameType: room.gameType, seatOrder });
+        games.set(room.code, game);
+      }
+      games.set(room.code, beginHand(game));
+      emitPrivateHands(room.code, io);
+      broadcastGame(room.code, io);
+    });
+
+    socket.on('game:bid', (rawPayload: unknown) => {
+      const code = (socket.data.roomCode as string | undefined) ?? '';
+      const game = games.get(code);
+      if (!game) return sendError({ code: 'INVALID_MOVE', message: 'No game in progress' });
+      const room = store.getRoom(code);
+      const player = room?.players.find((p) => p.socketId === socket.id);
+      if (!player) return sendError({ code: 'INVALID_MOVE', message: 'Not in room' });
+      const ok = gameBidRequestSchema.safeParse(rawPayload);
+      if (!ok.success) return sendError({ code: 'INVALID_PAYLOAD', message: 'Invalid game:bid' });
+      const result = gameRecordBid(game, player.id, ok.data.amount);
+      if (!result.ok) return sendError({ code: 'INVALID_MOVE', message: result.message });
+      games.set(code, result.state);
+      broadcastGame(code, io);
+    });
+
+    socket.on('game:pass', (rawPayload: unknown) => {
+      const code = (socket.data.roomCode as string | undefined) ?? '';
+      const game = games.get(code);
+      if (!game) return sendError({ code: 'INVALID_MOVE', message: 'No game in progress' });
+      const room = store.getRoom(code);
+      const player = room?.players.find((p) => p.socketId === socket.id);
+      if (!player) return sendError({ code: 'INVALID_MOVE', message: 'Not in room' });
+      const ok = gamePassRequestSchema.safeParse(rawPayload);
+      if (!ok.success) return sendError({ code: 'INVALID_PAYLOAD', message: 'Invalid game:pass' });
+      const result = gameRecordPass(game, player.id);
+      if (!result.ok) return sendError({ code: 'INVALID_MOVE', message: result.message });
+      games.set(code, result.state);
+      broadcastGame(code, io);
+    });
+
+    socket.on('game:declare', (rawPayload: unknown) => {
+      const code = (socket.data.roomCode as string | undefined) ?? '';
+      const game = games.get(code);
+      if (!game) return sendError({ code: 'INVALID_MOVE', message: 'No game in progress' });
+      const room = store.getRoom(code);
+      const player = room?.players.find((p) => p.socketId === socket.id);
+      if (!player) return sendError({ code: 'INVALID_MOVE', message: 'Not in room' });
+      const ok = gameDeclareRequestSchema.safeParse(rawPayload);
+      if (!ok.success) return sendError({ code: 'INVALID_PAYLOAD', message: 'Invalid game:declare' });
+      const result = gameDeclare(game, player.id, ok.data.trump, ok.data.calledCards);
+      if (!result.ok) return sendError({ code: 'INVALID_MOVE', message: result.message });
+      games.set(code, result.state);
+      broadcastGame(code, io);
+    });
+
+    socket.on('game:play-card', (rawPayload: unknown) => {
+      const code = (socket.data.roomCode as string | undefined) ?? '';
+      const game = games.get(code);
+      if (!game) return sendError({ code: 'INVALID_MOVE', message: 'No game in progress' });
+      const room = store.getRoom(code);
+      const player = room?.players.find((p) => p.socketId === socket.id);
+      if (!player) return sendError({ code: 'INVALID_MOVE', message: 'Not in room' });
+      const ok = gamePlayCardRequestSchema.safeParse(rawPayload);
+      if (!ok.success) return sendError({ code: 'INVALID_PAYLOAD', message: 'Invalid game:play-card' });
+      const result = gamePlay(game, player.id, ok.data.card);
+      if (!result.ok) return sendError({ code: 'INVALID_MOVE', message: result.message });
+      games.set(code, result.state);
+      broadcastGame(code, io);
+      if (result.handEnded) {
+        const breakdown = result.state.hand
+          ? {
+              bidMade: result.state.runningScores[result.state.hand.bidder!] !== undefined,
+              pointsCollected: 0,
+              partners: Array.from(result.state.hand.partners),
+              scoreDeltas: {},
+              runningScores: result.state.runningScores,
+            }
+          : null;
+        if (breakdown) io.to(code).emit('game:hand-scored', breakdown);
+      }
     });
 
     socket.on('disconnect', () => {
