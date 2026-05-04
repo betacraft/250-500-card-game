@@ -22,14 +22,14 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: /score in-person game/i })).toBeInTheDocument();
   });
 
-  it('disables the online play button', () => {
+  it('shows the online play link', () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <App />
       </MemoryRouter>,
     );
-    const onlineBtn = screen.getByRole('button', { name: /play online/i });
-    expect(onlineBtn).toBeDisabled();
+    const onlineLink = screen.getByRole('link', { name: /play online/i });
+    expect(onlineLink).toBeInTheDocument();
   });
 
   it('navigates to setup page', () => {

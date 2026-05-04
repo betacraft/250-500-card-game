@@ -24,20 +24,15 @@ export function HomePage(): JSX.Element {
           </div>
         </Link>
 
-        <button
-          type="button"
-          disabled
-          className="block rounded-xl bg-stone-200 p-6 text-left text-stone-500 cursor-not-allowed"
-          aria-disabled="true"
+        <Link
+          to="/online"
+          className="block rounded-xl border-2 border-felt bg-white p-6 text-stone-900 active:scale-95 transition-transform"
         >
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-medium">Play online</span>
-            <span className="rounded-full bg-stone-300 px-2 py-0.5 text-xs">Coming in Phase 2</span>
+          <div className="text-lg font-medium">Play online</div>
+          <div className="mt-1 text-sm text-stone-600">
+            Multiplayer with friends from any phone.
           </div>
-          <div className="mt-1 text-sm">
-            Multiplayer with friends from any phone — coming soon.
-          </div>
-        </button>
+        </Link>
       </section>
 
       <footer className="mt-8 text-center text-xs text-stone-500">

@@ -32,5 +32,10 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') },
   },
-  server: { port: 5173 },
+  server: {
+    port: 5173,
+    proxy: {
+      '/socket.io': { target: 'http://localhost:3001', ws: true },
+    },
+  },
 });
