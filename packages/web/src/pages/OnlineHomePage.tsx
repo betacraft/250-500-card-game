@@ -15,6 +15,7 @@ export function OnlineHomePage(): JSX.Element {
   const connect = useConnectionStore((s) => s.connect);
   const setRoom = useOnlineRoomStore((s) => s.setRoom);
   const setSeat = useOnlineRoomStore((s) => s.setSeat);
+  const setRejoinCredentials = useOnlineRoomStore((s) => s.setRejoinCredentials);
 
   const [mode, setMode] = useState<'pick' | 'host' | 'join'>('pick');
   const [gameType, setGameType] = useState<GameType>('250');
@@ -28,9 +29,12 @@ export function OnlineHomePage(): JSX.Element {
 
   useEffect(() => {
     if (!socket) return;
-    const onCreated = (payload: { room: RoomState; yourSeat: number }) => {
+    const onCreated = (payload: { room: RoomState; yourSeat: number; rejoinToken?: string; code?: string }) => {
       setRoom(payload.room);
       setSeat(payload.yourSeat);
+      if (payload.rejoinToken && payload.code) {
+        setRejoinCredentials(payload.code, payload.rejoinToken);
+      }
       navigate('/online/lobby');
     };
     const onJoined = (payload: { room: RoomState }) => {

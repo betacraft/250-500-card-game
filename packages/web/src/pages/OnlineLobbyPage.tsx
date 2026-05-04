@@ -12,6 +12,7 @@ export function OnlineLobbyPage(): JSX.Element {
   const yourSeat = useOnlineRoomStore((s) => s.yourSeat);
   const setRoom = useOnlineRoomStore((s) => s.setRoom);
   const setSeat = useOnlineRoomStore((s) => s.setSeat);
+  const setRejoinCredentials = useOnlineRoomStore((s) => s.setRejoinCredentials);
 
   const [name, setName] = useState('');
   const [copied, setCopied] = useState(false);
@@ -20,7 +21,12 @@ export function OnlineLobbyPage(): JSX.Element {
   useEffect(() => {
     if (!socket) return;
     const onUpdate = (next: RoomState) => setRoom(next);
-    const onSeatClaimed = (payload: { yourSeat: number }) => setSeat(payload.yourSeat);
+    const onSeatClaimed = (payload: { yourSeat: number; rejoinToken?: string; code?: string }) => {
+      setSeat(payload.yourSeat);
+      if (payload.rejoinToken && payload.code) {
+        setRejoinCredentials(payload.code, payload.rejoinToken);
+      }
+    };
     const onError = (e: { code: string; message: string }) => setError(e.message);
     const onGameState = () => navigate('/online/game');
     socket.on('room:state-updated', onUpdate);

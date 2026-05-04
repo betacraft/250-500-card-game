@@ -34,6 +34,8 @@ export function OnlineGamePage(): JSX.Element {
   const status = useConnectionStore((s) => s.status);
   const connect = useConnectionStore((s) => s.connect);
   const room = useOnlineRoomStore((s) => s.room);
+  const rejoinToken = useOnlineRoomStore((s) => s.rejoinToken);
+  const rememberedCode = useOnlineRoomStore((s) => s.rememberedCode);
 
   const [handState, setHandState] = useState<PublicHandState | null>(null);
   const [myHand, setMyHand] = useState<Card[]>([]);
@@ -51,6 +53,14 @@ export function OnlineGamePage(): JSX.Element {
       socket.off('game:hand-dealt', onHand);
     };
   }, [socket]);
+
+  // When the socket reconnects (status moves to 'connected' after a disconnect),
+  // re-link to the seat using the stored rejoin token.
+  useEffect(() => {
+    if (status === 'connected' && socket && rejoinToken && rememberedCode) {
+      socket.emit('room:reconnect', { code: rememberedCode, rejoinToken });
+    }
+  }, [status, socket, rejoinToken, rememberedCode]);
 
   const myPlayer = useMemo(
     () => room?.players.find((p) => p.socketId === socket?.id),
@@ -106,7 +116,13 @@ export function OnlineGamePage(): JSX.Element {
       </div>
 
       {(status === 'disconnected' || status === 'error' || status === 'connecting') && (
-        <ReconnectionBanner status={status} onRetry={() => connect(window.location.origin)} />
+        <ReconnectionBanner
+          status={status}
+          onRetry={() => {
+            connect(window.location.origin);
+            // The reconnect flow on socket connect is handled by the effect above.
+          }}
+        />
       )}
 
       <TopStateStrip
