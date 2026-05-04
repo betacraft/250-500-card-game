@@ -72,3 +72,38 @@ describe('RoomStore', () => {
     expect(store.findRoomBySocket('does-not-exist')).toBeUndefined();
   });
 });
+
+import { vi } from 'vitest';
+
+describe('RoomStore disconnect grace timer', () => {
+  it('markDisconnected fires onExpire after 60s if not reconnected', () => {
+    vi.useFakeTimers();
+    const store = new RoomStore();
+    const room = store.createRoom('250', 's-host');
+    store.addPlayer(room.code, { socketId: 's-host', seat: 1, name: 'Host' });
+    const onExpire = vi.fn();
+    store.markDisconnected('s-host', onExpire);
+
+    // 59s — not yet
+    vi.advanceTimersByTime(59_000);
+    expect(onExpire).not.toHaveBeenCalled();
+
+    // 60s — fires
+    vi.advanceTimersByTime(2_000);
+    expect(onExpire).toHaveBeenCalledWith(room.code, 's-host');
+    vi.useRealTimers();
+  });
+
+  it('reconnectPlayer cancels the disconnect timer (no expiry call)', () => {
+    vi.useFakeTimers();
+    const store = new RoomStore();
+    const room = store.createRoom('250', 's-host');
+    store.addPlayer(room.code, { socketId: 's-host', seat: 1, name: 'Host' });
+    const onExpire = vi.fn();
+    store.markDisconnected('s-host', onExpire);
+    store.reconnectPlayer('s-host');
+    vi.advanceTimersByTime(120_000);
+    expect(onExpire).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+});

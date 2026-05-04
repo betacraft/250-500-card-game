@@ -405,3 +405,115 @@ describe('additional handler coverage', () => {
     expect(winner).toBeNull();
   });
 });
+
+describe('game:declare + 60s grace + lobby/hand pages flow', () => {
+  let app: ReturnType<typeof createApp>;
+  let url: string;
+
+  beforeEach(async () => {
+    app = createApp();
+    await new Promise<void>((r) => app.httpServer.listen(0, r));
+    const addr = app.httpServer.address() as AddressInfo;
+    url = `http://localhost:${addr.port}`;
+  });
+
+  afterEach(async () => {
+    void app.io.close();
+    await new Promise<void>((r) => app.httpServer.close(() => r()));
+  });
+
+  it('game:declare: bidder declares trump + partners; phase transitions to playing', async () => {
+    const clients = Array.from({ length: 6 }, () => ioClient(url, { transports: ['websocket'], reconnection: false }));
+    await Promise.all(clients.map((c) => new Promise<void>((r) => c.on('connect', () => r()))));
+
+    clients[0]!.emit('room:create', { gameType: '250', hostName: 'Host' });
+    const created = await waitForEvent<{ room: { code: string } }>(clients[0]!, 'room:created');
+    const code = created.room.code;
+    for (let i = 1; i < 6; i++) {
+      clients[i]!.emit('room:join', { code });
+      await waitForEvent(clients[i]!, 'room:joined');
+      clients[i]!.emit('room:claim-seat', { seat: i + 1, name: `P${i + 1}` });
+      await waitForEvent(clients[i]!, 'room:seat-claimed');
+    }
+    clients[0]!.emit('game:start-hand', {});
+    await waitForEvent(clients[0]!, 'game:hand-dealt');
+
+    // p1 bids 165, all pass — auction closes
+    const declaringPromise = new Promise<void>((resolve) => {
+      const handler = (s: { phase: string }) => {
+        if (s.phase === 'declaring') {
+          clients[0]!.off('game:state-updated', handler);
+          resolve();
+        }
+      };
+      clients[0]!.on('game:state-updated', handler);
+    });
+    clients[0]!.emit('game:bid', { amount: 165 });
+    for (let i = 1; i < 6; i++) {
+      const passed = new Promise<void>((resolve) => {
+        const h = (s: { bidHistory: { playerId: string }[] }) => {
+          if (s.bidHistory[s.bidHistory.length - 1]?.playerId === `p${i + 1}`) {
+            clients[i]!.off('game:state-updated', h);
+            resolve();
+          }
+        };
+        clients[i]!.on('game:state-updated', h);
+      });
+      clients[i]!.emit('game:pass', {});
+      await passed;
+    }
+    await declaringPromise;
+
+    // Now bidder declares trump + 2 called cards
+    const playingPromise = new Promise<{ phase: string; trump: string; calledCards: unknown[] }>((resolve) => {
+      const handler = (s: { phase: string; trump: string; calledCards: unknown[] }) => {
+        if (s.phase === 'playing') {
+          clients[0]!.off('game:state-updated', handler);
+          resolve(s);
+        }
+      };
+      clients[0]!.on('game:state-updated', handler);
+    });
+    clients[0]!.emit('game:declare', {
+      trump: 'spades',
+      calledCards: [
+        { suit: 'hearts', rank: 'Q' },
+        { suit: 'diamonds', rank: 'K' },
+      ],
+    });
+    const playingState = await playingPromise;
+    expect(playingState.phase).toBe('playing');
+    expect(playingState.trump).toBe('spades');
+    expect(playingState.calledCards).toHaveLength(2);
+
+    clients.forEach((c) => c.disconnect());
+  });
+
+  it('non-bidder game:declare is rejected with INVALID_MOVE', async () => {
+    const clients = Array.from({ length: 6 }, () => ioClient(url, { transports: ['websocket'], reconnection: false }));
+    await Promise.all(clients.map((c) => new Promise<void>((r) => c.on('connect', () => r()))));
+    clients[0]!.emit('room:create', { gameType: '250', hostName: 'Host' });
+    const created = await waitForEvent<{ room: { code: string } }>(clients[0]!, 'room:created');
+    for (let i = 1; i < 6; i++) {
+      clients[i]!.emit('room:join', { code: created.room.code });
+      await waitForEvent(clients[i]!, 'room:joined');
+      clients[i]!.emit('room:claim-seat', { seat: i + 1, name: `P${i + 1}` });
+      await waitForEvent(clients[i]!, 'room:seat-claimed');
+    }
+    clients[0]!.emit('game:start-hand', {});
+    await waitForEvent(clients[0]!, 'game:hand-dealt');
+
+    // p2 (non-bidder, even before bidding closes) tries to declare
+    clients[1]!.emit('game:declare', {
+      trump: 'spades',
+      calledCards: [
+        { suit: 'hearts', rank: 'Q' },
+        { suit: 'diamonds', rank: 'K' },
+      ],
+    });
+    const err = await waitForEvent<{ code: string }>(clients[1]!, 'error');
+    expect(err.code).toBe('INVALID_MOVE');
+
+    clients.forEach((c) => c.disconnect());
+  });
+});
