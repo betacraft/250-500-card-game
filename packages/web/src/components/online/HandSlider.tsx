@@ -11,6 +11,7 @@ interface HandSliderProps {
   canPlay: boolean;
 }
 
+/** Mobile horizontal snap-scroll hand display. Tap-to-select with lift; Play button confirms. */
 export function HandSlider({ cards, legalCardIds, onPlay, alwaysConfirm = true, canPlay }: HandSliderProps): JSX.Element {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = cards.find((c) => cardId(c) === selectedId) ?? null;

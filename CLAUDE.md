@@ -103,7 +103,7 @@ Same as Phase 1 plus:
 1. **tech-lead** reads CLAUDE.md → reads RULES.md → reads epic file → breaks into shared/frontend/backend tasks → notes dependencies
 2. **qa-engineer** writes failing tests for the new behavior (TDD red phase)
 3. **frontend-dev** (and backend-dev in Phase 2) execute in parallel where possible
-4. **tech-lead** integrates, runs `pnpm typecheck`, `pnpm lint`
+4. **tech-lead** integrates, runs `npm run typecheck`, `npm run lint`
 5. **qa-engineer** runs full suite, audits coverage, returns PASS/FAIL
 6. **code-reviewer** audits security + SOLID + mobile UX + accessibility, returns PASS/FAIL
 7. **docs-updater** updates CLAUDE.md (Current State, Decisions Log), JSDoc
@@ -118,7 +118,7 @@ Every feature follows red-green-refactor. No code merges without tests written f
 **The tech-lead may NEVER commit without all of these passing in this exact order:**
 
 1. **TDD red phase verified** — qa-engineer wrote failing tests BEFORE implementation. Tests file must exist with at least one assertion before any production code is written.
-2. **All quality gates green** — `pnpm typecheck && pnpm lint && pnpm test && pnpm build` (and `pnpm test:e2e` after every UI epic).
+2. **All quality gates green** — `npm run typecheck && npm run lint && npm run test && npm run build` (and `npm run test:e2e` after every UI epic).
 3. **qa-engineer subagent returns PASS** — independent review of test coverage, edge cases hunted, test pyramid honored.
 4. **code-reviewer subagent returns PASS** — independent audit against the full code-reviewer.md checklist, including:
    - Convention compliance (file size, naming, types)
@@ -328,11 +328,11 @@ The migration is mechanical — move files, add `@250-500/shared` import paths. 
 
 ### Phase 1
 ```bash
-pnpm typecheck      # tsc --noEmit
-pnpm lint           # ESLint
-pnpm test           # Vitest (unit + component)
-pnpm test:e2e       # Playwright (mobile viewport)
-pnpm build          # Vite build (verify PWA assets generated)
+npm run typecheck      # tsc --noEmit
+npm run lint           # ESLint
+npm run test           # Vitest (unit + component)
+npm run test:e2e       # Playwright (mobile viewport)
+npm run build          # Vite build (verify PWA assets generated)
 ```
 
 ### Phase 2

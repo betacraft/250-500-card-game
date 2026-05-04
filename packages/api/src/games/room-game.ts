@@ -35,6 +35,7 @@ export interface RoomGameState {
   seed?: number;
 }
 
+/** Initialize fresh per-room game state (running scores zeroed, no hand yet). */
 export function initRoomGame(args: {
   gameType: GameType;
   seatOrder: string[];
@@ -54,6 +55,7 @@ export function initRoomGame(args: {
 }
 
 /** Begin a new hand: deal cards, rotate firstBidder per hand (clockwise from initial dealer). */
+/** Deal a fresh hand. Rotates firstBidderId clockwise per hand. */
 export function beginHand(state: RoomGameState): RoomGameState {
   const startIdx = state.handsPlayed % state.seatOrder.length;
   const firstBidderId = state.seatOrder[startIdx]!;
@@ -70,6 +72,7 @@ export type BidActionResult =
   | { ok: true; state: RoomGameState; auctionClosed: boolean }
   | { ok: false; code: string; message: string };
 
+/** Record a player's bid. Auto-closes the auction if N-1 have passed. */
 export function recordBid(state: RoomGameState, playerId: string, amount: number): BidActionResult {
   const auctionState = {
     gameType: state.gameType,
@@ -92,6 +95,7 @@ export function recordBid(state: RoomGameState, playerId: string, amount: number
   return { ok: true, state: next, auctionClosed: closed };
 }
 
+/** Record a player's pass. Auto-closes the auction if N-1 have passed. */
 export function recordPass(state: RoomGameState, playerId: string): BidActionResult {
   const auctionState = {
     gameType: state.gameType,
@@ -118,6 +122,7 @@ export type DeclareResult =
   | { ok: true; state: RoomGameState }
   | { ok: false; code: string; message: string };
 
+/** Bidder declares trump + called partner cards. */
 export function declare(
   state: RoomGameState,
   playerId: string,
@@ -138,6 +143,7 @@ export type PlayResult =
   | { ok: true; state: RoomGameState; trickWinnerId: string | null; newPartner: string | null; handEnded: boolean; breakdown: { bidMade: boolean; pointsCollected: number; partners: string[]; scoreDeltas: Record<string, number> } | null }
   | { ok: false; code: string; message: string };
 
+/** Current player plays a card. Returns trick winner + new partner if applicable, plus score breakdown if hand ended. */
 export function play(state: RoomGameState, playerId: string, card: Card): PlayResult {
   if (!state.hand) return { ok: false, code: 'INVALID_PHASE', message: 'No hand in progress' };
   const result = playCard(state.hand, playerId, card);

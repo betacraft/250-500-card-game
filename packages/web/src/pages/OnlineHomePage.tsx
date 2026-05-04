@@ -8,6 +8,7 @@ import { GameTypeCard } from '../components/scorekeeper/GameTypeCard';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ?? '';
 
+/** Online mode entry point: host or join via code. Captures rejoin token from server. */
 export function OnlineHomePage(): JSX.Element {
   const navigate = useNavigate();
   const status = useConnectionStore((s) => s.status);

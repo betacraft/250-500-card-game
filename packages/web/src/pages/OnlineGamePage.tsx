@@ -29,6 +29,7 @@ interface PublicHandState {
   runningScores: Record<string, number>;
 }
 
+/** Active online game: top strip, opponents row, trick area, hand slider. */
 export function OnlineGamePage(): JSX.Element {
   const socket = useConnectionStore((s) => s.socket);
   const status = useConnectionStore((s) => s.status);

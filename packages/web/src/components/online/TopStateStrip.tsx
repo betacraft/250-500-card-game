@@ -8,6 +8,7 @@ interface TopStateStripProps {
   yourScore: number;
 }
 
+/** Top-of-screen 3-column strip: trump suit | current bid + bidder | your running score. */
 export function TopStateStrip({ trump, bid, bidderName, yourScore }: TopStateStripProps): JSX.Element {
   return (
     <div className="grid grid-cols-3 gap-2 text-xs">

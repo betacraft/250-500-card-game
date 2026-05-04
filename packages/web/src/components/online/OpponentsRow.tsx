@@ -11,6 +11,7 @@ interface OpponentsRowProps {
   players: PlayerCell[];
 }
 
+/** Compact strip of other players' avatars with name + status badge. */
 export function OpponentsRow({ players }: OpponentsRowProps): JSX.Element {
   const colorFor = (id: string): string => {
     // Derived from the brand palette (felt, gold, accent shades) — kept on-palette per design language.

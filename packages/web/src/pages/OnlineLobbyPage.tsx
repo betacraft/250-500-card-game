@@ -5,6 +5,7 @@ import type { RoomState } from '@250-500/shared';
 import { useConnectionStore } from '../stores/connection-store';
 import { useOnlineRoomStore } from '../stores/online-room-store';
 
+/** Pre-game lobby: shows room code, seat picker, player list. Host can start the hand. */
 export function OnlineLobbyPage(): JSX.Element {
   const navigate = useNavigate();
   const socket = useConnectionStore((s) => s.socket);

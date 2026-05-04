@@ -13,6 +13,7 @@ interface TrickAreaProps {
   ledSuit?: Card['suit'] | null;
 }
 
+/** Center-of-screen area showing cards played to the current trick + led suit. */
 export function TrickArea({ played, playerNames, ledSuit }: TrickAreaProps): JSX.Element {
   return (
     <div className="rounded-xl bg-felt p-4 min-h-[150px] flex flex-col items-center justify-center gap-2">

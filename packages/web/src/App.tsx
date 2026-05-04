@@ -6,6 +6,8 @@ import { OnlineHomePage } from './pages/OnlineHomePage';
 import { OnlineLobbyPage } from './pages/OnlineLobbyPage';
 import { OnlineGamePage } from './pages/OnlineGamePage';
 
+/** Top-level router for the app. Routes:
+ * `/` HomePage, `/scorekeeper/*` Scorekeeper flows, `/online/*` Online flows. */
 export function App(): JSX.Element {
   return (
     <Routes>

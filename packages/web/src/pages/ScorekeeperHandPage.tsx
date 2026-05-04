@@ -10,6 +10,7 @@ import { HandResultEntry } from '../components/shared/HandResultEntry';
 import { ScoreBoard } from '../components/shared/ScoreBoard';
 import { SuitIcon } from '../components/shared/SuitIcon';
 
+/** Hand orchestrator: bidding -> declaration -> result -> next hand or game over. */
 export function ScorekeeperHandPage(): JSX.Element {
   const navigate = useNavigate();
   const settings = useScorekeeperStore((s) => s.settings);

@@ -4,21 +4,26 @@ import { bidEntrySchema } from '../state/scorekeeper';
 
 const suitEnum = z.enum(['spades', 'hearts', 'diamonds', 'clubs']);
 
+/** Host starts dealing the next hand. */
 export const gameStartHandRequestSchema = z.object({});
 export type GameStartHandRequest = z.infer<typeof gameStartHandRequestSchema>;
 
+/** Player bids during the auction round. */
 export const gameBidRequestSchema = z.object({ amount: z.number().int() });
 export type GameBidRequest = z.infer<typeof gameBidRequestSchema>;
 
+/** Player passes during the auction round. */
 export const gamePassRequestSchema = z.object({});
 export type GamePassRequest = z.infer<typeof gamePassRequestSchema>;
 
+/** Bidder declares trump suit and the called partner cards. */
 export const gameDeclareRequestSchema = z.object({
   trump: suitEnum,
   calledCards: z.array(cardSchema).min(1).max(3),
 });
 export type GameDeclareRequest = z.infer<typeof gameDeclareRequestSchema>;
 
+/** Current player plays a card to the trick. */
 export const gamePlayCardRequestSchema = z.object({ card: cardSchema });
 export type GamePlayCardRequest = z.infer<typeof gamePlayCardRequestSchema>;
 
@@ -45,11 +50,13 @@ export const publicHandStateSchema = z.object({
 });
 export type PublicHandState = z.infer<typeof publicHandStateSchema>;
 
+/** Private payload sent only to the owning socket — contains the player's hand. */
 export const handDealtPrivateSchema = z.object({
   hand: z.array(cardSchema),
 });
 export type HandDealtPrivate = z.infer<typeof handDealtPrivateSchema>;
 
+/** Sent once when a hand finishes; drives the post-hand summary UI. */
 export const handScoredSchema = z.object({
   bidMade: z.boolean(),
   pointsCollected: z.number().int(),

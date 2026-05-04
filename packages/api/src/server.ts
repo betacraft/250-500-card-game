@@ -30,6 +30,7 @@ import {
   gameStartHandRequestSchema,
 } from '@250-500/shared';
 
+/** Build the Express + Socket.io app. Returns the express app, http server, io instance, and room store. */
 export function createApp(): { app: express.Express; httpServer: ReturnType<typeof createServer>; io: SocketIOServer; store: RoomStore } {
   const app = express();
   const httpServer = createServer(app);

@@ -1,5 +1,6 @@
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
+/** Generate a 6-character base32 room code (avoids ambiguous chars 0/1/I/O). */
 export function generateRoomCode(): string {
   let out = '';
   const bytes = new Uint8Array(6);

@@ -4,6 +4,7 @@ interface ConnectionStatusProps {
   status: 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error';
 }
 
+/** Connection status pill: online / connecting / disconnected. */
 export function ConnectionStatus({ status }: ConnectionStatusProps): JSX.Element {
   if (status === 'connected') {
     return (

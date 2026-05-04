@@ -30,6 +30,7 @@ export function checkRateLimit(socketId: string): boolean {
   return true;
 }
 
+/** Clear the rate-limit bucket for a given socket (call on disconnect). */
 export function clearRateLimit(socketId: string): void {
   buckets.delete(socketId);
 }
