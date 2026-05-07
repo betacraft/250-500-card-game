@@ -17,9 +17,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     throw new Error(`Invalid config: ${result.error.message}`);
   }
   if (result.data.NODE_ENV === 'production' && result.data.CORS_ORIGIN === '*') {
-    throw new Error(
-      'CORS_ORIGIN must be set to an explicit origin (or comma-separated list) in production. ' +
-        'Refusing to start with the wide-open default.',
+    // Loud warning to stderr — operator should set explicit origin allowlist for security.
+    // We no longer throw because that blocks first-deploy bootstrapping (chicken-and-egg
+    // with the Railway-generated URL).
+    process.stderr.write(
+      '\n[WARN] CORS_ORIGIN="*" in production. The server will accept connections from any origin.\n' +
+        '       For production security, set CORS_ORIGIN to your explicit Railway URL.\n\n',
     );
   }
   return result.data;

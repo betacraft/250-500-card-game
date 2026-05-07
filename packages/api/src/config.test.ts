@@ -21,8 +21,21 @@ describe('config', () => {
     expect(() => loadConfig({ NODE_ENV: 'staging' })).toThrow();
   });
 
-  it('refuses production with CORS_ORIGIN=* (default)', () => {
-    expect(() => loadConfig({ NODE_ENV: 'production' })).toThrow(/CORS_ORIGIN/);
+  it('warns but does NOT throw on production with CORS_ORIGIN=*', () => {
+    // Capture stderr to verify the warning is emitted
+    const origWrite = process.stderr.write.bind(process.stderr);
+    let captured = '';
+    process.stderr.write = ((chunk: string | Uint8Array) => {
+      captured += String(chunk);
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      const c = loadConfig({ NODE_ENV: 'production' });
+      expect(c.CORS_ORIGIN).toBe('*');
+      expect(captured).toMatch(/CORS_ORIGIN.*production/i);
+    } finally {
+      process.stderr.write = origWrite;
+    }
   });
 
   it('accepts production with explicit CORS_ORIGIN', () => {
