@@ -5,14 +5,15 @@ FROM node:20-slim AS builder
 WORKDIR /app
 
 # Install package manifests first for better Docker layer caching
-COPY package.json package-lock.json ./
+COPY package.json ./
 COPY packages/api/package.json ./packages/api/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/web/package.json ./packages/web/
 
-# Install ALL deps (incl. dev — needed for tsc/vite/esbuild at build time)
-# Use npm install instead of npm ci — npm ci has a known bug where platform-specific
-# optional deps (rollup native binaries) get dropped from package-lock.json on cross-platform installs.
+# Install ALL deps fresh (no lockfile copied — forces complete platform-specific resolution).
+# npm has a long-standing bug (https://github.com/npm/cli/issues/4828) where it skips
+# optional platform-specific deps (e.g. @rollup/rollup-linux-x64-gnu) when a lockfile is
+# present. Solution: don't copy the lockfile; let npm resolve fresh inside the container.
 RUN npm install --no-audit --no-fund
 
 # Copy source and build (creates packages/{shared,api,web}/dist)
@@ -30,15 +31,15 @@ ENV PORT=3001
 RUN apt-get update && apt-get install -y --no-install-recommends wget \
     && rm -rf /var/lib/apt/lists/*
 
-# All 3 workspace manifests must be present for `npm ci --workspaces` to resolve.
+# All 3 workspace manifests must be present for `npm install --workspaces` to resolve.
 # We don't need shared/web source — esbuild bundled @250-500/shared into the api server,
 # and the web package only contributes static assets at runtime.
-COPY package.json package-lock.json ./
+COPY package.json ./
 COPY packages/api/package.json ./packages/api/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/web/package.json ./packages/web/
 
-# Install runtime deps only (npm install for same reason as above)
+# Install runtime deps only (no lockfile — same rollup bug applies)
 RUN npm install --no-audit --no-fund --omit=dev --workspaces --include-workspace-root
 
 # Copy built artifacts from the builder stage
