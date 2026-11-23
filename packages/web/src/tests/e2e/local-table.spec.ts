@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { assertHandCorners } from './visible-hand';
 
 async function playOneHand(page: import('@playwright/test').Page, variant: '250' | '500'): Promise<void> {
   const errors: string[] = [];
@@ -25,10 +26,11 @@ async function playOneHand(page: import('@playwright/test').Page, variant: '250'
       hiddenShot = true;
     }
     if (!paused && (await page.getByTestId('trick-pause').isVisible().catch(() => false))) {
-      const marks = await page.getByTestId('trick-pause').locator('svg').evaluateAll((nodes) =>
-        nodes.map((node) => node.getBoundingClientRect().width),
-      );
-      expect(Math.max(...marks, 0)).toBeGreaterThanOrEqual(47);
+      const spills = await page.getByTestId('trick-row').evaluate((row) => {
+        const box = row.getBoundingClientRect();
+        return box.left < -1 || box.right > window.innerWidth + 1;
+      });
+      expect(spills).toBe(false);
       await page.screenshot({ path: `/opt/cursor/artifacts/trick-pause-${label}.png`, fullPage: true });
       paused = true;
     }
@@ -79,6 +81,7 @@ async function expectDeclarationHand(
   }
   await page.getByRole('button', { name: /^Bid / }).click();
   await expect(page.getByTestId('declare-form')).toBeVisible();
+  await assertHandCorners(page);
   const fan = page.getByTestId('hand-fan');
   await expect(fan).toBeVisible();
   const box = await fan.boundingBox();

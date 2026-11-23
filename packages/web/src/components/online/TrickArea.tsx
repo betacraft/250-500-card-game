@@ -30,9 +30,10 @@ export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerI
     const observer = new ResizeObserver(apply);
     observer.observe(node);
     return () => observer.disconnect();
-  }, []);
+  }, [played.length]);
   const count = Math.max(played.length, 1);
-  const width = Math.min(72, Math.max(48, Math.floor((rowWidth - 4) / count)));
+  const fit = Math.floor((rowWidth - 4) / count);
+  const width = Math.min(72, Math.max(28, fit));
   return (
     <div className="flex min-h-[150px] flex-col items-center justify-center gap-2 rounded-xl bg-felt px-1 py-3">
       {ledSuit && (
@@ -44,7 +45,7 @@ export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerI
         <div className="text-sm text-white/60">Trick area</div>
       ) : (
         <>
-          <div ref={rowRef} className="-mx-3 flex w-[calc(100%+1.5rem)] justify-center">
+          <div ref={rowRef} data-testid="trick-row" className="flex w-full justify-center">
             {played.map((p, index) => (
               <div key={`${cardInstanceKey(p.card)}-${p.playerId}`} className={p.playerId === winnerId ? 'rounded-md ring-2 ring-[#E8A317]' : undefined}>
                 <CardFace card={p.card} width={width} thirty={thirtyIndexes?.has(index) ?? false} />

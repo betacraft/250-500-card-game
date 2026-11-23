@@ -85,7 +85,7 @@ export function BiddingFlow({
   if (closed && winner) {
     return (
       <div className="rounded-xl bg-white p-5">
-        <div className="mb-2 text-xs font-medium uppercase tracking-wider text-stone-500">Bidding closed</div>
+        <div className="mb-2 text-sm font-medium uppercase tracking-wider text-stone-500">Bidding closed</div>
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gold text-lg font-medium text-gold-dark">
             {playerById[winner.playerId]?.name.slice(0, 1).toUpperCase()}
@@ -109,7 +109,7 @@ export function BiddingFlow({
   return (
     <div className="flex flex-col gap-4">
       <section className="rounded-xl bg-white p-4">
-        <div className="text-xs font-medium uppercase tracking-wider text-stone-500">Current high</div>
+        <div className="text-sm font-medium uppercase tracking-wider text-stone-500">Current high</div>
         {high ? (
           <div className="mt-1 flex items-baseline gap-2">
             <span className="text-2xl font-medium tabular-nums">{high.amount}</span>
@@ -121,7 +121,7 @@ export function BiddingFlow({
       </section>
 
       <section className="rounded-xl bg-white p-4">
-        <div className="mb-2 text-xs font-medium uppercase tracking-wider text-stone-500">Bidding history</div>
+        <div className="mb-2 text-sm font-medium uppercase tracking-wider text-stone-500">Bidding history</div>
         {bidHistory.length === 0 ? (
           <div className="text-sm text-stone-500">No actions yet.</div>
         ) : (
@@ -175,7 +175,7 @@ export function BiddingFlow({
           </div>
 
           {!validation.ok && validation.message && (
-            <div className="mb-3 text-center text-xs text-red-600" role="alert">
+            <div className="mb-3 text-center text-sm text-red-600" role="alert">
               {validation.message}
             </div>
           )}
@@ -215,7 +215,7 @@ export function BiddingFlow({
         </section>
       )}
 
-      <div className="text-center text-xs text-stone-500">
+      <div className="text-center text-sm text-stone-500">
         {playerIds.length - passed.size} players remaining in bidding · auction closes when only one is left
       </div>
     </div>

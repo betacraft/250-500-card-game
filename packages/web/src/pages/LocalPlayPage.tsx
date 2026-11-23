@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { cardId, cardInstanceKey, illegalReason, legalPlaysFor, nextBidder, rulesFor, visiblePartners, type Card, type GameType, type Suit } from '@250-500/shared';
 import { BiddingFlow } from '../components/shared/BiddingFlow';
@@ -9,7 +9,7 @@ import { CardFace } from '../components/cards/CardFace';
 import { HandFan } from '../components/cards/HandFan';
 import { TrickArea } from '../components/online/TrickArea';
 import { HUMAN_ID, useLocalPlayStore } from '../stores/local-play-store';
-import { AuctionRecap, ScoreStrip, privatelyPartner, scoreExplainer } from './local-table-notes';
+import { AuctionRecap, ScoreStrip, privateNotice, scoreExplainer } from './local-table-notes';
 
 /** Free local table: one human and five or seven Easy bots. No coins, no stakes. */
 export function LocalPlayPage(): JSX.Element {
@@ -32,12 +32,25 @@ export function LocalPlayPage(): JSX.Element {
   const stepBot = useLocalPlayStore((s) => s.stepBot);
   const dismissTrick = useLocalPlayStore((s) => s.dismissTrick);
   const nextHand = useLocalPlayStore((s) => s.nextHand);
+  const short = useShortViewport();
+  const fanRef = useRef<HTMLDivElement>(null);
+  const [fanHeight, setFanHeight] = useState(180);
 
   useEffect(() => {
     if (!settledTrick) return undefined;
     const timer = window.setTimeout(() => dismissTrick(), 1500);
     return () => window.clearTimeout(timer);
   }, [settledTrick, dismissTrick]);
+
+  useEffect(() => {
+    const node = fanRef.current;
+    if (!node || typeof ResizeObserver === 'undefined') return undefined;
+    const apply = (): void => setFanHeight(node.offsetHeight);
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [phase, short, hand?.hands[HUMAN_ID]?.length, hand?.bidder]);
 
   useEffect(() => {
     if (phase === 'setup' || phase === 'scored' || settledTrick) return undefined;
@@ -56,17 +69,35 @@ export function LocalPlayPage(): JSX.Element {
   const shownTrick = settledTrick?.plays ?? hand.currentTrick;
   const thirty = trickThirties(shownTrick, hand);
   const reasons = new Map(humanHand.map((card) => [cardInstanceKey(card), illegalReason(legalContext(hand), card) ?? '']));
+  const docked = phase === 'bidding' || phase === 'declaring' || phase === 'playing';
+  const humanDeclaring = phase === 'declaring' && hand.bidder === HUMAN_ID;
+  const notice = privateNotice(humanHand, hand.calledCards, hand.bidder, gameType, hand.slots);
+  const fan = (
+    <HandFan
+      cards={humanHand}
+      legalCardIds={legal}
+      canPlay={myTurn}
+      onPlay={play}
+      trump={hand.trump}
+      thirtySuits={handThirties(hand)}
+      calledIds={new Set(hand.calledCards.map((card) => cardId(card)))}
+      reasons={reasons}
+      compact={!myTurn || short}
+    />
+  );
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-[980px] flex-col gap-3 overflow-x-clip px-3 pb-4 pt-3">
+    <div className="min-h-screen">
+    <main
+      className={`mx-auto flex min-h-screen w-full max-w-[980px] flex-col overflow-x-clip px-3 pt-2 ${short ? 'gap-1' : 'gap-3'}`}
+      style={{ paddingBottom: docked ? fanHeight + (humanDeclaring ? 84 : 12) : 16 }}
+    >
       <header className="flex items-center justify-between gap-2">
-        <div>
-          <h1 className="text-lg font-medium">Play vs bots · {gameType}</h1>
-          <p className="text-sm text-stone-500">Free to play. No coins or stakes.</p>
-        </div>
+        <h1 className="text-base font-medium">Play vs bots · {gameType}</h1>
         <Link to="/" className="text-sm text-stone-600 underline">Home</Link>
       </header>
-      <ScoreStrip names={names} scores={runningScores} order={seatOrder} />
+      {!short && <p className="text-sm text-stone-500">Free to play. No coins or stakes.</p>}
+      <ScoreStrip names={names} scores={runningScores} order={seatOrder} chips={short} />
       <TableStatus hand={hand} names={names} />
       {phase !== 'bidding' && (
         <AuctionRecap
@@ -78,18 +109,7 @@ export function LocalPlayPage(): JSX.Element {
           winningBid={hand.bidAmount}
         />
       )}
-      {privatelyPartner(humanHand, hand.calledCards, hand.bidder) && (
-        <p data-testid="private-partner" className="text-sm font-medium text-felt">You're a partner</p>
-      )}
-      {phase === 'declaring' && hand.bidder === HUMAN_ID && (
-        <HandFan
-          cards={humanHand}
-          canPlay={false}
-          onPlay={play}
-          trump={hand.trump}
-          compact
-        />
-      )}
+      {notice && <p data-testid="private-partner" className="text-sm font-medium text-felt">{notice}</p>}
       {phase === 'bidding' && turn === HUMAN_ID && !settledTrick && (
         <div data-testid="bid-pass">
           <BiddingFlow
@@ -133,18 +153,6 @@ export function LocalPlayPage(): JSX.Element {
           {myTurn && [...reasons.values()].find((reason) => reason) ? ` · ${[...reasons.values()].find((reason) => reason)}` : ''}
         </p>
       )}
-      {!(phase === 'declaring' && hand.bidder === HUMAN_ID) && (
-        <HandFan
-          cards={humanHand}
-          legalCardIds={legal}
-          canPlay={myTurn}
-          onPlay={play}
-          trump={hand.trump}
-          thirtySuits={handThirties(hand)}
-          calledIds={new Set(hand.calledCards.map((card) => cardId(card)))}
-          reasons={reasons}
-        />
-      )}
       {phase === 'scored' && summary && (
         <section data-testid="hand-complete" className="rounded-xl bg-white p-4">
           <h2 className="text-lg font-medium">{summary.bidMade ? 'Bid made' : 'Bid failed'}</h2>
@@ -169,7 +177,24 @@ export function LocalPlayPage(): JSX.Element {
         </section>
       )}
     </main>
+    {docked && (
+      <div ref={fanRef} data-testid="hand-dock" className="fixed inset-x-0 z-30 bg-[#F5F1E8]" style={{ bottom: humanDeclaring ? 76 : 0 }}>
+        <div className="mx-auto w-full max-w-[980px] px-3">{fan}</div>
+      </div>
+    )}
+    </div>
   );
+}
+
+function useShortViewport(): boolean {
+  const [short, setShort] = useState(false);
+  useEffect(() => {
+    const apply = (): void => setShort(window.innerHeight <= 640);
+    apply();
+    window.addEventListener('resize', apply);
+    return () => window.removeEventListener('resize', apply);
+  }, []);
+  return short;
 }
 
 function legalContext(hand: NonNullable<ReturnType<typeof useLocalPlayStore.getState>['hand']>) {

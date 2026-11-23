@@ -40,8 +40,8 @@ export function PartnerPicker({ selected, maxCount, onChange, heldFaces }: Partn
   return (
     <div className="rounded-xl bg-white p-3">
       <div className="mb-3 flex items-center justify-between">
-        <div className="text-sm font-medium uppercase tracking-wider text-stone-500">
-          Tap to select
+        <div className="text-sm font-medium text-stone-600">
+          Tap to select. Grey marks a card in your hand.
         </div>
         <div className="text-sm font-medium tabular-nums">
           {selected.length} / {maxCount}

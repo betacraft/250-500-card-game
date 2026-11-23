@@ -72,7 +72,9 @@ describe('public bot view', () => {
     expect(holderView.revealedPartners).not.toContain('p4');
     expect(holderView).not.toHaveProperty('selfIsPartner');
     expect(JSON.stringify(holderView)).not.toContain("You're a partner");
+    expect(JSON.stringify(holderView)).not.toContain('You hold a called card');
     expect(JSON.stringify(toPublicView(state, 'p2'))).not.toContain("You're a partner");
+    expect(JSON.stringify(toPublicView(state, 'p2'))).not.toContain('You hold a called card');
   });
 
   it('hides unfilled 500 partners and lists a double-slot partner once', () => {

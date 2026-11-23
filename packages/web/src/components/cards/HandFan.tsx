@@ -45,10 +45,12 @@ export function HandFan({
 
   const metrics = fanMetrics(cards.length, width, compact);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const lift = compact ? 8 : 56;
+  const headroom = 16;
 
   const chosen = cards.find((card) => cardInstanceKey(card) === selectedId) ?? null;
   return (
-    <div ref={ref} className="relative w-full overflow-hidden" style={{ height: metrics.cardH + (compact ? 8 : 72) }} data-testid="hand-fan">
+    <div ref={ref} className="relative w-full overflow-hidden" style={{ height: metrics.cardH + lift + headroom }} data-testid="hand-fan">
       {cards.map((card, index) => {
         const key = cardInstanceKey(card);
         const legal = !legalCardIds || legalCardIds.has(key);
@@ -60,7 +62,7 @@ export function HandFan({
             className="pointer-events-none absolute"
             style={{
               left: metrics.left(index),
-              bottom: 56,
+              bottom: lift,
               width: metrics.cardW,
               zIndex: isSelected ? 20 : index + 1,
               transform: `rotate(${angle}deg) translateY(${isSelected ? -18 : 0}px)`,
@@ -119,7 +121,7 @@ function fanMetrics(count: number, container: number, compact = false): {
   // The play column is max 980px minus 24px of padding, so a 1280 window measures about 956.
   const wide = !compact && container >= 900;
   const inset = wide ? 48 : 36;
-  const base = wide ? (count > 8 ? 156 : 176) : count > 8 ? 84 : 96;
+  const base = compact ? (count > 8 ? 64 : 72) : wide ? (count > 8 ? 156 : 176) : count > 8 ? 84 : 96;
   const span = Math.max(container - inset * 2, 220);
   const cardW = Math.min(base, span);
   const step = count <= 1 ? 0 : Math.min(cardW * 0.62, (span - cardW) / Math.max(count - 1, 1));

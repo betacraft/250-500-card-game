@@ -66,7 +66,7 @@ export function CardFace({
       {playable && !selected && <rect x="10" y="10" width="230" height="330" rx="12" fill="none" stroke="#0F766E" strokeWidth="4" />}
       {called && <rect x="12" y="12" width="226" height="326" rx="12" fill="none" stroke="#E8A317" strokeWidth="3" strokeDasharray="8 6" />}
       {trump && <TrumpTicks />}
-      <Index rank={card.rank} suit={card.suit} color={color} />
+      <Index rank={card.rank} suit={card.suit} color={color} testId="card-index" />
       <g transform="translate(222 308) rotate(180)">
         <Index rank={card.rank} suit={card.suit} color={color} />
       </g>
@@ -81,9 +81,9 @@ export function CardFace({
   );
 }
 
-function Index({ rank, suit, color }: { rank: string; suit: Suit; color: string }): JSX.Element {
+function Index({ rank, suit, color, testId }: { rank: string; suit: Suit; color: string; testId?: string }): JSX.Element {
   return (
-    <g>
+    <g data-testid={testId}>
       <text x="28" y="42" fill={color} fontFamily="Anton, Impact, sans-serif" fontSize={rank === '10' ? 32 : 36} textAnchor="middle">
         {rank}
       </text>
