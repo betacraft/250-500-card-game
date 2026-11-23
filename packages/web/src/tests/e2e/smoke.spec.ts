@@ -17,6 +17,14 @@ test.describe('smoke (mobile viewport)', () => {
     expect(consoleErrors).toHaveLength(0);
   });
 
+  test('suit labels show all four pips at 390', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/suit-labels');
+    await expect(page.getByTestId('suit-label-sheet')).toBeVisible();
+    await expect(page.getByRole('img', { name: 'clubs' })).toHaveCount(2);
+    await page.screenshot({ path: '/opt/cursor/artifacts/suit-labels-390x844.png', fullPage: false });
+  });
+
   test('scoring flow link navigates correctly', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('link', { name: /score in-person game/i }).click();

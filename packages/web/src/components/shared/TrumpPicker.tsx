@@ -33,13 +33,13 @@ export function TrumpPicker({ value, onChange, compact = false }: TrumpPickerPro
             aria-label={`Trump ${LABELS[suit]}`}
             className={clsx(
               'flex items-center justify-center transition-transform active:scale-95',
-              compact ? 'min-h-11 flex-row gap-1 rounded-lg px-1 py-2' : 'flex-col gap-2 rounded-xl p-5',
+              compact ? 'min-h-11 flex-col gap-0.5 rounded-lg px-0.5 py-1' : 'flex-col gap-2 rounded-xl p-5',
               selected
                 ? 'bg-gold ring-2 ring-gold-border'
                 : 'bg-white ring-1 ring-stone-200',
             )}
           >
-            <SuitIcon suit={suit} size={compact ? 22 : 36} />
+            <SuitIcon suit={suit} size={compact ? 22 : 36} className="shrink-0" />
             <span
               className={clsx(
                 'text-sm font-medium',

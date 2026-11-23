@@ -40,7 +40,7 @@ export function HandFan({
   onBlocked,
 }: HandFanProps): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(360);
+  const [width, setWidth] = useState(() => (typeof window === 'undefined' ? 360 : Math.min(window.innerWidth, 980) - 24));
   useEffect(() => {
     const node = ref.current;
     if (!node || typeof ResizeObserver === 'undefined') return undefined;

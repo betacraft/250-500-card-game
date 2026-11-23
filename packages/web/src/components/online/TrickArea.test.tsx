@@ -21,7 +21,7 @@ describe('TrickArea', () => {
     );
     expect(screen.getByText(/alice · bob/i)).toBeInTheDocument();
     expect(screen.getByTestId('led-suit')).toHaveAttribute('data-suit', 'spades');
-    expect(screen.getByTestId('led-suit').textContent).toMatch(/led spades/i);
+    expect(screen.getByTestId('led-suit').textContent).toMatch(/Led: spades/i);
   });
 
   it('labels the led suit from the suit it was given', () => {

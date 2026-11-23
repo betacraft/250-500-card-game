@@ -109,7 +109,7 @@ export function LocalPlayPage(): JSX.Element {
       <div data-testid="play-scroll" className="min-h-0 flex-1 overflow-y-auto py-2">
       <TableStatus hand={hand} names={names} />
       <p data-testid="disabled-reason" role="status" className="pointer-events-none h-5 overflow-hidden text-sm font-medium leading-5 text-red-700">{blocked ?? ''}</p>
-      {phase !== 'bidding' && !(short && humanDeclaring) && (
+      {phase !== 'bidding' && !(humanDeclaring && (short || !wide)) && (
         <AuctionRecap
           history={bidHistory}
           names={names}
@@ -268,7 +268,7 @@ function TableStatus({ hand, names }: { hand: NonNullable<ReturnType<typeof useL
   return (
     <div className="flex flex-wrap items-end gap-2 text-sm text-stone-700" data-testid="table-status">
       <span>{names[hand.bidder] ?? 'Bidder'} bid {hand.bidAmount}</span>
-      {hand.trump && <span data-testid="trump-name" data-suit={hand.trump} className="inline-flex items-center gap-1">trump {hand.trump} <SuitIcon suit={hand.trump} size={14} /></span>}
+      {hand.trump && <span data-testid="trump-name" data-suit={hand.trump} className="inline-flex items-center gap-1">Trump: {hand.trump} <SuitIcon suit={hand.trump} size={18} className="shrink-0" /></span>}
       {hand.calledCards.length > 0 && (
         <span className="inline-flex items-end gap-1" data-testid="called-cards">
           <span className="text-sm font-medium">Called</span>

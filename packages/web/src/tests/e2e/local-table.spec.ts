@@ -127,7 +127,7 @@ async function expectDeclarationHand(
   expect(scroll).toBe(0);
   await expect(page.locator('[data-held="true"]')).toHaveCount(8);
   await expect(page.getByTestId('score-explainer')).toContainText('bid + 100');
-  if (height > 760) await expect(page.getByTestId('auction-recap')).toBeVisible();
+  if (height > 760 && width >= 720) await expect(page.getByTestId('auction-recap')).toBeVisible();
   await page.screenshot({ path: shot, fullPage: false });
   expect(errors, errors.join('\n')).toEqual([]);
 }

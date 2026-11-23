@@ -54,11 +54,19 @@ test.describe('full hands from the real controls', () => {
         await assertChipInset(page);
         await assertCueBoxes(page);
         await assertReadableCopy(page);
+        await assertBoard(page, view, true);
         if (variant === '500' && view.width === 360) {
           await page.screenshot({ path: '/opt/cursor/artifacts/chips-500-360x740.png', fullPage: false });
         }
-        await declare(page, input, variant, view);
+        if (view.width === 360 || view.width === 390) {
+          await page.screenshot({ path: `/opt/cursor/artifacts/declare-${variant}-${view.width}x${view.height}.png`, fullPage: false });
+        }
+        await declare(page, input, isPhone(view));
         await expect(page.getByText('Your turn')).toBeVisible();
+        if (variant === '500' && view.width === 360) {
+          await page.screenshot({ path: '/opt/cursor/artifacts/play-500-360x740.png', fullPage: false });
+        }
+        await assertBoard(page, view, false);
         sizes.push(await assertHandSize(page));
         expect(new Set(sizes).size, `hand widths ${sizes.join(',')}`).toBe(1);
         if (view.width === 360 || view.width === 1024) expect(sizes[0]).toBeGreaterThanOrEqual(80);
@@ -152,20 +160,16 @@ async function raiseToMax(page: Page, input: 'mouse' | 'touch'): Promise<void> {
   }
 }
 
-async function declare(page: Page, input: 'mouse' | 'touch', variant: '250' | '500', view: { width: number; height: number }): Promise<void> {
+async function declare(page: Page, input: 'mouse' | 'touch', ranksPinned: boolean): Promise<void> {
   await clickCentre(page, page.getByRole('button', { name: 'Confirm declaration' }), input, true);
   await expect(page.getByTestId('disabled-reason')).toContainText(/trump/i);
   for (const suit of ['Hearts', 'Diamonds', 'Clubs', 'Spades']) {
-    await clickCentre(page, page.getByRole('button', { name: `Trump ${suit}` }), input, false);
+    await clickCentre(page, page.getByRole('button', { name: `Trump ${suit}` }), input, ranksPinned);
   }
   for (const suit of suits) {
     for (const rank of ranks) {
-      await clickCentre(page, page.locator(`[data-testid="declare-form"] button[aria-label^="${rank} of ${suit}"]`), input, false);
+      await clickCentre(page, page.locator(`[data-testid="declare-form"] button[aria-label^="${rank} of ${suit}"]`), input, ranksPinned);
     }
-  }
-  if (view.width === 390 && view.height === 844) {
-    await page.locator('[data-testid="declare-form"] button[aria-label^="A of clubs"]').evaluate(reveal);
-    await page.screenshot({ path: `/opt/cursor/artifacts/declare-${variant}-390x844.png`, fullPage: false });
   }
   await clickCentre(page, page.getByRole('button', { name: 'Confirm declaration' }), input, true);
 }
@@ -200,18 +204,82 @@ async function finishHand(page: Page, input: 'mouse' | 'touch', holdScores: bool
   throw new Error('hand did not finish');
 }
 
+function isPhone(view: { width: number; height: number }): boolean {
+  return (view.width === 360 && view.height === 740) || (view.width === 390 && view.height === 844);
+}
+
+async function assertBoard(page: Page, view: { width: number; height: number }, ranks: boolean): Promise<void> {
+  await page.evaluate(resetScroll);
+  const report = await page.evaluate(() => {
+    const chips = [...document.querySelectorAll('[data-testid="score-chip"]')];
+    const tops = chips.map((chip) => chip.getBoundingClientRect().top);
+    const cards = [...document.querySelectorAll('[data-testid="hand-card"]')];
+    const bottoms = cards.map((card) => (card instanceof HTMLElement ? card.style.bottom : ''));
+    const dock = document.querySelector('[data-testid="hand-dock"]')?.getBoundingClientRect();
+    const cells = [...document.querySelectorAll('[data-testid="rank-grid"] button')];
+    const misses: string[] = [];
+    cells.forEach((cell) => {
+      const box = cell.getBoundingClientRect();
+      const x = box.left + box.width / 2;
+      const y = box.top + box.height / 2;
+      const hit = document.elementFromPoint(x, y);
+      if (hit !== cell && !(hit && cell.contains(hit))) misses.push((cell.getAttribute('aria-label') ?? 'cell').slice(0, 24));
+    });
+    return {
+      chipSpread: tops.length ? Math.max(...tops) - Math.min(...tops) : 0,
+      chips: chips.length,
+      oneRow: bottoms.length > 0 && new Set(bottoms).size === 1,
+      dockRatio: dock ? dock.height / window.innerHeight : 1,
+      cells: cells.length,
+      misses,
+    };
+  });
+  expect(report.chips).toBeGreaterThan(0);
+  expect(report.chipSpread, 'chips wrapped onto a second row').toBeLessThan(1);
+  expect(report.oneRow, 'hand is not one row').toBe(true);
+  if (isPhone(view)) expect(report.dockRatio).toBeLessThanOrEqual(0.32);
+  if (ranks && isPhone(view)) {
+    expect(report.cells).toBe(48);
+    expect(report.misses, report.misses.join(', ')).toEqual([]);
+  }
+}
+
 async function assertFaceCentres(page: Page): Promise<void> {
   const problems = await page.evaluate(() => {
+    const cards = [...document.querySelectorAll('[data-testid="hand-card"]')];
+    const bottoms = cards.map((card) => (card instanceof HTMLElement ? card.style.bottom : ''));
     const found: string[] = [];
-    document.querySelectorAll('[data-testid="hand-card"]').forEach((card) => {
-      const box = card.getBoundingClientRect();
-      const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
-      const label = card.getAttribute('aria-label') ?? 'card';
-      if (hit !== card && !(hit && card.contains(hit))) {
-        const other = hit?.closest('[data-testid="hand-card"]')?.getAttribute('aria-label') ?? 'nothing';
-        found.push(`${label} centre hit ${other}`);
+    if (new Set(bottoms).size !== 1) found.push('hand is not one row');
+    const own = (card: Element, x: number, y: number): boolean => {
+      const hit = document.elementFromPoint(x, y);
+      return hit === card || (!!hit && card.contains(hit));
+    };
+    const spotOf = (card: Element): { x: number; y: number } | null => {
+      const svg = card.querySelector('svg');
+      const samples = [[125, 175], [48, 70], [48, 150], [70, 40], [190, 80], [125, 60]];
+      if (!(svg instanceof SVGSVGElement)) {
+        const box = card.getBoundingClientRect();
+        return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
       }
+      const ctm = svg.getScreenCTM();
+      for (const pair of samples) {
+        const point = svg.createSVGPoint();
+        point.x = pair[0] ?? 0;
+        point.y = pair[1] ?? 0;
+        const screen = ctm ? point.matrixTransform(ctm) : point;
+        if (own(card, screen.x, screen.y)) return { x: screen.x, y: screen.y };
+      }
+      return null;
+    };
+    cards.forEach((card) => {
+      const spot = spotOf(card);
+      if (!spot) found.push(`${card.getAttribute('aria-label') ?? 'card'} has no open point`);
     });
+    const top = cards[cards.length - 1];
+    if (top) {
+      const box = top.getBoundingClientRect();
+      if (!own(top, box.left + box.width / 2, box.top + box.height / 2)) found.push('last card centre missed');
+    }
     return found;
   });
   expect(problems, problems.join('\n')).toEqual([]);
@@ -260,18 +328,6 @@ function resetScroll(): void {
   if (scroller instanceof HTMLElement) scroller.scrollTop = 0;
 }
 
-function reveal(node: Element): void {
-  const scroller = document.querySelector('[data-testid="play-scroll"]');
-  if (!(scroller instanceof HTMLElement) || !scroller.contains(node)) return;
-  for (let i = 0; i < 4; i += 1) {
-    const frame = scroller.getBoundingClientRect();
-    const box = node.getBoundingClientRect();
-    if (box.top < frame.top + 1) scroller.scrollTop -= frame.top - box.top + 6;
-    else if (box.bottom > frame.bottom - 1) scroller.scrollTop += box.bottom - frame.bottom + 6;
-    else break;
-  }
-}
-
 function readCentre(node: Element, pinned: boolean): { x: number; y: number; ok: boolean; detail: string } {
   const scroller = document.querySelector('[data-testid="play-scroll"]');
   if (!pinned && scroller instanceof HTMLElement && scroller.contains(node)) {
@@ -283,19 +339,30 @@ function readCentre(node: Element, pinned: boolean): { x: number; y: number; ok:
       else break;
     }
   }
-  const box = node.getBoundingClientRect();
-  const x = box.left + box.width / 2;
-  const y = box.top + box.height / 2;
-  const hit = document.elementFromPoint(x, y);
   const label = node.getAttribute('aria-label') ?? (node.textContent ?? '').trim().slice(0, 40);
   const dock = document.querySelector('[data-testid="hand-dock"]');
   const inDock = dock?.contains(node) ?? false;
-  if (!inDock && dock && y >= dock.getBoundingClientRect().top - 0.5) {
-    return { x, y, ok: false, detail: `${label} centre is under the dock` };
+  const hits = (x: number, y: number): boolean => {
+    if (!inDock && dock && y >= dock.getBoundingClientRect().top - 0.5) return false;
+    const hit = document.elementFromPoint(x, y);
+    return hit === node || (!!hit && node.contains(hit));
+  };
+  const box = node.getBoundingClientRect();
+  const centre = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+  if (hits(centre.x, centre.y)) return { x: centre.x, y: centre.y, ok: true, detail: label };
+  const svg = node.querySelector('svg');
+  if (svg instanceof SVGSVGElement) {
+    const ctm = svg.getScreenCTM();
+    for (const pair of [[48, 70], [48, 150], [70, 40], [190, 80], [125, 60], [125, 175]]) {
+      const point = svg.createSVGPoint();
+      point.x = pair[0] ?? 0;
+      point.y = pair[1] ?? 0;
+      const screen = ctm ? point.matrixTransform(ctm) : point;
+      if (hits(screen.x, screen.y)) return { x: screen.x, y: screen.y, ok: true, detail: label };
+    }
   }
-  const ok = hit === node || (!!hit && node.contains(hit));
-  const other = hit?.closest('button')?.getAttribute('aria-label') ?? hit?.textContent?.trim().slice(0, 40) ?? 'nothing';
-  return { x, y, ok, detail: ok ? label : `${label} centre hit ${other}` };
+  const other = document.elementFromPoint(centre.x, centre.y)?.closest('button')?.getAttribute('aria-label') ?? 'nothing';
+  return { x: centre.x, y: centre.y, ok: false, detail: `${label} centre hit ${other}` };
 }
 
 test('the latest card tap is the one that is played', async ({ page }) => {

@@ -1,4 +1,5 @@
 import { cardId, type BidEntry, type Card, type GameType, type PartnerSlot, type Suit } from '@250-500/shared';
+import { SuitIcon } from '../components/shared/SuitIcon';
 import { HUMAN_ID } from '../stores/local-play-store';
 
 /** Own-hand notice. 500 holders are not partners until a called card is played. */
@@ -52,7 +53,7 @@ export function AuctionRecap({
   return (
     <p data-testid="auction-recap" data-trump={trump ?? ''} className="text-sm text-stone-700">
       Auction: {lines.join(', ') || 'no bid'}
-      {trump ? ` · Trump ${trump}` : ''}
+      {trump ? <span className="inline-flex items-center gap-1"> · Trump: {trump} <SuitIcon suit={trump} size={18} className="shrink-0" /></span> : ''}
       {calledText ? ` · Called ${calledText}` : ''}
     </p>
   );
@@ -85,12 +86,11 @@ export function ScoreStrip({
     turn: id === turnId,
     bidder: id === bidderId,
   }));
-  const crowned = items.some((item) => item.bidder);
   if (chips) {
     return (
-      <ul data-testid="score-strip" className={`flex flex-wrap justify-center gap-x-2.5 ${crowned ? 'gap-y-8 pt-8' : 'gap-y-3'}`}>
+      <ul data-testid="score-strip" className="flex flex-nowrap items-start justify-center gap-0.5">
         {items.map((item) => (
-          <ScoreChip key={item.id} item={item} label={narrow && order.length > 6 ? shortScoreLabel(item.name) : item.name} fill={!narrow} />
+          <ScoreChip key={item.id} item={item} label={narrow ? shortScoreLabel(item.name) : item.name} />
         ))}
       </ul>
     );
@@ -121,28 +121,26 @@ function shortScoreLabel(name: string): string {
   return `${first.slice(0, 1)}${parts.slice(1).join('')}`;
 }
 
-function ScoreChip({ item, label, fill }: { item: { id: string; name: string; score: number; turn: boolean; bidder: boolean }; label: string; fill: boolean }): JSX.Element {
+function ScoreChip({ item, label }: { item: { id: string; name: string; score: number; turn: boolean; bidder: boolean }; label: string }): JSX.Element {
   return (
     <li
       data-testid="score-chip"
       title={item.name}
       aria-label={`${item.name} ${item.score}`}
-      className={chipClass(item, `relative ${fill ? 'min-w-0 flex-1' : 'shrink-0'} rounded-full bg-white px-0.5 py-1 text-center text-sm text-stone-700`)}
+      className={chipClass(item, 'flex shrink-0 items-center justify-center gap-0.5 rounded-full bg-white px-0.5 py-1 text-center text-sm text-stone-700')}
     >
-      {item.bidder && <BidderPill floating />}
-      <span className="inline-flex items-center justify-center gap-0.5 whitespace-nowrap">
-        {item.turn && <TurnPill />}
-        <span data-testid="score-chip-text">
-          {label} <span data-testid="score-chip-score" className="tabular-nums">{item.score}</span>
-        </span>
+      {item.turn && <TurnPill />}
+      <span data-testid="score-chip-text" className="whitespace-nowrap">
+        {label} <span data-testid="score-chip-score" className="tabular-nums">{item.score}</span>
       </span>
+      {item.bidder && <BidderPill />}
     </li>
   );
 }
 
 function chipClass(item: { turn: boolean; bidder: boolean }, base: string): string {
   const cue = [
-    item.turn ? 'ring-4 ring-felt' : '',
+    item.turn ? 'ring-2 ring-inset ring-felt' : '',
     item.bidder ? 'border-2 border-dashed border-[#8A6700]' : '',
   ].filter(Boolean).join(' ');
   return `${base} ${cue}`;
@@ -156,10 +154,9 @@ function TurnPill(): JSX.Element {
   );
 }
 
-function BidderPill({ floating = false }: { floating?: boolean }): JSX.Element {
-  const place = floating ? 'absolute -top-8 right-0 z-10' : '';
+function BidderPill(): JSX.Element {
   return (
-    <span data-testid="bidder-marker" aria-hidden="true" className={`${place} inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#4A3000] px-0.5 text-[14px] font-medium leading-none text-white`}>
+    <span data-testid="bidder-marker" aria-hidden="true" className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#4A3000] px-0.5 text-[14px] font-medium leading-none text-white">
       B
     </span>
   );
