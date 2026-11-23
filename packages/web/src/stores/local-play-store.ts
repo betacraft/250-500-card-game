@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import {
   chooseBid,
   chooseCalledCards,
+  chooseNormalBid,
+  chooseNormalPlay,
   choosePlay,
   chooseTrump,
   createRng,
@@ -57,7 +59,8 @@ interface LocalPlayState {
   decision: number;
   summary: LocalSummary | null;
   settledTrick: SettledTrick | null;
-  startGame: (gameType: GameType, humanName: string) => void;
+  difficulty: 'easy' | 'normal';
+  startGame: (gameType: GameType, humanName: string, difficulty?: 'easy' | 'normal') => void;
   bid: (amount: number) => void;
   pass: () => void;
   declare: (trump: Suit, called: Card[]) => void;
@@ -83,12 +86,13 @@ const SETUP = {
   decision: 0,
   summary: null as LocalSummary | null,
   settledTrick: null as SettledTrick | null,
+  difficulty: 'easy' as const,
 };
 
-/** Local free-to-play table. The human is seat 1. Everyone else is an Easy bot. */
+/** Local free-to-play table. The human is seat 1. Bots default to Easy. */
 export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
   ...SETUP,
-  startGame: (gameType, humanName) => {
+  startGame: (gameType, humanName, difficulty = 'easy') => {
     const seed = (Date.now() % 100000) + 1;
     const seats = seatIds(gameType);
     const name = humanName.trim() || 'You';
@@ -101,6 +105,7 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
       runningScores: Object.fromEntries(seats.map((id) => [id, 0])),
       seed,
       phase: 'bidding',
+      difficulty,
     });
     get().nextHand();
   },
@@ -230,12 +235,13 @@ function botBid(state: LocalPlayState): Partial<LocalPlayState> {
   if (isAuctionClosed(auction)) return afterBid(state, state.bidHistory);
   const turn = nextBidder(auction);
   if (!turn || turn === HUMAN_ID) return {};
-  const decision = chooseBid({
+  const bidArgs = {
     gameType: state.gameType,
     hand: state.hand.hands[turn] ?? [],
     highBid: currentHighBid(state.bidHistory)?.amount ?? null,
     rng: createRng(state.seed + state.decision + 1),
-  });
+  };
+  const decision = state.difficulty === 'normal' ? chooseNormalBid(bidArgs) : chooseBid(bidArgs);
   const bidHistory = [...state.bidHistory];
   if (decision.action === 'bid' && typeof decision.amount === 'number' && validateBid(auction, turn, decision.amount).ok) {
     bidHistory.push({ playerId: turn, action: 'bid', amount: decision.amount });
@@ -262,6 +268,7 @@ function botPlay(state: LocalPlayState): Partial<LocalPlayState> {
   const first = legal[0];
   if (!first) return {};
   const rng = createRng(state.seed + state.decision + 3);
-  const card = choosePlay(legal, { ...toPublicView(state.hand, turn), rng });
+  const view = toPublicView(state.hand, turn);
+  const card = state.difficulty === 'normal' ? chooseNormalPlay({ view, legal, rng }) : choosePlay(legal, { ...view, rng });
   return applyCard(state, turn, card);
 }

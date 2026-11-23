@@ -84,7 +84,7 @@ function uniqueFaces(cards: readonly Card[]): Card[] {
 }
 
 /** Project the points this hand can support, scaled to the whole pot rather than one seat's raw cards. */
-function projectedTeamPoints(hand: readonly Card[], trump: Suit, gameType: GameType): number {
+export function projectedTeamPoints(hand: readonly Card[], trump: Suit, gameType: GameType): number {
   const rules = rulesFor(gameType);
   const trumpCards = hand.filter((card) => card.suit === trump);
   const honors = trumpCards.filter((card) => TRUMP_HONORS.has(card.rank)).length;

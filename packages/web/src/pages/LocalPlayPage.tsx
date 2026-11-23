@@ -11,7 +11,7 @@ import { TrickArea } from '../components/online/TrickArea';
 import { HUMAN_ID, useLocalPlayStore } from '../stores/local-play-store';
 import { AuctionRecap, ScoreStrip, privateNotice, scoreExplainer } from './local-table-notes';
 
-/** Free local table: one human and five or seven Easy bots. No coins, no stakes. */
+/** Free local table: one human and five or seven bots. Easy is the default. No coins, no stakes. */
 export function LocalPlayPage(): JSX.Element {
   const phase = useLocalPlayStore((s) => s.phase);
   const gameType = useLocalPlayStore((s) => s.gameType);
@@ -25,6 +25,7 @@ export function LocalPlayPage(): JSX.Element {
   const settledTrick = useLocalPlayStore((s) => s.settledTrick);
   const decision = useLocalPlayStore((s) => s.decision);
   const startGame = useLocalPlayStore((s) => s.startGame);
+  const difficulty = useLocalPlayStore((s) => s.difficulty);
   const bid = useLocalPlayStore((s) => s.bid);
   const pass = useLocalPlayStore((s) => s.pass);
   const declare = useLocalPlayStore((s) => s.declare);
@@ -98,7 +99,10 @@ export function LocalPlayPage(): JSX.Element {
       style={{ paddingBottom: docked ? dockHeight + 16 : 16 }}
     >
       <header className="flex items-center justify-between gap-2">
-        <h1 className="text-base font-medium">Play vs bots · {gameType}</h1>
+        <div>
+          <h1 className="text-base font-medium">Play vs bots · {gameType}</h1>
+          <p className="text-sm text-stone-500">Bots: {difficulty === 'normal' ? 'Normal' : 'Easy'}.</p>
+        </div>
         <Link to="/" className="text-sm text-stone-600 underline">Home</Link>
       </header>
       {!short && <p className="text-sm text-stone-500">Free to play. No coins or stakes.</p>}
@@ -298,9 +302,10 @@ function publicTeamPoints(hand: NonNullable<ReturnType<typeof useLocalPlayStore.
   return points;
 }
 
-function Setup({ onStart }: { onStart: (gameType: GameType, name: string) => void }): JSX.Element {
+function Setup({ onStart }: { onStart: (gameType: GameType, name: string, difficulty: 'easy' | 'normal') => void }): JSX.Element {
   const [gameType, setGameType] = useState<GameType>('250');
   const [name, setName] = useState('');
+  const [difficulty, setDifficulty] = useState<'easy' | 'normal'>('easy');
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[980px] flex-col gap-4 px-5 pt-6">
       <Link to="/" className="text-sm text-stone-600 underline">Home</Link>
@@ -314,9 +319,23 @@ function Setup({ onStart }: { onStart: (gameType: GameType, name: string) => voi
           </button>
         ))}
       </div>
+      <p className="text-sm font-medium">Bot difficulty</p>
+      <div className="grid grid-cols-2 gap-3">
+        {(['easy', 'normal'] as const).map((level) => (
+          <button
+            key={level}
+            type="button"
+            aria-pressed={difficulty === level}
+            onClick={() => setDifficulty(level)}
+            className={`h-11 rounded-xl border text-base font-medium ${difficulty === level ? 'border-felt bg-felt text-white' : 'border-stone-300 bg-white'}`}
+          >
+            {level === 'easy' ? 'Easy' : 'Normal'}
+          </button>
+        ))}
+      </div>
       <label className="text-sm font-medium" htmlFor="local-name">Your name</label>
       <input id="local-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="You" className="h-11 rounded-lg border border-stone-300 px-3" maxLength={40} />
-      <button type="button" data-testid="start-vs-bots" onClick={() => onStart(gameType, name)} className="rounded-xl bg-felt p-4 text-base font-medium text-white">
+      <button type="button" data-testid="start-vs-bots" onClick={() => onStart(gameType, name, difficulty)} className="rounded-xl bg-felt p-4 text-base font-medium text-white">
         Deal the cards
       </button>
     </main>

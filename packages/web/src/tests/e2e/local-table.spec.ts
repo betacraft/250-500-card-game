@@ -1,7 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { assertHandCorners } from './visible-hand';
 
-async function playOneHand(page: import('@playwright/test').Page, variant: '250' | '500'): Promise<void> {
+async function playOneHand(
+  page: import('@playwright/test').Page,
+  variant: '250' | '500',
+  difficulty: 'Easy' | 'Normal' = 'Easy',
+): Promise<void> {
   const errors: string[] = [];
   page.on('console', (msg) => {
     if (msg.type() === 'error') errors.push(msg.text());
@@ -10,8 +14,11 @@ async function playOneHand(page: import('@playwright/test').Page, variant: '250'
   await page.goto('/play');
   await expect(page.getByText(/no coins, no stakes/i)).toBeVisible();
   await page.getByRole('button', { name: new RegExp(`^${variant}`) }).click();
+  await expect(page.getByRole('button', { name: 'Easy', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  if (difficulty === 'Normal') await page.getByRole('button', { name: 'Normal', exact: true }).click();
   await page.getByLabel('Your name').fill('Ada');
   await page.getByTestId('start-vs-bots').click();
+  await expect(page.getByText(`Bots: ${difficulty}`)).toBeVisible();
   await expect(page.getByTestId('hand-fan')).toBeVisible();
   await expect(page.getByTestId('hand-card')).toHaveCount(variant === '250' ? 8 : 12);
   const label = test.info().title.replace(/\s+/g, '-').toLowerCase();
@@ -37,7 +44,7 @@ async function playOneHand(page: import('@playwright/test').Page, variant: '250'
     }
     const card = page.locator('[data-testid="hand-card"][aria-disabled="false"]').first();
     if (await card.isVisible().catch(() => false)) {
-      await card.click();
+      await card.click({ force: true });
       await page.getByTestId('confirm-play').click();
       continue;
     }
@@ -140,6 +147,18 @@ test.describe('local table', () => {
 
   test('declaration hand is on screen at 1366', async ({ page }) => {
     await expectDeclarationHand(page, 1366, 768, '/opt/cursor/artifacts/declare-hand-1366.png');
+  });
+
+  test('250 normal mobile', async ({ page }) => {
+    test.setTimeout(180_000);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await playOneHand(page, '250', 'Normal');
+  });
+
+  test('250 normal desktop', async ({ page }) => {
+    test.setTimeout(180_000);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await playOneHand(page, '250', 'Normal');
   });
 
   test('declare button is on screen at 390', async ({ page }) => {
