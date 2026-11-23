@@ -127,7 +127,7 @@ function ScoreChip({ item, label, fill }: { item: { id: string; name: string; sc
       data-testid="score-chip"
       title={item.name}
       aria-label={`${item.name} ${item.score}`}
-      className={chipClass(item, `relative ${fill ? 'min-w-0 flex-1' : 'shrink-0'} rounded-full bg-white px-1 py-1 text-center text-sm text-stone-700`)}
+      className={chipClass(item, `relative ${fill ? 'min-w-0 flex-1' : 'shrink-0'} rounded-full bg-white px-0.5 py-1 text-center text-sm text-stone-700`)}
     >
       {item.bidder && <BidderPill floating />}
       <span className="inline-flex items-center justify-center gap-0.5 whitespace-nowrap">

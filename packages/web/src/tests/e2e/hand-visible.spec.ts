@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { assertControlsClear, assertCueBoxes, assertGridClear, assertHandCorners, assertHandSize, assertReadableCopy, assertScoreChips } from './visible-hand';
+import { assertBidAtRest, assertChipInset, assertControlsClear, assertCueBoxes, assertGridClear, assertHandCorners, assertHandSize, assertReadableCopy, assertScoreChips } from './visible-hand';
 
 const views = [
   { width: 1024, height: 572, shot: true },
@@ -19,6 +19,7 @@ async function deal(page: import('@playwright/test').Page, variant: '250' | '500
 }
 
 async function bidMax(page: import('@playwright/test').Page): Promise<void> {
+  if (await page.getByTestId('declare-form').isVisible().catch(() => false)) return;
   for (let i = 0; i < 16; i += 1) {
     const add = page.getByRole('button', { name: 'Add 20 to the bid' });
     if (!(await add.isVisible().catch(() => false)) || (await add.isDisabled())) break;
@@ -43,16 +44,30 @@ test.describe('hand stays readable', () => {
         handSizes.push(await assertHandSize(page));
         await page.getByRole('button', { name: 'Decrease bid by 5' }).tap({ force: true });
         await expect(page.getByTestId('disabled-reason')).toContainText(/lowest bid/i);
+        await page.getByRole('button', { name: 'Increase bid by 5' }).click();
+        await expect(page.getByTestId('disabled-reason')).toHaveCount(0);
+        if (view.height <= 760) await assertBidAtRest(page);
         await assertHandCorners(page);
         await assertControlsClear(page);
         await page.evaluate(() => window.scrollTo(0, 0));
         await assertScoreChips(page);
         if (view.shot) await page.screenshot({ path: `/opt/cursor/artifacts/bid-${variant}-${view.width}x${view.height}.png`, fullPage: false });
+        await page.getByRole('button', { name: /^Bid / }).click();
+        const bidAgain = page.getByRole('button', { name: /^Bid / });
+        await expect(bidAgain.or(page.getByTestId('declare-form'))).toBeVisible({ timeout: 20_000 });
+        if (await bidAgain.isVisible()) {
+          await page.evaluate(() => window.scrollTo(0, 0));
+          if (view.height <= 760) await assertBidAtRest(page);
+          if (view.width === 1024 && variant === '250') {
+            await page.screenshot({ path: '/opt/cursor/artifacts/bid-round2-1024x572.png', fullPage: false });
+          }
+        }
         await bidMax(page);
         await expect(page.getByTestId('declare-form')).toBeVisible();
         handSizes.push(await assertHandSize(page));
         await expect(page.getByTestId('turn-marker')).toBeVisible();
         await expect(page.getByTestId('bidder-marker')).toBeVisible();
+        await assertChipInset(page);
         if (view.height <= 760) await expect(page.getByTestId('held-legend')).toBeVisible();
         await assertCueBoxes(page);
         await assertReadableCopy(page);
@@ -83,12 +98,30 @@ test.describe('hand stays readable', () => {
         await assertCueBoxes(page);
         await assertReadableCopy(page);
         if (view.shot) await page.screenshot({ path: `/opt/cursor/artifacts/play-${variant}-${view.width}x${view.height}.png`, fullPage: false });
-        await page.locator('[data-testid="hand-card"][aria-disabled="false"]').first().tap();
+        const played = await page.evaluate(() => {
+          const buttons = [...document.querySelectorAll('[data-testid="hand-card"]')];
+          const labelAt = (x: number, y: number): string => document.elementFromPoint(x, y)?.closest('[data-testid="hand-card"]')?.getAttribute('aria-label') ?? '';
+          for (const button of buttons) {
+            if (button.getAttribute('aria-disabled') === 'true') continue;
+            const svg = button.querySelector('svg');
+            if (!(svg instanceof SVGSVGElement)) continue;
+            const ctm = svg.getScreenCTM();
+            const spot = svg.createSVGPoint();
+            spot.x = 48;
+            spot.y = 70;
+            const screen = ctm ? spot.matrixTransform(ctm) : spot;
+            if (labelAt(screen.x, screen.y) === (button.getAttribute('aria-label') ?? '')) return { x: screen.x, y: screen.y };
+          }
+          return null;
+        });
+        if (!played) throw new Error('no exposed legal face');
+        await page.mouse.click(played.x, played.y);
         await page.getByTestId('confirm-play').tap();
         await expect(page.getByText(/Bot \d+ to play/)).toBeVisible();
+        const pauseShown = page.getByTestId('trick-pause').waitFor({ timeout: 20_000 });
         await assertCueBoxes(page);
         if (view.shot) await page.screenshot({ path: `/opt/cursor/artifacts/other-${variant}-${view.width}x${view.height}.png`, fullPage: false });
-        await expect(page.getByTestId('trick-pause')).toBeVisible({ timeout: 15_000 });
+        await pauseShown;
         await expect(page.getByTestId('trick-winner')).toBeVisible();
         await expect(page.getByTestId('hand-complete')).toHaveCount(0);
         const trickWidth = Number(await page.getByTestId('trick-winner').getAttribute('data-card-width'));

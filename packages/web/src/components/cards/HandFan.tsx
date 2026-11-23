@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cardId, cardInstanceKey, type Card, type Suit } from '@250-500/shared';
 import { CardFace } from './CardFace';
 
@@ -19,8 +19,9 @@ interface HandFanProps {
 }
 
 /**
- * Overlapping fan. Rotation is around the bottom centre.
- * 500 portrait is a 16° fan; the index is a 44px hit box above the overlap.
+ * Overlapping fan. Each card's button is the visible face, rotated around
+ * its bottom centre, so a click on the face hits that card. A later card
+ * paints above an earlier one and wins the overlap.
  */
 export function HandFan({
   cards,
@@ -60,14 +61,26 @@ export function HandFan({
         const angle = metrics.angle(index);
         const isSelected = selectedId === key;
         return (
-          <Fragment key={key}>
-          <div
-            className="pointer-events-none absolute"
+          <button
+            key={key}
+            type="button"
+            data-testid="hand-card"
+            aria-label={`${card.rank} of ${card.suit}`}
+            aria-disabled={!canPlay || !legal}
+            onClick={() => {
+              if (!canPlay || !legal) {
+                onBlocked?.(reasons?.get(key) || (canPlay ? 'Not a legal play' : 'Wait for your turn'));
+                return;
+              }
+              setSelectedId(key);
+            }}
+            className="absolute bg-transparent p-0 focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-[#0F766E]"
             style={{
               left: metrics.left(index),
               bottom: lift,
               width: metrics.cardW,
-              zIndex: isSelected ? 20 : index + 1,
+              height: metrics.cardH,
+              zIndex: isSelected ? 30 : index + 1,
               transform: `rotate(${angle}deg) translateY(${isSelected ? -18 : 0}px)`,
               transformOrigin: 'bottom center',
             }}
@@ -82,23 +95,7 @@ export function HandFan({
               called={calledIds?.has(cardId(card)) ?? false}
               thirty={thirtySuits?.has(card.suit) === true && card.rank === '3'}
             />
-          </div>
-          <button
-            type="button"
-            data-testid="hand-card"
-            aria-label={`${card.rank} of ${card.suit}`}
-            aria-disabled={!canPlay || !legal}
-            onClick={() => {
-              if (!canPlay || !legal) {
-                onBlocked?.(reasons?.get(key) || (canPlay ? 'Not a legal play' : 'Wait for your turn'));
-                return;
-              }
-              setSelectedId(key);
-            }}
-            className={`absolute top-0 z-40 h-14 min-w-11 bg-transparent`}
-            style={{ left: metrics.hitLeft(index), width: metrics.hitW }}
-          />
-          </Fragment>
+          </button>
         );
       })}
       {canPlay && chosen && (
@@ -123,8 +120,6 @@ function fanMetrics(count: number, container: number, compact = false): {
   cardH: number;
   left: (index: number) => number;
   angle: (index: number) => number;
-  hitLeft: (index: number) => number;
-  hitW: number;
 } {
   // The play column is max 980px minus 24px of padding, so a 1280 window measures about 956.
   const wide = !compact && container >= 900;
@@ -136,13 +131,10 @@ function fanMetrics(count: number, container: number, compact = false): {
   const cardH = cardW * 1.4;
   const total = wide ? (count > 8 ? 18 : 16) : 14;
   const origin = (span - (cardW + step * Math.max(count - 1, 0))) / 2;
-  const slot = count <= 1 ? 48 : container / count;
   return {
     cardW,
     cardH,
     left: (index) => inset + origin + index * step,
     angle: (index) => (count <= 1 ? 0 : -total / 2 + (index * total) / (count - 1)),
-    hitLeft: (index) => index * slot,
-    hitW: slot,
   };
 }

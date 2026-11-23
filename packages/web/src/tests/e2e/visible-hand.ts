@@ -160,10 +160,46 @@ export async function assertReadableCopy(page: Page): Promise<void> {
     check('[data-testid="score-explainer"]', 14);
     check('[data-testid="play-status"]', 14);
     check('[data-testid="auction-recap"]', 14);
-    check('[data-testid="held-legend"]', 13);
+    check('[data-testid="held-legend"]', 14);
     return found;
   });
   expect(problems, problems.join('\n')).toEqual([]);
+}
+
+/** Bid and Pass are the buttons under the pointer at scroll 0, above the dock. */
+export async function assertBidAtRest(page: Page): Promise<void> {
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const report = await page.evaluate(() => {
+    const problems: string[] = [];
+    const dock = document.querySelector('[data-testid="hand-dock"]');
+    const dockTop = dock?.getBoundingClientRect().top ?? window.innerHeight;
+    const buttons = [...document.querySelectorAll('button')].filter((button) => /^(Bid |Pass$)/.test((button.textContent ?? '').trim()));
+    if (buttons.length < 2) problems.push('bid controls missing');
+    buttons.forEach((button) => {
+      const box = button.getBoundingClientRect();
+      const x = box.left + box.width / 2;
+      const y = box.top + box.height / 2;
+      const hit = document.elementFromPoint(x, y);
+      const label = (button.textContent ?? '').trim();
+      if (box.bottom > dockTop + 0.5) problems.push(`${label} under the dock`);
+      if (hit !== button && !button.contains(hit)) problems.push(`${label} covered`);
+    });
+    return problems;
+  });
+  expect(report, report.join('\n')).toEqual([]);
+}
+
+/** The turn ring must not sit closer than 8px to a screen edge. */
+export async function assertChipInset(page: Page): Promise<void> {
+  const gap = await page.evaluate(() => {
+    const chips = [...document.querySelectorAll('[data-testid="score-chip"]')];
+    if (chips.length === 0) return 99;
+    const boxes = chips.map((chip) => chip.getBoundingClientRect());
+    const left = Math.min(...boxes.map((box) => box.left)) - 4;
+    const right = window.innerWidth - (Math.max(...boxes.map((box) => box.right)) + 4);
+    return Math.min(left, right);
+  });
+  expect(gap).toBeGreaterThanOrEqual(8);
 }
 
 /** Scroll each control above the pinned fan, then prove the fan does not cover its centre. */

@@ -1,6 +1,33 @@
 import { expect, test } from '@playwright/test';
 import { assertHandCorners } from './visible-hand';
 
+async function clickLegalFace(page: import('@playwright/test').Page): Promise<boolean> {
+  const point = await page.evaluate(() => {
+    const buttons = [...document.querySelectorAll('[data-testid="hand-card"]')];
+    const labelAt = (x: number, y: number): string => document.elementFromPoint(x, y)?.closest('[data-testid="hand-card"]')?.getAttribute('aria-label') ?? '';
+    for (const button of buttons) {
+      if (button.getAttribute('aria-disabled') === 'true') continue;
+      const svg = button.querySelector('svg');
+      if (!(svg instanceof SVGSVGElement)) continue;
+      const ctm = svg.getScreenCTM();
+      const at = (x: number, y: number): { x: number; y: number } => {
+        const spot = svg.createSVGPoint();
+        spot.x = x;
+        spot.y = y;
+        const screen = ctm ? spot.matrixTransform(ctm) : spot;
+        return { x: screen.x, y: screen.y };
+      };
+      const label = button.getAttribute('aria-label') ?? '';
+      const hit = [at(48, 70), at(125, 175), at(48, 140)].find((item) => labelAt(item.x, item.y) === label);
+      if (hit) return hit;
+    }
+    return null;
+  });
+  if (!point) return false;
+  await page.mouse.click(point.x, point.y);
+  return true;
+}
+
 async function playOneHand(page: import('@playwright/test').Page, variant: '250' | '500'): Promise<void> {
   const errors: string[] = [];
   page.on('console', (msg) => {
@@ -35,9 +62,7 @@ async function playOneHand(page: import('@playwright/test').Page, variant: '250'
       await pass.click();
       continue;
     }
-    const card = page.locator('[data-testid="hand-card"][aria-disabled="false"]').first();
-    if (await card.isVisible().catch(() => false)) {
-      await card.click();
+    if (await clickLegalFace(page)) {
       await page.getByTestId('confirm-play').click();
       continue;
     }

@@ -38,7 +38,14 @@ export function LocalPlayPage(): JSX.Element {
   const [canConfirm, setCanConfirm] = useState(false);
   const [blocked, setBlocked] = useState<string | null>(null);
 
-  useEffect(() => { setBlocked(null); }, [phase]);
+  useEffect(() => {
+    setBlocked(null);
+  }, [phase, hand?.toPlayerId, hand?.currentTrick.length, settledTrick, bidHistory.length]);
+  useEffect(() => {
+    if (!blocked) return undefined;
+    const timer = window.setTimeout(() => setBlocked(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [blocked]);
 
   useEffect(() => {
     if (!settledTrick) return undefined;
@@ -136,6 +143,7 @@ export function LocalPlayPage(): JSX.Element {
             onAuctionClose={() => stepBot()}
             compact={short}
             onBlocked={setBlocked}
+            onDraft={() => setBlocked(null)}
           />
         </div>
       )}
