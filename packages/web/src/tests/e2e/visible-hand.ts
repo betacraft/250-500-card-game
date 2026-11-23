@@ -42,6 +42,34 @@ export async function assertHandCorners(page: Page): Promise<void> {
   expect(report.fanBottom).toBeLessThanOrEqual(report.height + 0.5);
 }
 
+/** Every score chip shows its score, with no ellipsis and no clipped text. */
+export async function assertScoreChips(page: Page): Promise<void> {
+  const report = await page.evaluate(() => {
+    const chips = [...document.querySelectorAll('[data-testid="score-chip"]')];
+    const problems: string[] = [];
+    chips.forEach((chip, index) => {
+      const text = chip.querySelector('[data-testid="score-chip-text"]');
+      const score = chip.querySelector('[data-testid="score-chip-score"]');
+      if (!(text instanceof HTMLElement) || !(score instanceof HTMLElement)) {
+        problems.push(`chip ${index} is missing its text`);
+        return;
+      }
+      const nodes = [text, chip instanceof HTMLElement ? chip : text];
+      nodes.forEach((node) => {
+        if (node.scrollWidth > node.clientWidth + 0.5) problems.push(`chip ${index} overflows ${node.scrollWidth}>${node.clientWidth}`);
+        if (getComputedStyle(node).textOverflow === 'ellipsis') problems.push(`chip ${index} uses ellipsis`);
+      });
+      const box = score.getBoundingClientRect();
+      if (box.width < 1 || box.left < -0.5 || box.right > window.innerWidth + 0.5 || box.top < -0.5 || box.bottom > window.innerHeight + 0.5) {
+        problems.push(`chip ${index} score outside viewport`);
+      }
+    });
+    return { count: chips.length, problems };
+  });
+  expect(report.count).toBeGreaterThan(0);
+  expect(report.problems, JSON.stringify(report)).toEqual([]);
+}
+
 /** Scroll each control above the pinned fan, then prove the fan does not cover its centre. */
 export async function assertControlsClear(page: Page): Promise<void> {
   const controls = page.locator('main button, [data-testid="hand-dock"] button:not([data-testid="hand-card"])');

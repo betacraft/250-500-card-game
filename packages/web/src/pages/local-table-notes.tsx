@@ -63,31 +63,74 @@ export function ScoreStrip({
   scores,
   order,
   chips = false,
+  narrow = false,
+  turnId = null,
+  bidderId = null,
 }: {
   names: Record<string, string>;
   scores: Record<string, number>;
   order: string[];
   chips?: boolean;
+  /** Narrow window: wrap chips so the name and score are not clipped. */
+  narrow?: boolean;
+  /** Player about to act. Drawn with the turn ring. */
+  turnId?: string | null;
+  /** Winning bidder, once the auction has a winner. Drawn with the bidder ring. */
+  bidderId?: string | null;
 }): JSX.Element {
+  const items = order.map((id) => ({
+    id,
+    name: names[id] ?? id,
+    score: scores[id] ?? 0,
+    turn: id === turnId,
+    bidder: id === bidderId,
+  }));
   if (chips) {
     return (
-      <ul className="flex flex-nowrap gap-1 text-sm text-stone-700">
-        {order.map((id) => (
-          <li key={id} className="min-w-0 flex-1 truncate rounded-full bg-white px-1 py-1 text-center">
-            {names[id] ?? id} {scores[id] ?? 0}
-          </li>
+      <ul data-testid="score-strip" className="flex flex-nowrap justify-center gap-1">
+        {items.map((item) => (
+          <ScoreChip key={item.id} item={item} label={narrow && order.length > 6 ? shortScoreLabel(item.name) : item.name} fill={!narrow} />
         ))}
       </ul>
     );
   }
   return (
-    <ul className="grid grid-cols-2 gap-1 text-sm text-stone-700">
-      {order.map((id) => (
-        <li key={id} className="flex justify-between rounded-lg bg-white px-2 py-1">
-          <span>{names[id] ?? id}</span>
-          <span className="tabular-nums">{scores[id] ?? 0}</span>
+    <ul data-testid="score-strip" className="grid grid-cols-2 gap-1 text-sm text-stone-700">
+      {items.map((item) => (
+        <li key={item.id} data-testid="score-chip" title={item.name} aria-label={`${item.name} ${item.score}`} className={chipClass(item, 'flex justify-between rounded-lg bg-white px-2 py-1')}>
+          <span data-testid="score-chip-text">{item.name}</span>
+          <span data-testid="score-chip-score" className="tabular-nums">{item.score}</span>
         </li>
       ))}
     </ul>
   );
+}
+
+/** "Ada" becomes "A". "Bot 2" becomes "B2". The full name stays on the chip's title. */
+function shortScoreLabel(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  const first = parts[0] ?? name;
+  if (parts.length <= 1) return first.slice(0, 1);
+  return `${first.slice(0, 1)}${parts.slice(1).join('')}`;
+}
+
+function ScoreChip({ item, label, fill }: { item: { id: string; name: string; score: number; turn: boolean; bidder: boolean }; label: string; fill: boolean }): JSX.Element {
+  return (
+    <li
+      data-testid="score-chip"
+      title={item.name}
+      aria-label={`${item.name} ${item.score}`}
+      className={chipClass(item, `${fill ? 'min-w-0 flex-1' : 'shrink-0'} rounded-full bg-white px-1 py-1 text-center text-sm text-stone-700`)}
+    >
+      <span data-testid="score-chip-text" className="block whitespace-nowrap">
+        {label} <span data-testid="score-chip-score" className="tabular-nums">{item.score}</span>
+      </span>
+    </li>
+  );
+}
+
+function chipClass(item: { turn: boolean; bidder: boolean }, base: string): string {
+  if (item.turn) return `${base} ring-2 ring-felt`;
+  if (item.bidder) return `${base} ring-2 ring-gold-border`;
+  return base;
 }

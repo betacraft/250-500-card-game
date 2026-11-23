@@ -98,7 +98,15 @@ export function LocalPlayPage(): JSX.Element {
         <Link to="/" className="text-sm text-stone-600 underline">Home</Link>
       </header>
       {!short && <p className="text-sm text-stone-500">Free to play. No coins or stakes.</p>}
-      <ScoreStrip names={names} scores={runningScores} order={seatOrder} chips={short} />
+      <ScoreStrip
+        names={names}
+        scores={runningScores}
+        order={seatOrder}
+        chips={short}
+        narrow={!wide}
+        turnId={phase === 'playing' ? hand.toPlayerId : phase === 'bidding' ? turn : hand.bidder}
+        bidderId={hand.bidder}
+      />
       <TableStatus hand={hand} names={names} />
       {phase !== 'bidding' && !(short && !wide && humanDeclaring) && (
         <AuctionRecap

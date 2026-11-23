@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { assertControlsClear, assertHandCorners } from './visible-hand';
+import { assertControlsClear, assertHandCorners, assertScoreChips } from './visible-hand';
 
 const views = [
   { width: 1024, height: 572, shot: true },
@@ -42,12 +42,14 @@ test.describe('hand stays readable', () => {
         await assertHandCorners(page);
         await assertControlsClear(page);
         await page.evaluate(() => window.scrollTo(0, 0));
+        await assertScoreChips(page);
         if (view.shot) await page.screenshot({ path: `/opt/cursor/artifacts/bid-${variant}-${view.width}x${view.height}.png`, fullPage: false });
         await bidMax(page);
         await expect(page.getByTestId('declare-form')).toBeVisible();
         await assertHandCorners(page);
         await assertControlsClear(page);
         await page.evaluate(() => window.scrollTo(0, 0));
+        await assertScoreChips(page);
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2);
         expect(overflow).toBe(false);
         if (view.shot) await page.screenshot({ path: `/opt/cursor/artifacts/declare-${variant}-${view.width}x${view.height}.png`, fullPage: false });
@@ -61,6 +63,7 @@ test.describe('hand stays readable', () => {
         await assertHandCorners(page);
         await assertControlsClear(page);
         await page.evaluate(() => window.scrollTo(0, 0));
+        await assertScoreChips(page);
         if (view.shot) await page.screenshot({ path: `/opt/cursor/artifacts/play-${variant}-${view.width}x${view.height}.png`, fullPage: false });
         expect(errors, errors.join('\n')).toEqual([]);
       });
