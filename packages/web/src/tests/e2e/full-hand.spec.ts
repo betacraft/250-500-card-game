@@ -29,7 +29,8 @@ test.describe('full hands from the real controls', () => {
         await deal(page, variant, view, input);
         await loseAuction(page, input);
         const lostWidths: number[] = [];
-        await finishHand(page, input, true, lostWidths);
+        const clubsFollow = { pending: variant === '500' && view.width === 360 };
+        await finishHand(page, input, true, lostWidths, clubsFollow);
         await expect(page.getByTestId('hand-complete')).toBeVisible();
         await expect(page.getByTestId('turn-marker')).toHaveCount(0);
 
@@ -74,7 +75,8 @@ test.describe('full hands from the real controls', () => {
         await assertFaceCentres(page);
         if (variant === '500' && view.width === 360) await shootClubsLead(page, input);
         const wonWidths: number[] = [];
-        await finishHand(page, input, false, wonWidths);
+        await finishHand(page, input, false, wonWidths, clubsFollow);
+        if (variant === '500' && view.width === 360) expect(clubsFollow.pending, 'never followed a clubs lead').toBe(false);
         await expect(page.getByTestId('hand-complete')).toBeVisible();
         await expect(page.getByTestId('turn-marker')).toHaveCount(0);
         expect(wonWidths.length).toBeGreaterThan(0);
@@ -186,7 +188,13 @@ async function shootClubsLead(page: Page, input: 'mouse' | 'touch'): Promise<voi
   await page.screenshot({ path: '/opt/cursor/artifacts/play-500-360-clubs-lead.png', fullPage: false });
 }
 
-async function finishHand(page: Page, input: 'mouse' | 'touch', holdScores: boolean, widths: number[]): Promise<void> {
+async function finishHand(
+  page: Page,
+  input: 'mouse' | 'touch',
+  holdScores: boolean,
+  widths: number[],
+  clubsFollow: { pending: boolean } = { pending: false },
+): Promise<void> {
   for (let guard = 0; guard < 500; guard += 1) {
     if (await page.getByTestId('hand-complete').isVisible().catch(() => false)) return;
     if (await page.getByTestId('trick-pause').isVisible().catch(() => false)) {
@@ -202,6 +210,17 @@ async function finishHand(page: Page, input: 'mouse' | 'touch', holdScores: bool
       continue;
     }
     if (await page.getByText('Your turn').isVisible().catch(() => false)) {
+      if (clubsFollow.pending) {
+        const followingClubs = await page.evaluate(() => {
+          const led = document.querySelector('[data-testid="led-suit"]')?.getAttribute('data-suit');
+          const played = document.querySelectorAll('[data-testid="trick-row"] [data-suit]').length;
+          return led === 'clubs' && played > 0;
+        });
+        if (followingClubs) {
+          await page.screenshot({ path: '/opt/cursor/artifacts/play-500-360-clubs-follow.png', fullPage: false });
+          clubsFollow.pending = false;
+        }
+      }
       await assertFaceCentres(page);
       await assertTableFacts(page);
       const legal = page.locator('[data-testid="hand-card"][aria-disabled="false"]').first();

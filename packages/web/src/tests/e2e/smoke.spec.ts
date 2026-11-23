@@ -23,6 +23,7 @@ test.describe('smoke (mobile viewport)', () => {
     await expect(page.getByTestId('suit-label-sheet')).toBeVisible();
     await expect(page.getByRole('img', { name: 'clubs' })).toHaveCount(2);
     await page.screenshot({ path: '/opt/cursor/artifacts/suit-labels-390x844.png', fullPage: false });
+    await page.getByTestId('fan-clubs-crop').screenshot({ path: '/opt/cursor/artifacts/fan-4c-6c-390.png' });
   });
 
   test('scoring flow link navigates correctly', async ({ page }) => {

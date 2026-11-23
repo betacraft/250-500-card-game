@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
 import type { Suit } from '@250-500/shared';
 import { CardFace } from '../cards/CardFace';
-import { SUIT_BADGE, SUIT_CREAM, SUIT_FILL, SUIT_PIP } from '../cards/suit-glyphs';
+import { CLUB_LOBES, SUIT_BADGE, SUIT_CREAM, SUIT_FILL, SUIT_PIP } from '../cards/suit-glyphs';
 import { SuitIcon } from './SuitIcon';
 
 const SUITS: Suit[] = ['spades', 'hearts', 'diamonds', 'clubs'];
@@ -35,6 +35,17 @@ describe('SuitIcon', () => {
       const fills = [...face.container.querySelectorAll('path')].map((node) => node.getAttribute('fill'));
       expect(fills).toContain(SUIT_FILL[suit]);
     }
+  });
+
+  it('points the club up: one lobe on the centre, two lobes below it', () => {
+    const top = [...CLUB_LOBES].sort((a, b) => a.cy - b.cy)[0];
+    const lower = CLUB_LOBES.filter((lobe) => lobe.cy > (top?.cy ?? 0));
+    const edges = CLUB_LOBES.flatMap((lobe) => [lobe.cx - lobe.r, lobe.cx + lobe.r]);
+    const centre = (Math.min(...edges) + Math.max(...edges)) / 2;
+    expect(top?.cx).toBeCloseTo(centre, 5);
+    expect(lower).toHaveLength(2);
+    expect(lower[0]?.cy).toBeCloseTo(lower[1]?.cy ?? 0, 5);
+    expect(SUIT_PIP.clubs).toContain(String(top?.cx));
   });
 
   it('keeps at least 3:1 between each pip and both the cream page and the felt badge', () => {

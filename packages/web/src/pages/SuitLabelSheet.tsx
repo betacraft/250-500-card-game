@@ -1,4 +1,5 @@
 import type { Suit } from '@250-500/shared';
+import { HandFan } from '../components/cards/HandFan';
 import { SuitIcon } from '../components/shared/SuitIcon';
 
 const SUITS: Suit[] = ['spades', 'hearts', 'diamonds', 'clubs'];
@@ -21,6 +22,13 @@ export function SuitLabelSheet(): JSX.Element {
             Led: {suit} <SuitIcon suit={suit} size={46} badge />
           </p>
         ))}
+      </section>
+      <section data-testid="fan-clubs-crop" className="rounded-xl bg-[#F5F1E8] p-3">
+        <HandFan
+          cards={[{ suit: 'clubs', rank: '4' }, { suit: 'clubs', rank: '6' }]}
+          canPlay={false}
+          onPlay={() => undefined}
+        />
       </section>
     </main>
   );

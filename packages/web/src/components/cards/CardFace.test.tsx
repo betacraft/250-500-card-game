@@ -13,6 +13,16 @@ describe('card faces', () => {
     expect(screen.getByTestId('thirty-marker')).toBeInTheDocument();
   });
 
+  it('dims a disabled face without making it transparent', () => {
+    const { container } = render(<CardFace card={{ suit: 'clubs', rank: '6' }} disabled />);
+    const svg = container.querySelector('svg');
+    expect(svg?.style.opacity === '' || svg?.style.opacity === '1').toBe(true);
+    expect(svg?.style.filter).toMatch(/brightness/);
+    const stock = container.querySelector('rect');
+    expect(stock?.getAttribute('fill')).toBe('#FFFDF7');
+    expect(stock?.getAttribute('fill-opacity') ?? '1').toBe('1');
+  });
+
   it('fans one button per physical card', () => {
     const cards = [
       { suit: 'spades' as const, rank: '3' as const, id: '1' },
