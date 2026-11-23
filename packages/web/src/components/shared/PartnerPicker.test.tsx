@@ -60,4 +60,22 @@ describe('PartnerPicker', () => {
     await userEvent.click(screen.getByRole('button', { name: /A of spades/i }));
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('explains why a further card does not select', async () => {
+    const onBlocked = vi.fn();
+    render(
+      <PartnerPicker
+        selected={[
+          { suit: 'hearts', rank: 'Q' },
+          { suit: 'diamonds', rank: 'K' },
+          { suit: 'clubs', rank: 'A' },
+        ]}
+        maxCount={3}
+        onChange={() => {}}
+        onBlocked={onBlocked}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /^5 of spades/i }));
+    expect(onBlocked).toHaveBeenCalledWith("You've called 3 cards — tap one to unselect");
+  });
 });

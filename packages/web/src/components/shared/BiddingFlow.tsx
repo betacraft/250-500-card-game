@@ -131,7 +131,7 @@ export function BiddingFlow({
         )}
       </section>
 
-      {compact && bidHistory.length > 0 && (
+      {bidHistory.length > 0 && (
         <p className="truncate text-sm text-stone-600">
           {bidHistory.map((entry) => {
             const name = playerById[entry.playerId]?.name ?? entry.playerId;
@@ -139,29 +139,6 @@ export function BiddingFlow({
           }).join(', ')}
         </p>
       )}
-
-      {!compact && <section className={`rounded-xl bg-white ${pad}`}>
-        <div className="mb-2 text-sm font-medium uppercase tracking-wider text-stone-500">Bidding history</div>
-        {bidHistory.length === 0 ? (
-          <div className="text-sm text-stone-500">No actions yet.</div>
-        ) : (
-          <ul className="flex flex-col gap-1.5 text-sm">
-            {bidHistory.map((entry, i) => {
-              const p = playerById[entry.playerId];
-              return (
-                <li key={i} className="flex items-center justify-between">
-                  <span className="text-stone-700">{p?.name ?? entry.playerId}</span>
-                  {entry.action === 'bid' ? (
-                    <span className="font-medium tabular-nums">{entry.amount}</span>
-                  ) : (
-                    <span className="text-stone-500">passed</span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>}
 
       {currentPlayer && (
         <section className={`rounded-xl border-2 border-felt bg-white ${pad}`}>

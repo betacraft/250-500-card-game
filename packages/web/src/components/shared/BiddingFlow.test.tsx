@@ -102,7 +102,7 @@ describe('BiddingFlow', () => {
       />,
     );
     expect(screen.getAllByText('165').length).toBeGreaterThan(0);
-    expect(screen.getByText(/passed/i)).toBeInTheDocument();
+    expect(screen.getByText(/Player 2 pass/)).toBeInTheDocument();
   });
 
   it('plus/minus buttons adjust the draft amount in increments of 5', async () => {

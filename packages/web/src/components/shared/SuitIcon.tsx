@@ -14,10 +14,10 @@ const PATHS: Record<Suit, string> = {
 };
 
 const COLORS: Record<Suit, string> = {
-  spades: '#222',
-  clubs: '#222',
-  hearts: '#B53132',
-  diamonds: '#B53132',
+  spades: '#1C1C24',
+  hearts: '#C93A0C',
+  diamonds: '#2563EB',
+  clubs: '#047857',
 };
 
 /** Inline SVG suit icon — never Unicode (renders as emoji on some platforms). */

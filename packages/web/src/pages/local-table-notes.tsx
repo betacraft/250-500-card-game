@@ -50,7 +50,7 @@ export function AuctionRecap({
   if (lines.length === 0 && !trump) return null;
   const calledText = called.map((card) => `${card.rank}${card.suit[0]}`).join(' ');
   return (
-    <p data-testid="auction-recap" className="text-sm text-stone-700">
+    <p data-testid="auction-recap" data-trump={trump ?? ''} className="text-sm text-stone-700">
       Auction: {lines.join(', ') || 'no bid'}
       {trump ? ` · Trump ${trump}` : ''}
       {calledText ? ` · Called ${calledText}` : ''}
@@ -88,7 +88,7 @@ export function ScoreStrip({
   const crowned = items.some((item) => item.bidder);
   if (chips) {
     return (
-      <ul data-testid="score-strip" className={`flex flex-nowrap justify-center gap-0.5 ${crowned ? 'pt-8' : ''}`}>
+      <ul data-testid="score-strip" className={`flex flex-wrap justify-center gap-x-2.5 ${crowned ? 'gap-y-8 pt-8' : 'gap-y-3'}`}>
         {items.map((item) => (
           <ScoreChip key={item.id} item={item} label={narrow && order.length > 6 ? shortScoreLabel(item.name) : item.name} fill={!narrow} />
         ))}

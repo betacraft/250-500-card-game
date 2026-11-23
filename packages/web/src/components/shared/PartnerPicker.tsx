@@ -21,6 +21,8 @@ interface PartnerPickerProps {
   /** Tighter spacing. Wide windows put all 12 ranks on one row. */
   compact?: boolean;
   wide?: boolean;
+  /** The bidder tried to call one more card than the game allows. */
+  onBlocked?: (reason: string) => void;
 }
 
 function isSelected(card: Card, selected: Card[]): boolean {
@@ -30,13 +32,15 @@ function isSelected(card: Card, selected: Card[]): boolean {
 /** 4 suits × 12 ranks; tap to toggle up to maxCount.
  * Mobile layout: each suit gets two rows of 6 ranks (no horizontal scroll, ≥44px tap targets,
  * ≥8px adjacent spacing). Fits comfortably at 360px portrait. */
-export function PartnerPicker({ selected, maxCount, onChange, heldFaces, compact = false, wide = false }: PartnerPickerProps): JSX.Element {
+export function PartnerPicker({ selected, maxCount, onChange, heldFaces, compact = false, wide = false, onBlocked }: PartnerPickerProps): JSX.Element {
   const toggle = (card: Card) => {
     const exists = isSelected(card, selected);
     if (exists) {
       onChange(selected.filter((c) => !(c.suit === card.suit && c.rank === card.rank)));
     } else if (selected.length < maxCount) {
       onChange([...selected, card]);
+    } else {
+      onBlocked?.(`You've called ${maxCount} cards — tap one to unselect`);
     }
   };
 

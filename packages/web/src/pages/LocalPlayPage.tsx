@@ -1,14 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { cardId, cardInstanceKey, illegalReason, legalPlaysFor, nextBidder, rulesFor, visiblePartners, type Card, type GameType, type Suit } from '@250-500/shared';
 import { BiddingFlow } from '../components/shared/BiddingFlow';
-import { PartnerPicker } from '../components/shared/PartnerPicker';
 import { SuitIcon } from '../components/shared/SuitIcon';
-import { TrumpPicker } from '../components/shared/TrumpPicker';
 import { CardFace } from '../components/cards/CardFace';
 import { HandFan } from '../components/cards/HandFan';
 import { TrickArea } from '../components/online/TrickArea';
 import { HUMAN_ID, useLocalPlayStore } from '../stores/local-play-store';
+import { DeclareForm, NewGameButton, Setup } from './local-play-forms';
 import { AuctionRecap, ScoreStrip, privateNotice, scoreExplainer } from './local-table-notes';
 
 /** Free local table: one human and five or seven Easy bots. No coins, no stakes. */
@@ -32,9 +31,8 @@ export function LocalPlayPage(): JSX.Element {
   const stepBot = useLocalPlayStore((s) => s.stepBot);
   const dismissTrick = useLocalPlayStore((s) => s.dismissTrick);
   const nextHand = useLocalPlayStore((s) => s.nextHand);
-  const { short, wide } = useViewport();
-  const fanRef = useRef<HTMLDivElement>(null);
-  const [dockHeight, setDockHeight] = useState(240);
+  const leave = useLocalPlayStore((s) => s.leave);
+  const { short, wide, height } = useViewport();
   const [canConfirm, setCanConfirm] = useState(false);
   const [blocked, setBlocked] = useState<string | null>(null);
 
@@ -52,16 +50,6 @@ export function LocalPlayPage(): JSX.Element {
     const timer = window.setTimeout(() => dismissTrick(), 1500);
     return () => window.clearTimeout(timer);
   }, [settledTrick, dismissTrick]);
-
-  useEffect(() => {
-    const node = fanRef.current;
-    if (!node || typeof ResizeObserver === 'undefined') return undefined;
-    const apply = (): void => setDockHeight(node.offsetHeight);
-    apply();
-    const observer = new ResizeObserver(apply);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [phase, short, hand?.hands[HUMAN_ID]?.length, hand?.bidder]);
 
   useEffect(() => {
     if (phase === 'setup' || phase === 'scored' || settledTrick) return undefined;
@@ -93,33 +81,34 @@ export function LocalPlayPage(): JSX.Element {
       thirtySuits={handThirties(hand)}
       calledIds={new Set(hand.calledCards.map((card) => cardId(card)))}
       reasons={reasons}
-      compact={short}
+      compact={short || !wide}
+      maxHeight={wide && !short ? Math.floor(height * 0.3) : null}
       onBlocked={setBlocked}
     />
   );
 
   return (
-    <div className="min-h-screen">
-    <main
-      className={`mx-auto flex min-h-screen w-full max-w-[980px] flex-col overflow-x-clip px-3 pt-2 ${short ? 'gap-1' : 'gap-3'}`}
-      style={{ paddingBottom: docked ? dockHeight + 16 : 16 }}
-    >
-      <header className="flex items-center justify-between gap-2">
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#F5F1E8]">
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-[980px] flex-col px-3 pt-2">
+      <header className="flex shrink-0 items-center justify-between gap-2">
         <h1 className="text-base font-medium">Play vs bots · {gameType}</h1>
-        <Link to="/" className="text-sm text-stone-600 underline">Home</Link>
+        <span className="flex items-center gap-3"><NewGameButton onAbandon={leave} /><Link to="/" className="text-sm text-stone-600 underline">Home</Link></span>
       </header>
-      {!short && <p className="text-sm text-stone-500">Free to play. No coins or stakes.</p>}
-      <ScoreStrip
-        names={names}
-        scores={runningScores}
-        order={seatOrder}
-        chips={short}
-        narrow={!wide}
-        turnId={phase === 'playing' ? hand.toPlayerId : phase === 'bidding' ? turn : hand.bidder}
-        bidderId={hand.bidder}
-      />
+      {!short && <p className="shrink-0 pt-1 text-sm text-stone-500">Free to play. No coins or stakes.</p>}
+      <div className="shrink-0 pt-1">
+        <ScoreStrip
+          names={names}
+          scores={runningScores}
+          order={seatOrder}
+          chips
+          narrow={!wide}
+          turnId={phase === 'scored' ? null : phase === 'playing' ? hand.toPlayerId : phase === 'bidding' ? turn : hand.bidder}
+          bidderId={hand.bidder}
+        />
+      </div>
+      <div data-testid="play-scroll" className="min-h-0 flex-1 overflow-y-auto py-2">
       <TableStatus hand={hand} names={names} />
-      {blocked && <p data-testid="disabled-reason" role="status" className="text-sm font-medium text-red-700">{blocked}</p>}
+      <p data-testid="disabled-reason" role="status" className="pointer-events-none h-5 overflow-hidden text-sm font-medium leading-5 text-red-700">{blocked ?? ''}</p>
       {phase !== 'bidding' && !(short && humanDeclaring) && (
         <AuctionRecap
           history={bidHistory}
@@ -141,7 +130,7 @@ export function LocalPlayPage(): JSX.Element {
             onBid={(_id, amount) => bid(amount)}
             onPass={() => pass()}
             onAuctionClose={() => stepBot()}
-            compact={short}
+            compact={height <= 900}
             onBlocked={setBlocked}
             onDraft={() => setBlocked(null)}
           />
@@ -153,10 +142,11 @@ export function LocalPlayPage(): JSX.Element {
           gameType={gameType}
           need={rulesFor(gameType).PARTNERS_TO_CALL}
           heldFaces={new Set(humanHand.map((card) => cardId(card)))}
-          compact={short || !wide}
+          compact={height <= 900}
           wide={wide}
           onCanConfirm={setCanConfirm}
           onDeclare={declare}
+          onBlocked={setBlocked}
         />
       )}
       {phase === 'declaring' && hand.bidder !== HUMAN_ID && (
@@ -171,7 +161,7 @@ export function LocalPlayPage(): JSX.Element {
             thirtyIndexes={thirty}
             winnerId={settledTrick?.winnerId ?? null}
           />
-          {settledTrick && <p className="mt-1 text-center text-sm text-stone-600">Tap to continue · {names[settledTrick.winnerId] ?? 'Winner'} won the trick</p>}
+          {settledTrick && <p className="mt-1 text-center text-sm text-stone-600">{names[settledTrick.winnerId] ?? 'Winner'} won the trick · tap to skip</p>}
         </div>
       )}
       {phase === 'playing' && !settledTrick && (
@@ -203,10 +193,9 @@ export function LocalPlayPage(): JSX.Element {
           </button>
         </section>
       )}
-    </main>
-    {docked && (
-      <div ref={fanRef} data-testid="hand-dock" className="fixed inset-x-0 bottom-0 z-30 bg-[#F5F1E8]">
-        <div className="mx-auto w-full max-w-[980px] px-3">
+      </div>
+      {docked && (
+        <div data-testid="hand-dock" className="shrink-0 pb-[env(safe-area-inset-bottom)]">
           {fan}
           {humanDeclaring && (
             <div className="py-2">
@@ -216,16 +205,16 @@ export function LocalPlayPage(): JSX.Element {
             </div>
           )}
         </div>
-      </div>
-    )}
+      )}
+    </div>
     </div>
   );
 }
 
-function useViewport(): { short: boolean; wide: boolean } {
-  const [size, setSize] = useState({ short: false, wide: true });
+function useViewport(): { short: boolean; wide: boolean; height: number } {
+  const [size, setSize] = useState({ short: false, wide: true, height: 800 });
   useEffect(() => {
-    const apply = (): void => setSize({ short: window.innerHeight <= 760, wide: window.innerWidth >= 720 });
+    const apply = (): void => setSize({ short: window.innerHeight <= 760, wide: window.innerWidth >= 720, height: window.innerHeight });
     apply();
     window.addEventListener('resize', apply);
     return () => window.removeEventListener('resize', apply);
@@ -279,7 +268,7 @@ function TableStatus({ hand, names }: { hand: NonNullable<ReturnType<typeof useL
   return (
     <div className="flex flex-wrap items-end gap-2 text-sm text-stone-700" data-testid="table-status">
       <span>{names[hand.bidder] ?? 'Bidder'} bid {hand.bidAmount}</span>
-      {hand.trump && <span className="inline-flex items-center gap-1">trump <SuitIcon suit={hand.trump} size={14} /></span>}
+      {hand.trump && <span data-testid="trump-name" data-suit={hand.trump} className="inline-flex items-center gap-1">trump {hand.trump} <SuitIcon suit={hand.trump} size={14} /></span>}
       {hand.calledCards.length > 0 && (
         <span className="inline-flex items-end gap-1" data-testid="called-cards">
           <span className="text-sm font-medium">Called</span>
@@ -306,81 +295,4 @@ function publicTeamPoints(hand: NonNullable<ReturnType<typeof useLocalPlayStore.
   return points;
 }
 
-function Setup({ onStart }: { onStart: (gameType: GameType, name: string) => void }): JSX.Element {
-  const [gameType, setGameType] = useState<GameType>('250');
-  const [name, setName] = useState('');
-  return (
-    <main className="mx-auto flex min-h-screen w-full max-w-[980px] flex-col gap-4 px-5 pt-6">
-      <Link to="/" className="text-sm text-stone-600 underline">Home</Link>
-      <h1 className="text-2xl font-medium">Play vs bots</h1>
-      <p className="text-sm text-stone-600">Free to play against 5 bots (250) or 7 bots (500). No coins, no stakes, no buy-in.</p>
-      <div className="grid grid-cols-2 gap-3">
-        {(['250', '500'] as const).map((type) => (
-          <button key={type} type="button" onClick={() => setGameType(type)} className={`rounded-xl border p-4 text-left ${gameType === type ? 'border-felt bg-felt text-white' : 'border-stone-300 bg-white'}`}>
-            <div className="text-lg font-medium">{type}</div>
-            <div className="text-sm opacity-80">{type === '250' ? 'You + 5 bots' : 'You + 7 bots'}</div>
-          </button>
-        ))}
-      </div>
-      <label className="text-sm font-medium" htmlFor="local-name">Your name</label>
-      <input id="local-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="You" className="h-11 rounded-lg border border-stone-300 px-3" maxLength={40} />
-      <button type="button" data-testid="start-vs-bots" onClick={() => onStart(gameType, name)} className="rounded-xl bg-felt p-4 text-base font-medium text-white">
-        Deal the cards
-      </button>
-    </main>
-  );
-}
-
-function DeclareForm({
-  gameType,
-  need,
-  heldFaces,
-  compact,
-  wide,
-  onCanConfirm,
-  onDeclare,
-}: {
-  gameType: GameType;
-  need: number;
-  heldFaces: ReadonlySet<string>;
-  compact: boolean;
-  wide: boolean;
-  onCanConfirm: (ready: boolean) => void;
-  onDeclare: (trump: Suit, called: Card[]) => void;
-}): JSX.Element {
-  const [trump, setTrump] = useState<Suit | null>(null);
-  const [called, setCalled] = useState<Card[]>([]);
-  const formRef = useRef<HTMLFormElement>(null);
-  const [formMax, setFormMax] = useState<number | null>(null);
-  const ready = trump !== null && called.length === need;
-  useEffect(() => { onCanConfirm(ready); }, [onCanConfirm, ready]);
-  useEffect(() => {
-    const apply = (): void => {
-      const node = formRef.current;
-      const dock = document.querySelector('[data-testid="hand-dock"]');
-      if (!node || !dock) return;
-      const room = Math.floor(dock.getBoundingClientRect().top - node.getBoundingClientRect().top - 8);
-      setFormMax(Math.max(0, room));
-    };
-    apply();
-    window.addEventListener('resize', apply);
-    const dock = document.querySelector('[data-testid="hand-dock"]');
-    const observer = typeof ResizeObserver === 'undefined' || !dock ? null : new ResizeObserver(apply);
-    if (dock) observer?.observe(dock);
-    return () => {
-      window.removeEventListener('resize', apply);
-      observer?.disconnect();
-    };
-  }, []);
-  return (
-    <form ref={formRef} id="declare-form" data-testid="declare-form" style={formMax ? { maxHeight: formMax } : undefined} className={`overflow-y-auto ${compact && wide ? 'flex flex-col gap-0' : compact ? 'flex flex-col gap-1' : 'flex flex-col gap-3'}`} onSubmit={(event) => { event.preventDefault(); if (trump) onDeclare(trump, called); }}>
-      <p data-testid="declare-instruction" className="text-sm leading-snug text-stone-800">
-        <span className="font-medium">You won the bid. Name trump and {need} cards. </span>
-        <span data-testid="score-explainer" className="text-stone-700">{scoreExplainer(gameType, compact)}</span>
-      </p>
-      <TrumpPicker value={trump} onChange={setTrump} compact={compact} />
-      <PartnerPicker selected={called} maxCount={need} heldFaces={heldFaces} compact={compact} wide={wide} onChange={setCalled} />
-    </form>
-  );
-}
 

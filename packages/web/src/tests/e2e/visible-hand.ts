@@ -168,9 +168,16 @@ export async function assertReadableCopy(page: Page): Promise<void> {
 
 /** Bid and Pass are the buttons under the pointer at scroll 0, above the dock. */
 export async function assertBidAtRest(page: Page): Promise<void> {
-  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.evaluate(() => {
+    window.scrollTo(0, 0);
+    const scroller = document.querySelector('[data-testid="play-scroll"]');
+    if (scroller instanceof HTMLElement) scroller.scrollTop = 0;
+  });
   const report = await page.evaluate(() => {
     const problems: string[] = [];
+    if (window.scrollY > 1) problems.push('window scrolled');
+    const scroller = document.querySelector('[data-testid="play-scroll"]');
+    if (scroller instanceof HTMLElement && scroller.scrollTop > 1) problems.push('bid panel scrolled');
     const dock = document.querySelector('[data-testid="hand-dock"]');
     const dockTop = dock?.getBoundingClientRect().top ?? window.innerHeight;
     const buttons = [...document.querySelectorAll('button')].filter((button) => /^(Bid |Pass$)/.test((button.textContent ?? '').trim()));
@@ -187,6 +194,36 @@ export async function assertBidAtRest(page: Page): Promise<void> {
     return problems;
   });
   expect(report, report.join('\n')).toEqual([]);
+}
+
+/** A chip's ring box must not meet another chip. */
+export async function assertChipRings(page: Page): Promise<void> {
+  const problems = await page.evaluate(() => {
+    const chips = [...document.querySelectorAll('[data-testid="score-chip"]')];
+    const boxes = chips.map((chip) => {
+      const box = chip.getBoundingClientRect();
+      const pad = chip.className.includes('ring-4') ? 4 : 0;
+      return {
+        left: box.left - pad,
+        right: box.right + pad,
+        top: box.top - pad,
+        bottom: box.bottom + pad,
+        name: chip.getAttribute('aria-label') ?? 'chip',
+      };
+    });
+    const found: string[] = [];
+    for (let i = 0; i < boxes.length; i += 1) {
+      for (let j = i + 1; j < boxes.length; j += 1) {
+        const a = boxes[i];
+        const b = boxes[j];
+        if (!a || !b) continue;
+        const hit = a.right > b.left + 0.5 && a.left < b.right - 0.5 && a.bottom > b.top + 0.5 && a.top < b.bottom - 0.5;
+        if (hit) found.push(`${a.name} overlaps ${b.name}`);
+      }
+    }
+    return found;
+  });
+  expect(problems, problems.join('\n')).toEqual([]);
 }
 
 /** The turn ring must not sit closer than 8px to a screen edge. */

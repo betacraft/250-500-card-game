@@ -36,8 +36,8 @@ export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerI
   return (
     <div className="flex min-h-[150px] flex-col items-center justify-center gap-2 rounded-xl bg-felt px-1 py-3">
       {ledSuit && (
-        <div className="flex items-center gap-1 text-sm uppercase tracking-wider text-white/70">
-          led: <SuitIcon suit={ledSuit} size={14} className="inline" />
+        <div data-testid="led-suit" data-suit={ledSuit} className="flex items-center gap-1 text-sm text-white/80">
+          led {ledSuit} <SuitIcon suit={ledSuit} size={14} className="inline" />
         </div>
       )}
       {played.length === 0 ? (

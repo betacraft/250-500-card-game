@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { cardId, cardInstanceKey, type Card, type Suit } from '@250-500/shared';
 import { CardFace } from './CardFace';
+import { fanMetrics } from './fan-metrics';
 
 interface HandFanProps {
   cards: readonly Card[];
@@ -14,6 +15,8 @@ interface HandFanProps {
   reasons?: ReadonlyMap<string, string>;
   /** Short window: one size for every phase, larger than the old 58px fan. */
   compact?: boolean;
+  /** Largest fan height, in px. Big desktops pass 30% of the viewport. */
+  maxHeight?: number | null;
   /** A tap on a card that cannot be played. Touch has no hover tooltip. */
   onBlocked?: (reason: string) => void;
 }
@@ -33,6 +36,7 @@ export function HandFan({
   calledIds,
   reasons,
   compact = false,
+  maxHeight = null,
   onBlocked,
 }: HandFanProps): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
@@ -47,14 +51,39 @@ export function HandFan({
     return () => observer.disconnect();
   }, []);
 
-  const metrics = fanMetrics(cards.length, width, compact);
+  const metrics = fanMetrics(cards.length, width, compact, maxHeight);
+  const selectedRef = useRef<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const lift = compact ? 8 : 56;
-  const headroom = 16;
+  useEffect(() => {
+    if (canPlay) return;
+    selectedRef.current = null;
+    setSelectedId(null);
+  }, [canPlay]);
+
+  const choose = (key: string, legal: boolean): void => {
+    if (!canPlay || !legal) {
+      onBlocked?.(reasons?.get(key) || (canPlay ? 'Not a legal play' : 'Wait for your turn'));
+      return;
+    }
+    selectedRef.current = key;
+    setSelectedId(key);
+  };
+  const playChosen = (): void => {
+    const key = selectedRef.current;
+    const card = cards.find((item) => cardInstanceKey(item) === key);
+    if (!canPlay || !card) {
+      onBlocked?.(canPlay ? 'Choose a card first' : 'Wait for your turn');
+      return;
+    }
+    onPlay(card);
+    selectedRef.current = null;
+    setSelectedId(null);
+  };
 
   const chosen = cards.find((card) => cardInstanceKey(card) === selectedId) ?? null;
   return (
-    <div ref={ref} className="relative w-full overflow-hidden" style={{ height: metrics.cardH + lift + headroom }} data-testid="hand-fan" data-card-width={metrics.cardW}>
+    <div>
+    <div ref={ref} className="relative w-full overflow-hidden" style={{ height: metrics.height }} data-testid="hand-fan" data-card-width={metrics.cardW}>
       {cards.map((card, index) => {
         const key = cardInstanceKey(card);
         const legal = !legalCardIds || legalCardIds.has(key);
@@ -65,19 +94,18 @@ export function HandFan({
             key={key}
             type="button"
             data-testid="hand-card"
+            data-suit={card.suit}
+            data-rank={card.rank}
             aria-label={`${card.rank} of ${card.suit}`}
             aria-disabled={!canPlay || !legal}
-            onClick={() => {
-              if (!canPlay || !legal) {
-                onBlocked?.(reasons?.get(key) || (canPlay ? 'Not a legal play' : 'Wait for your turn'));
-                return;
-              }
-              setSelectedId(key);
+            onPointerDown={(event) => {
+              event.preventDefault();
+              choose(key, legal);
             }}
-            className="absolute bg-transparent p-0 focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-[#0F766E]"
+            className="absolute bg-transparent p-0 touch-manipulation focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-[#0F766E]"
             style={{
               left: metrics.left(index),
-              bottom: lift,
+              bottom: metrics.bottom(index),
               width: metrics.cardW,
               height: metrics.cardH,
               zIndex: isSelected ? 30 : index + 1,
@@ -98,43 +126,21 @@ export function HandFan({
           </button>
         );
       })}
-      {canPlay && chosen && (
-        <button
-          type="button"
-          data-testid="confirm-play"
-          onClick={() => {
-            onPlay(chosen);
-            setSelectedId(null);
-          }}
-          className="absolute inset-x-2 bottom-0 z-50 h-12 rounded-xl bg-[#E8A317] text-base font-medium text-[#1C1C24]"
-        >
-          Play {chosen.rank}
-        </button>
-      )}
+    </div>
+    {canPlay && (
+      <button
+        type="button"
+        data-testid="confirm-play"
+        aria-disabled={!chosen}
+        onPointerDown={(event) => {
+          event.preventDefault();
+          playChosen();
+        }}
+        className={`mt-1 h-12 w-full touch-manipulation rounded-xl text-base font-medium ${chosen ? 'bg-[#E8A317] text-[#1C1C24]' : 'bg-stone-300 text-stone-600'}`}
+      >
+        {chosen ? `Play ${chosen.rank}` : 'Play'}
+      </button>
+    )}
     </div>
   );
-}
-
-function fanMetrics(count: number, container: number, compact = false): {
-  cardW: number;
-  cardH: number;
-  left: (index: number) => number;
-  angle: (index: number) => number;
-} {
-  // The play column is max 980px minus 24px of padding, so a 1280 window measures about 956.
-  const wide = !compact && container >= 900;
-  const inset = wide ? 48 : 36;
-  const base = compact ? 84 : wide ? (count > 8 ? 156 : 176) : count > 8 ? 84 : 96;
-  const span = Math.max(container - inset * 2, 220);
-  const cardW = Math.min(base, span);
-  const step = count <= 1 ? 0 : Math.min(cardW * 0.62, (span - cardW) / Math.max(count - 1, 1));
-  const cardH = cardW * 1.4;
-  const total = wide ? (count > 8 ? 18 : 16) : 14;
-  const origin = (span - (cardW + step * Math.max(count - 1, 0))) / 2;
-  return {
-    cardW,
-    cardH,
-    left: (index) => inset + origin + index * step,
-    angle: (index) => (count <= 1 ? 0 : -total / 2 + (index * total) / (count - 1)),
-  };
 }
