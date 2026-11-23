@@ -53,7 +53,7 @@ export function AuctionRecap({
   return (
     <p data-testid="auction-recap" data-trump={trump ?? ''} className="text-sm text-stone-700">
       Auction: {lines.join(', ') || 'no bid'}
-      {trump ? <span className="inline-flex items-center gap-1"> · Trump: {trump} <SuitIcon suit={trump} size={18} className="shrink-0" /></span> : ''}
+      {trump ? <>{' · '}<span className="inline-flex items-center gap-1">Trump: {trump} <SuitIcon suit={trump} size={18} className="shrink-0" /></span></> : null}
       {calledText ? ` · Called ${calledText}` : ''}
     </p>
   );

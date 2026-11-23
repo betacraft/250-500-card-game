@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
 import type { Suit } from '@250-500/shared';
 import { CardFace } from '../cards/CardFace';
-import { SUIT_FILL, SUIT_PIP } from '../cards/suit-glyphs';
+import { SUIT_BADGE, SUIT_CREAM, SUIT_FILL, SUIT_PIP } from '../cards/suit-glyphs';
 import { SuitIcon } from './SuitIcon';
 
 const SUITS: Suit[] = ['spades', 'hearts', 'diamonds', 'clubs'];
@@ -36,4 +36,28 @@ describe('SuitIcon', () => {
       expect(fills).toContain(SUIT_FILL[suit]);
     }
   });
+
+  it('keeps at least 3:1 between each pip and both the cream page and the felt badge', () => {
+    for (const suit of SUITS) {
+      expect(contrast(SUIT_FILL[suit], SUIT_CREAM), `${suit} on cream`).toBeGreaterThanOrEqual(3);
+      expect(contrast(SUIT_FILL[suit], SUIT_BADGE), `${suit} on the felt badge`).toBeGreaterThanOrEqual(3);
+      const { container } = render(<SuitIcon suit={suit} badge />);
+      const badge = container.querySelector('[data-icon-badge]');
+      expect(badge).toHaveStyle({ backgroundColor: SUIT_BADGE });
+    }
+  });
 });
+
+function contrast(foreground: string, background: string): number {
+  const light = (hex: string): number => {
+    const value = Number.parseInt(hex.slice(1), 16);
+    const channel = (shift: number): number => {
+      const raw = ((value >> shift) & 255) / 255;
+      return raw <= 0.04045 ? raw / 12.92 : ((raw + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0);
+  };
+  const lighter = Math.max(light(foreground), light(background));
+  const darker = Math.min(light(foreground), light(background));
+  return (lighter + 0.05) / (darker + 0.05);
+}

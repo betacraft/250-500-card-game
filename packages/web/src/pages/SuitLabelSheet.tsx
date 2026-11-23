@@ -18,7 +18,7 @@ export function SuitLabelSheet(): JSX.Element {
       <section className="flex flex-col gap-3 rounded-xl bg-felt p-4 text-lg text-white">
         {SUITS.map((suit) => (
           <p key={`led-${suit}`} className="flex items-center gap-3">
-            Led: {suit} <SuitIcon suit={suit} size={46} className="shrink-0" />
+            Led: {suit} <SuitIcon suit={suit} size={46} badge />
           </p>
         ))}
       </section>

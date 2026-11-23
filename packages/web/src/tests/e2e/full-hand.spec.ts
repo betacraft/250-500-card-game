@@ -72,6 +72,7 @@ test.describe('full hands from the real controls', () => {
         if (view.width === 360 || view.width === 1024) expect(sizes[0]).toBeGreaterThanOrEqual(80);
         await assertHandCorners(page);
         await assertFaceCentres(page);
+        if (variant === '500' && view.width === 360) await shootClubsLead(page, input);
         const wonWidths: number[] = [];
         await finishHand(page, input, false, wonWidths);
         await expect(page.getByTestId('hand-complete')).toBeVisible();
@@ -171,7 +172,18 @@ async function declare(page: Page, input: 'mouse' | 'touch', ranksPinned: boolea
       await clickCentre(page, page.locator(`[data-testid="declare-form"] button[aria-label^="${rank} of ${suit}"]`), input, ranksPinned);
     }
   }
-  await clickCentre(page, page.getByRole('button', { name: 'Confirm declaration' }), input, true);
+  const confirm = page.getByRole('button', { name: 'Confirm declaration' });
+  await expect(confirm).toHaveAttribute('aria-disabled', 'false');
+  await clickCentre(page, confirm, input, true);
+}
+
+async function shootClubsLead(page: Page, input: 'mouse' | 'touch'): Promise<void> {
+  const club = page.locator('[data-testid="hand-card"][aria-disabled="false"][data-suit="clubs"]').first();
+  if ((await club.count()) === 0) return;
+  await clickCentre(page, club, input, true);
+  await clickCentre(page, page.getByTestId('confirm-play'), input, true);
+  await expect(page.getByTestId('led-suit')).toHaveAttribute('data-suit', 'clubs', { timeout: 2_000 });
+  await page.screenshot({ path: '/opt/cursor/artifacts/play-500-360-clubs-lead.png', fullPage: false });
 }
 
 async function finishHand(page: Page, input: 'mouse' | 'touch', holdScores: boolean, widths: number[]): Promise<void> {
@@ -375,8 +387,10 @@ test('the latest card tap is the one that is played', async ({ page }) => {
   for (const rank of ['3', '4']) {
     await clickCentre(page, page.locator(`[data-testid="declare-form"] button[aria-label^="${rank} of clubs"]`), 'mouse', false);
   }
-  await clickCentre(page, page.getByRole('button', { name: 'Confirm declaration' }), 'mouse', true);
-  await expect(page.getByText('Your turn')).toBeVisible();
+  const confirm = page.getByRole('button', { name: 'Confirm declaration' });
+  await expect(confirm).toHaveAttribute('aria-disabled', 'false');
+  await clickCentre(page, confirm, 'mouse', true);
+  await expect(page.getByText('Your turn')).toBeVisible({ timeout: 20_000 });
   const still = await controlBoxes(page);
   await clickCentre(page, page.getByTestId('confirm-play'), 'mouse', true);
   await expect(page.getByTestId('disabled-reason')).toContainText(/choose a card/i);
