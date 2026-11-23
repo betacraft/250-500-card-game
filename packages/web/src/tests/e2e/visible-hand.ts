@@ -112,6 +112,60 @@ export async function assertScoreChips(page: Page): Promise<void> {
   expect(report.problems, JSON.stringify(report)).toEqual([]);
 }
 
+/** Turn and bidder pills stay inside the screen and off the chip label. */
+export async function assertCueBoxes(page: Page): Promise<void> {
+  const problems = await page.evaluate(() => {
+    const found: string[] = [];
+    const hits = (a: DOMRect, b: DOMRect): boolean => a.right > b.left + 0.5 && a.left < b.right - 0.5 && a.bottom > b.top + 0.5 && a.top < b.bottom - 0.5;
+    const markers = [...document.querySelectorAll('[data-testid="turn-marker"], [data-testid="bidder-marker"]')];
+    const boxes = markers.map((node) => ({
+      id: node.getAttribute('data-testid') ?? 'marker',
+      box: node.getBoundingClientRect(),
+      size: Number.parseFloat(getComputedStyle(node).fontSize),
+      text: node.closest('[data-testid="score-chip"]')?.querySelector('[data-testid="score-chip-text"]')?.getBoundingClientRect() ?? null,
+    }));
+    boxes.forEach((item) => {
+      if (item.size < 12) found.push(`${item.id} glyph is ${item.size}px`);
+      const box = item.box;
+      if (box.width < 1 || box.left < -0.5 || box.top < -0.5 || box.right > window.innerWidth + 0.5 || box.bottom > window.innerHeight + 0.5) {
+        found.push(`${item.id} outside viewport`);
+      }
+      if (item.text && hits(box, item.text)) found.push(`${item.id} overlaps the label`);
+    });
+    for (let i = 0; i < boxes.length; i += 1) {
+      for (let j = i + 1; j < boxes.length; j += 1) {
+        const left = boxes[i];
+        const right = boxes[j];
+        if (left && right && hits(left.box, right.box)) found.push(`${left.id} overlaps ${right.id}`);
+      }
+    }
+    return found;
+  });
+  expect(problems, problems.join('\n')).toEqual([]);
+}
+
+/** Declaration and status copy stay at the readable size. Legend may be 13px. */
+export async function assertReadableCopy(page: Page): Promise<void> {
+  const problems = await page.evaluate(() => {
+    const found: string[] = [];
+    const check = (selector: string, min: number): void => {
+      document.querySelectorAll(selector).forEach((node) => {
+        if (!(node instanceof HTMLElement) || node.getBoundingClientRect().height < 1) return;
+        const size = Number.parseFloat(getComputedStyle(node).fontSize);
+        if (size < min - 0.05) found.push(`${selector} is ${size}px`);
+      });
+    };
+    check('[data-testid="table-status"]', 14);
+    check('[data-testid="declare-instruction"]', 14);
+    check('[data-testid="score-explainer"]', 14);
+    check('[data-testid="play-status"]', 14);
+    check('[data-testid="auction-recap"]', 14);
+    check('[data-testid="held-legend"]', 13);
+    return found;
+  });
+  expect(problems, problems.join('\n')).toEqual([]);
+}
+
 /** Scroll each control above the pinned fan, then prove the fan does not cover its centre. */
 export async function assertControlsClear(page: Page): Promise<void> {
   const controls = page.locator('main button, [data-testid="hand-dock"] button:not([data-testid="hand-card"])');

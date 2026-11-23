@@ -113,7 +113,7 @@ export function LocalPlayPage(): JSX.Element {
       />
       <TableStatus hand={hand} names={names} />
       {blocked && <p data-testid="disabled-reason" role="status" className="text-sm font-medium text-red-700">{blocked}</p>}
-      {phase !== 'bidding' && !(short && !wide && humanDeclaring) && (
+      {phase !== 'bidding' && !(short && humanDeclaring) && (
         <AuctionRecap
           history={bidHistory}
           names={names}
@@ -167,7 +167,7 @@ export function LocalPlayPage(): JSX.Element {
         </div>
       )}
       {phase === 'playing' && !settledTrick && (
-        <p className="mb-2 text-sm text-stone-500">
+        <p data-testid="play-status" className="mb-2 text-sm text-stone-500">
           {myTurn ? 'Your turn' : `${names[hand.toPlayerId ?? ''] ?? 'Bot'} to play`}
           {myTurn && [...reasons.values()].find((reason) => reason) ? ` · ${[...reasons.values()].find((reason) => reason)}` : ''}
         </p>
@@ -352,7 +352,7 @@ function DeclareForm({
       const dock = document.querySelector('[data-testid="hand-dock"]');
       if (!node || !dock) return;
       const room = Math.floor(dock.getBoundingClientRect().top - node.getBoundingClientRect().top - 8);
-      setFormMax(Math.max(140, room));
+      setFormMax(Math.max(0, room));
     };
     apply();
     window.addEventListener('resize', apply);
@@ -366,8 +366,10 @@ function DeclareForm({
   }, []);
   return (
     <form ref={formRef} id="declare-form" data-testid="declare-form" style={formMax ? { maxHeight: formMax } : undefined} className={`overflow-y-auto ${compact && wide ? 'flex flex-col gap-0' : compact ? 'flex flex-col gap-1' : 'flex flex-col gap-3'}`} onSubmit={(event) => { event.preventDefault(); if (trump) onDeclare(trump, called); }}>
-      <h2 className={compact && wide ? 'text-xs font-medium leading-tight' : 'text-sm font-medium'}>You won the bid. Name trump and {need} cards.</h2>
-      <p data-testid="score-explainer" className={compact && wide ? 'text-xs leading-tight text-stone-700' : 'text-sm text-stone-700'}>{scoreExplainer(gameType, compact)}</p>
+      <p data-testid="declare-instruction" className="text-sm leading-snug text-stone-800">
+        <span className="font-medium">You won the bid. Name trump and {need} cards. </span>
+        <span data-testid="score-explainer" className="text-stone-700">{scoreExplainer(gameType, compact)}</span>
+      </p>
       <TrumpPicker value={trump} onChange={setTrump} compact={compact} />
       <PartnerPicker selected={called} maxCount={need} heldFaces={heldFaces} compact={compact} wide={wide} onChange={setCalled} />
     </form>

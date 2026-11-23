@@ -43,7 +43,7 @@ export function PartnerPicker({ selected, maxCount, onChange, heldFaces, compact
   return (
     <div className={compact && wide ? 'rounded-xl bg-white px-2 py-0.5' : compact ? 'rounded-xl bg-white p-2' : 'rounded-xl bg-white p-3'}>
       <div className={compact && wide ? 'flex items-baseline justify-between gap-2' : compact ? 'mb-1 flex items-baseline justify-between gap-2' : 'mb-2 flex items-center justify-between'}>
-        <div data-testid="held-legend" className={compact ? 'text-xs leading-tight text-stone-600' : 'text-sm font-medium text-stone-600'}>
+        <div data-testid="held-legend" className={compact ? 'text-[13px] leading-snug text-stone-600' : 'text-sm font-medium text-stone-600'}>
           Tap to select. Grey marks a card in your hand.
         </div>
         <div className="shrink-0 text-sm font-medium tabular-nums">

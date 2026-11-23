@@ -85,9 +85,10 @@ export function ScoreStrip({
     turn: id === turnId,
     bidder: id === bidderId,
   }));
+  const crowned = items.some((item) => item.bidder);
   if (chips) {
     return (
-      <ul data-testid="score-strip" className="flex flex-nowrap justify-center gap-1">
+      <ul data-testid="score-strip" className={`flex flex-nowrap justify-center gap-0.5 ${crowned ? 'pt-8' : ''}`}>
         {items.map((item) => (
           <ScoreChip key={item.id} item={item} label={narrow && order.length > 6 ? shortScoreLabel(item.name) : item.name} fill={!narrow} />
         ))}
@@ -97,10 +98,15 @@ export function ScoreStrip({
   return (
     <ul data-testid="score-strip" className="grid grid-cols-2 gap-1 text-sm text-stone-700">
       {items.map((item) => (
-        <li key={item.id} data-testid="score-chip" title={item.name} aria-label={`${item.name} ${item.score}`} className={chipClass(item, 'relative flex items-center justify-between gap-1 rounded-lg bg-white px-2 py-1')}>
-          <ChipCues item={item} />
-          <span data-testid="score-chip-text">{item.name}</span>
-          <span data-testid="score-chip-score" className="tabular-nums">{item.score}</span>
+        <li key={item.id} data-testid="score-chip" title={item.name} aria-label={`${item.name} ${item.score}`} className={chipClass(item, 'flex items-center justify-between gap-1 rounded-lg bg-white px-2 py-1')}>
+          <span className="flex min-w-0 items-center gap-1">
+            {item.turn && <TurnPill />}
+            <span data-testid="score-chip-text">{item.name}</span>
+          </span>
+          <span className="flex shrink-0 items-center gap-1">
+            <span data-testid="score-chip-score" className="tabular-nums">{item.score}</span>
+            {item.bidder && <BidderPill />}
+          </span>
         </li>
       ))}
     </ul>
@@ -123,9 +129,12 @@ function ScoreChip({ item, label, fill }: { item: { id: string; name: string; sc
       aria-label={`${item.name} ${item.score}`}
       className={chipClass(item, `relative ${fill ? 'min-w-0 flex-1' : 'shrink-0'} rounded-full bg-white px-1 py-1 text-center text-sm text-stone-700`)}
     >
-      <ChipCues item={item} />
-      <span data-testid="score-chip-text" className="block whitespace-nowrap">
-        {label} <span data-testid="score-chip-score" className="tabular-nums">{item.score}</span>
+      {item.bidder && <BidderPill floating />}
+      <span className="inline-flex items-center justify-center gap-0.5 whitespace-nowrap">
+        {item.turn && <TurnPill />}
+        <span data-testid="score-chip-text">
+          {label} <span data-testid="score-chip-score" className="tabular-nums">{item.score}</span>
+        </span>
       </span>
     </li>
   );
@@ -139,12 +148,19 @@ function chipClass(item: { turn: boolean; bidder: boolean }, base: string): stri
   return `${base} ${cue}`;
 }
 
-function ChipCues({ item }: { item: { turn: boolean; bidder: boolean } }): JSX.Element | null {
-  if (!item.turn && !item.bidder) return null;
+function TurnPill(): JSX.Element {
   return (
-    <span className="absolute -top-1 left-1/2 flex -translate-x-1/2 gap-0.5 text-[10px] leading-none">
-      {item.turn && <span data-testid="turn-marker" aria-hidden="true">▶</span>}
-      {item.bidder && <span data-testid="bidder-marker" aria-hidden="true">B</span>}
+    <span data-testid="turn-marker" aria-hidden="true" className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-felt px-0.5 text-[14px] font-medium leading-none text-white">
+      ▶
+    </span>
+  );
+}
+
+function BidderPill({ floating = false }: { floating?: boolean }): JSX.Element {
+  const place = floating ? 'absolute -top-8 right-0 z-10' : '';
+  return (
+    <span data-testid="bidder-marker" aria-hidden="true" className={`${place} inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#4A3000] px-0.5 text-[14px] font-medium leading-none text-white`}>
+      B
     </span>
   );
 }

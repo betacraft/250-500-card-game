@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { assertControlsClear, assertGridClear, assertHandCorners, assertHandSize, assertScoreChips } from './visible-hand';
+import { assertControlsClear, assertCueBoxes, assertGridClear, assertHandCorners, assertHandSize, assertReadableCopy, assertScoreChips } from './visible-hand';
 
 const views = [
   { width: 1024, height: 572, shot: true },
@@ -54,6 +54,8 @@ test.describe('hand stays readable', () => {
         await expect(page.getByTestId('turn-marker')).toBeVisible();
         await expect(page.getByTestId('bidder-marker')).toBeVisible();
         if (view.height <= 760) await expect(page.getByTestId('held-legend')).toBeVisible();
+        await assertCueBoxes(page);
+        await assertReadableCopy(page);
         await assertGridClear(page, variant === '250' && (view.width === 360 || view.width === 1024));
         await page.getByRole('button', { name: 'Confirm declaration' }).tap({ force: true });
         await expect(page.getByTestId('disabled-reason')).toContainText(/trump/i);
@@ -78,10 +80,13 @@ test.describe('hand stays readable', () => {
         await assertControlsClear(page);
         await page.evaluate(() => window.scrollTo(0, 0));
         await assertScoreChips(page);
+        await assertCueBoxes(page);
+        await assertReadableCopy(page);
         if (view.shot) await page.screenshot({ path: `/opt/cursor/artifacts/play-${variant}-${view.width}x${view.height}.png`, fullPage: false });
         await page.locator('[data-testid="hand-card"][aria-disabled="false"]').first().tap();
         await page.getByTestId('confirm-play').tap();
         await expect(page.getByText(/Bot \d+ to play/)).toBeVisible();
+        await assertCueBoxes(page);
         if (view.shot) await page.screenshot({ path: `/opt/cursor/artifacts/other-${variant}-${view.width}x${view.height}.png`, fullPage: false });
         await expect(page.getByTestId('trick-pause')).toBeVisible({ timeout: 15_000 });
         await expect(page.getByTestId('trick-winner')).toBeVisible();
@@ -89,6 +94,7 @@ test.describe('hand stays readable', () => {
         const trickWidth = Number(await page.getByTestId('trick-winner').getAttribute('data-card-width'));
         if (variant === '500' && (view.width === 360 || view.width === 390)) expect(trickWidth).toBeGreaterThanOrEqual(47);
         if (variant === '250') expect(trickWidth).toBeGreaterThanOrEqual(50);
+        await assertCueBoxes(page);
         if (view.shot) await page.screenshot({ path: `/opt/cursor/artifacts/pause-${variant}-${view.width}x${view.height}.png`, fullPage: false });
         expect(errors, errors.join('\n')).toEqual([]);
       });
