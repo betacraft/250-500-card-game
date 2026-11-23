@@ -25,6 +25,10 @@ async function playOneHand(page: import('@playwright/test').Page, variant: '250'
       hiddenShot = true;
     }
     if (!paused && (await page.getByTestId('trick-pause').isVisible().catch(() => false))) {
+      const marks = await page.getByTestId('trick-pause').locator('svg').evaluateAll((nodes) =>
+        nodes.map((node) => node.getBoundingClientRect().width),
+      );
+      expect(Math.max(...marks, 0)).toBeGreaterThanOrEqual(47);
       await page.screenshot({ path: `/opt/cursor/artifacts/trick-pause-${label}.png`, fullPage: true });
       paused = true;
     }
@@ -43,7 +47,50 @@ async function playOneHand(page: import('@playwright/test').Page, variant: '250'
     await page.waitForTimeout(60);
   }
   await expect(page.getByTestId('hand-complete')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('score-explainer')).toBeVisible();
+  if (label === '250-mobile') {
+    await page.getByTestId('hand-complete').screenshot({ path: '/opt/cursor/artifacts/result-explainer-390.png' });
+  }
   await page.screenshot({ path: `/opt/cursor/artifacts/local-table-${label}.png`, fullPage: true });
+  expect(errors, errors.join('\n')).toEqual([]);
+}
+
+async function expectDeclarationHand(
+  page: import('@playwright/test').Page,
+  width: number,
+  height: number,
+  shot: string,
+): Promise<void> {
+  const errors: string[] = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') errors.push(msg.text());
+  });
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.setViewportSize({ width, height });
+  await page.goto('/play');
+  await page.getByRole('button', { name: /^250/ }).click();
+  await page.getByLabel('Your name').fill('Ada');
+  await page.getByTestId('start-vs-bots').click();
+  for (let i = 0; i < 8; i += 1) {
+    const add = page.getByRole('button', { name: 'Add 20 to the bid' });
+    if (!(await add.isVisible().catch(() => false))) break;
+    if (await add.isDisabled()) break;
+    await add.click();
+  }
+  await page.getByRole('button', { name: /^Bid / }).click();
+  await expect(page.getByTestId('declare-form')).toBeVisible();
+  const fan = page.getByTestId('hand-fan');
+  await expect(fan).toBeVisible();
+  const box = await fan.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box?.y ?? -1).toBeGreaterThanOrEqual(0);
+  expect((box?.y ?? 0) + (box?.height ?? 999)).toBeLessThanOrEqual(height);
+  const scroll = await page.evaluate(() => window.scrollY);
+  expect(scroll).toBe(0);
+  await expect(page.locator('[data-held="true"]')).toHaveCount(8);
+  await expect(page.getByTestId('score-explainer')).toContainText('bid + 100');
+  await expect(page.getByTestId('auction-recap')).toBeVisible();
+  await page.screenshot({ path: shot, fullPage: false });
   expect(errors, errors.join('\n')).toEqual([]);
 }
 
@@ -68,6 +115,18 @@ test.describe('local table', () => {
   test('500 desktop', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await playOneHand(page, '500');
+  });
+
+  test('declaration hand is on screen at 390', async ({ page }) => {
+    await expectDeclarationHand(page, 390, 844, '/opt/cursor/artifacts/declare-hand-390.png');
+  });
+
+  test('declaration hand is on screen at 1024', async ({ page }) => {
+    await expectDeclarationHand(page, 1024, 572, '/opt/cursor/artifacts/declare-hand-1024.png');
+  });
+
+  test('declaration hand is on screen at 1366', async ({ page }) => {
+    await expectDeclarationHand(page, 1366, 768, '/opt/cursor/artifacts/declare-hand-1366.png');
   });
 
   test('declare button is on screen at 390', async ({ page }) => {

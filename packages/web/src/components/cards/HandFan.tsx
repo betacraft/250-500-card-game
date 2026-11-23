@@ -12,6 +12,8 @@ interface HandFanProps {
   thirtySuits?: ReadonlySet<Suit>;
   calledIds?: ReadonlySet<string>;
   reasons?: ReadonlyMap<string, string>;
+  /** Declaration view: the fan stays short so it fits above the picker. */
+  compact?: boolean;
 }
 
 /**
@@ -27,6 +29,7 @@ export function HandFan({
   thirtySuits,
   calledIds,
   reasons,
+  compact = false,
 }: HandFanProps): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(360);
@@ -40,12 +43,12 @@ export function HandFan({
     return () => observer.disconnect();
   }, []);
 
-  const metrics = fanMetrics(cards.length, width);
+  const metrics = fanMetrics(cards.length, width, compact);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const chosen = cards.find((card) => cardInstanceKey(card) === selectedId) ?? null;
   return (
-    <div ref={ref} className="relative w-full overflow-hidden" style={{ height: metrics.cardH + 72 }} data-testid="hand-fan">
+    <div ref={ref} className="relative w-full overflow-hidden" style={{ height: metrics.cardH + (compact ? 8 : 72) }} data-testid="hand-fan">
       {cards.map((card, index) => {
         const key = cardInstanceKey(card);
         const legal = !legalCardIds || legalCardIds.has(key);
@@ -82,7 +85,7 @@ export function HandFan({
             title={reasons?.get(key) || undefined}
             disabled={!canPlay || !legal}
             onClick={() => setSelectedId(key)}
-            className={`absolute top-0 h-11 min-w-11 bg-transparent ${legal ? 'z-40' : 'pointer-events-none z-20'}`}
+            className={`absolute top-0 h-14 min-w-11 bg-transparent ${legal ? 'z-40' : 'pointer-events-none z-20'}`}
             style={{ left: metrics.hitLeft(index), width: metrics.hitW }}
           />
           </Fragment>
@@ -105,7 +108,7 @@ export function HandFan({
   );
 }
 
-function fanMetrics(count: number, container: number): {
+function fanMetrics(count: number, container: number, compact = false): {
   cardW: number;
   cardH: number;
   left: (index: number) => number;
@@ -113,8 +116,9 @@ function fanMetrics(count: number, container: number): {
   hitLeft: (index: number) => number;
   hitW: number;
 } {
-  const wide = container >= 1000;
-  const inset = wide ? 48 : 40;
+  // The play column is max 980px minus 24px of padding, so a 1280 window measures about 956.
+  const wide = !compact && container >= 900;
+  const inset = wide ? 48 : 36;
   const base = wide ? (count > 8 ? 156 : 176) : count > 8 ? 84 : 96;
   const span = Math.max(container - inset * 2, 220);
   const cardW = Math.min(base, span);
@@ -122,13 +126,13 @@ function fanMetrics(count: number, container: number): {
   const cardH = cardW * 1.4;
   const total = wide ? (count > 8 ? 18 : 16) : 14;
   const origin = (span - (cardW + step * Math.max(count - 1, 0))) / 2;
-  const hitW = count <= 1 ? 48 : Math.max(44, Math.floor((span + inset) / count));
+  const slot = count <= 1 ? 48 : container / count;
   return {
     cardW,
     cardH,
     left: (index) => inset + origin + index * step,
     angle: (index) => (count <= 1 ? 0 : -total / 2 + (index * total) / (count - 1)),
-    hitLeft: (index) => (count <= 1 ? 8 : index * ((span - hitW) / (count - 1))),
-    hitW,
+    hitLeft: (index) => index * slot,
+    hitW: slot,
   };
 }

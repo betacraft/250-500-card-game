@@ -20,6 +20,11 @@ describe('PartnerPicker', () => {
     expect(screen.getByText('1 / 2')).toBeInTheDocument();
   });
 
+  it('marks a card the bidder already holds', () => {
+    render(<PartnerPicker selected={[]} maxCount={2} heldFaces={new Set(['As'])} onChange={() => {}} />);
+    expect(screen.getByRole('button', { name: /A of spades, in your hand/i })).toHaveAttribute('data-held', 'true');
+  });
+
   it('calls onChange when a card is tapped', async () => {
     const onChange = vi.fn();
     render(<PartnerPicker selected={[]} maxCount={2} onChange={onChange} />);

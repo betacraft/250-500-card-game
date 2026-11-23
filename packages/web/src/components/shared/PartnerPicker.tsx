@@ -16,6 +16,8 @@ interface PartnerPickerProps {
   maxCount: number;
   /** Called when selection changes */
   onChange: (cards: Card[]) => void;
+  /** Faces in the bidder's hand. Marked, and still selectable. */
+  heldFaces?: ReadonlySet<string>;
 }
 
 function isSelected(card: Card, selected: Card[]): boolean {
@@ -25,7 +27,7 @@ function isSelected(card: Card, selected: Card[]): boolean {
 /** 4 suits × 12 ranks; tap to toggle up to maxCount.
  * Mobile layout: each suit gets two rows of 6 ranks (no horizontal scroll, ≥44px tap targets,
  * ≥8px adjacent spacing). Fits comfortably at 360px portrait. */
-export function PartnerPicker({ selected, maxCount, onChange }: PartnerPickerProps): JSX.Element {
+export function PartnerPicker({ selected, maxCount, onChange, heldFaces }: PartnerPickerProps): JSX.Element {
   const toggle = (card: Card) => {
     const exists = isSelected(card, selected);
     if (exists) {
@@ -38,7 +40,7 @@ export function PartnerPicker({ selected, maxCount, onChange }: PartnerPickerPro
   return (
     <div className="rounded-xl bg-white p-3">
       <div className="mb-3 flex items-center justify-between">
-        <div className="text-xs font-medium uppercase tracking-wider text-stone-500">
+        <div className="text-sm font-medium uppercase tracking-wider text-stone-500">
           Tap to select
         </div>
         <div className="text-sm font-medium tabular-nums">
@@ -47,7 +49,7 @@ export function PartnerPicker({ selected, maxCount, onChange }: PartnerPickerPro
       </div>
       <div className="flex flex-col gap-3">
         {SUITS_ORDERED.map((suit: Suit) => (
-          <SuitBlock key={suit} suit={suit} selected={selected} onToggle={toggle} />
+          <SuitBlock key={suit} suit={suit} selected={selected} heldFaces={heldFaces} onToggle={toggle} />
         ))}
       </div>
     </div>
@@ -57,10 +59,12 @@ export function PartnerPicker({ selected, maxCount, onChange }: PartnerPickerPro
 function SuitBlock({
   suit,
   selected,
+  heldFaces,
   onToggle,
 }: {
   suit: Suit;
   selected: Card[];
+  heldFaces?: ReadonlySet<string>;
   onToggle: (card: Card) => void;
 }): JSX.Element {
   const color = suitColor(suit);
@@ -71,24 +75,28 @@ function SuitBlock({
     <div>
       <div className="mb-1.5 flex items-center gap-1.5">
         <SuitIcon suit={suit} size={16} />
-        <span className="text-xs font-medium capitalize text-stone-600">{suit}</span>
+        <span className="text-sm font-medium capitalize text-stone-600">{suit}</span>
       </div>
       <div className="grid grid-cols-6 gap-2">
         {[...rowA, ...rowB].map((rank) => {
           const card: Card = { suit, rank };
           const sel = isSelected(card, selected);
+          const held = heldFaces?.has(cardId(card)) ?? false;
           return (
             <button
               key={cardId(card)}
               type="button"
               onClick={() => onToggle(card)}
               aria-pressed={sel}
-              aria-label={`${rank} of ${suit}`}
+              aria-label={held ? `${rank} of ${suit}, in your hand` : `${rank} of ${suit}`}
+              data-held={held ? 'true' : undefined}
               className={clsx(
                 'h-11 rounded-md border text-sm font-medium tabular-nums transition-transform active:scale-95',
                 sel
                   ? 'border-gold-border bg-gold text-gold-dark'
-                  : 'border-stone-200 bg-white',
+                  : held
+                    ? 'border-stone-500 bg-stone-200'
+                    : 'border-stone-200 bg-white',
                 !sel && color === 'red' && 'text-suit-red',
                 !sel && color === 'black' && 'text-suit-black',
               )}

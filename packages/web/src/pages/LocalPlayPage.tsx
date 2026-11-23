@@ -9,6 +9,7 @@ import { CardFace } from '../components/cards/CardFace';
 import { HandFan } from '../components/cards/HandFan';
 import { TrickArea } from '../components/online/TrickArea';
 import { HUMAN_ID, useLocalPlayStore } from '../stores/local-play-store';
+import { AuctionRecap, ScoreStrip, privatelyPartner, scoreExplainer } from './local-table-notes';
 
 /** Free local table: one human and five or seven Easy bots. No coins, no stakes. */
 export function LocalPlayPage(): JSX.Element {
@@ -61,12 +62,34 @@ export function LocalPlayPage(): JSX.Element {
       <header className="flex items-center justify-between gap-2">
         <div>
           <h1 className="text-lg font-medium">Play vs bots · {gameType}</h1>
-          <p className="text-xs text-stone-500">Free to play. No coins or stakes.</p>
+          <p className="text-sm text-stone-500">Free to play. No coins or stakes.</p>
         </div>
         <Link to="/" className="text-sm text-stone-600 underline">Home</Link>
       </header>
       <ScoreStrip names={names} scores={runningScores} order={seatOrder} />
       <TableStatus hand={hand} names={names} />
+      {phase !== 'bidding' && (
+        <AuctionRecap
+          history={bidHistory}
+          names={names}
+          trump={hand.trump}
+          called={hand.calledCards}
+          winnerId={hand.bidder}
+          winningBid={hand.bidAmount}
+        />
+      )}
+      {privatelyPartner(humanHand, hand.calledCards, hand.bidder) && (
+        <p data-testid="private-partner" className="text-sm font-medium text-felt">You're a partner</p>
+      )}
+      {phase === 'declaring' && hand.bidder === HUMAN_ID && (
+        <HandFan
+          cards={humanHand}
+          canPlay={false}
+          onPlay={play}
+          trump={hand.trump}
+          compact
+        />
+      )}
       {phase === 'bidding' && turn === HUMAN_ID && !settledTrick && (
         <div data-testid="bid-pass">
           <BiddingFlow
@@ -82,7 +105,12 @@ export function LocalPlayPage(): JSX.Element {
       )}
       {phase === 'bidding' && turn !== HUMAN_ID && <p className="text-sm text-stone-600">Bots are bidding…</p>}
       {phase === 'declaring' && hand.bidder === HUMAN_ID && (
-        <DeclareForm need={rulesFor(gameType).PARTNERS_TO_CALL} onDeclare={declare} />
+        <DeclareForm
+          gameType={gameType}
+          need={rulesFor(gameType).PARTNERS_TO_CALL}
+          heldFaces={new Set(humanHand.map((card) => cardId(card)))}
+          onDeclare={declare}
+        />
       )}
       {phase === 'declaring' && hand.bidder !== HUMAN_ID && (
         <p className="text-sm text-stone-600">{names[hand.bidder ?? ''] ?? 'Bidder'} is declaring…</p>
@@ -96,28 +124,31 @@ export function LocalPlayPage(): JSX.Element {
             thirtyIndexes={thirty}
             winnerId={settledTrick?.winnerId ?? null}
           />
-          {settledTrick && <p className="mt-1 text-center text-xs text-stone-600">Tap to continue · {names[settledTrick.winnerId] ?? 'Winner'} won the trick</p>}
+          {settledTrick && <p className="mt-1 text-center text-sm text-stone-600">Tap to continue · {names[settledTrick.winnerId] ?? 'Winner'} won the trick</p>}
         </div>
       )}
       {phase === 'playing' && !settledTrick && (
-        <p className="text-xs text-stone-500">
+        <p className="text-sm text-stone-500">
           {myTurn ? 'Your turn' : `${names[hand.toPlayerId ?? ''] ?? 'Bot'} to play`}
           {myTurn && [...reasons.values()].find((reason) => reason) ? ` · ${[...reasons.values()].find((reason) => reason)}` : ''}
         </p>
       )}
-      <HandFan
-        cards={humanHand}
-        legalCardIds={legal}
-        canPlay={myTurn}
-        onPlay={play}
-        trump={hand.trump}
-        thirtySuits={handThirties(hand)}
-        calledIds={new Set(hand.calledCards.map((card) => cardId(card)))}
-        reasons={reasons}
-      />
+      {!(phase === 'declaring' && hand.bidder === HUMAN_ID) && (
+        <HandFan
+          cards={humanHand}
+          legalCardIds={legal}
+          canPlay={myTurn}
+          onPlay={play}
+          trump={hand.trump}
+          thirtySuits={handThirties(hand)}
+          calledIds={new Set(hand.calledCards.map((card) => cardId(card)))}
+          reasons={reasons}
+        />
+      )}
       {phase === 'scored' && summary && (
         <section data-testid="hand-complete" className="rounded-xl bg-white p-4">
           <h2 className="text-lg font-medium">{summary.bidMade ? 'Bid made' : 'Bid failed'}</h2>
+          <p data-testid="score-explainer" className="mt-1 text-sm text-stone-700">{scoreExplainer(gameType)}</p>
           <p className="mt-1 text-sm text-stone-600">
             {names[summary.bidder] ?? 'Bidder'} bid {summary.bidAmount}. Team collected {summary.pointsCollected}.
           </p>
@@ -190,7 +221,8 @@ function TableStatus({ hand, names }: { hand: NonNullable<ReturnType<typeof useL
       {hand.trump && <span className="inline-flex items-center gap-1">trump <SuitIcon suit={hand.trump} size={14} /></span>}
       {hand.calledCards.length > 0 && (
         <span className="inline-flex items-end gap-1" data-testid="called-cards">
-          {hand.calledCards.map((card) => <CardFace key={cardId(card)} card={card} width={34} called />)}
+          <span className="text-sm font-medium">Called</span>
+          {hand.calledCards.map((card) => <CardFace key={cardId(card)} card={card} width={40} called />)}
         </span>
       )}
       <span>Partners: {revealed.map((id) => names[id] ?? id).join(', ') || 'none yet'}</span>
@@ -238,14 +270,25 @@ function Setup({ onStart }: { onStart: (gameType: GameType, name: string) => voi
   );
 }
 
-function DeclareForm({ need, onDeclare }: { need: number; onDeclare: (trump: Suit, called: Card[]) => void }): JSX.Element {
+function DeclareForm({
+  gameType,
+  need,
+  heldFaces,
+  onDeclare,
+}: {
+  gameType: GameType;
+  need: number;
+  heldFaces: ReadonlySet<string>;
+  onDeclare: (trump: Suit, called: Card[]) => void;
+}): JSX.Element {
   const [trump, setTrump] = useState<Suit | null>(null);
   const [called, setCalled] = useState<Card[]>([]);
   return (
-    <div className="flex flex-col gap-3 pb-20">
+    <div className="flex flex-col gap-3 pb-20" data-testid="declare-form">
       <h2 className="text-sm font-medium">You won the bid. Name trump and {need} cards.</h2>
+      <p data-testid="score-explainer" className="text-sm text-stone-700">{scoreExplainer(gameType)}</p>
       <TrumpPicker value={trump} onChange={setTrump} />
-      <PartnerPicker selected={called} maxCount={need} onChange={setCalled} />
+      <PartnerPicker selected={called} maxCount={need} heldFaces={heldFaces} onChange={setCalled} />
       <div className="fixed inset-x-0 bottom-0 z-40 bg-[#F5F1E8] px-3 py-2">
         <button type="button" disabled={!trump || called.length !== need} onClick={() => trump && onDeclare(trump, called)} className="mx-auto block w-full max-w-[980px] rounded-xl bg-felt p-4 font-medium text-white disabled:bg-stone-300">
           Confirm declaration
@@ -255,15 +298,3 @@ function DeclareForm({ need, onDeclare }: { need: number; onDeclare: (trump: Sui
   );
 }
 
-function ScoreStrip({ names, scores, order }: { names: Record<string, string>; scores: Record<string, number>; order: string[] }): JSX.Element {
-  return (
-    <ul className="grid grid-cols-2 gap-1 text-xs text-stone-700">
-      {order.map((id) => (
-        <li key={id} className="flex justify-between rounded-lg bg-white px-2 py-1">
-          <span>{names[id] ?? id}</span>
-          <span className="tabular-nums">{scores[id] ?? 0}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}

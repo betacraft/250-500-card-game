@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import type { Card } from '@250-500/shared';
 import { cardInstanceKey } from '@250-500/shared';
 import { SuitIcon } from '../shared/SuitIcon';
@@ -19,26 +20,38 @@ interface TrickAreaProps {
 
 /** Center-of-screen area showing cards played to the current trick + led suit. */
 export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerId = null }: TrickAreaProps): JSX.Element {
-  const width = played.length >= 7 ? 36 : played.length >= 5 ? 44 : 56;
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [rowWidth, setRowWidth] = useState(360);
+  useEffect(() => {
+    const node = rowRef.current;
+    if (!node || typeof ResizeObserver === 'undefined') return undefined;
+    const apply = (): void => setRowWidth(node.clientWidth);
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  const count = Math.max(played.length, 1);
+  const width = Math.min(72, Math.max(48, Math.floor((rowWidth - 4) / count)));
   return (
-    <div className="rounded-xl bg-felt p-4 min-h-[150px] flex flex-col items-center justify-center gap-2">
+    <div className="flex min-h-[150px] flex-col items-center justify-center gap-2 rounded-xl bg-felt px-1 py-3">
       {ledSuit && (
-        <div className="text-xs text-white/70 uppercase tracking-wider flex items-center gap-1">
-          led: <SuitIcon suit={ledSuit} size={12} className="inline" />
+        <div className="flex items-center gap-1 text-sm uppercase tracking-wider text-white/70">
+          led: <SuitIcon suit={ledSuit} size={14} className="inline" />
         </div>
       )}
       {played.length === 0 ? (
         <div className="text-sm text-white/60">Trick area</div>
       ) : (
         <>
-          <div className="flex w-full justify-center gap-0.5 overflow-hidden">
+          <div ref={rowRef} className="-mx-3 flex w-[calc(100%+1.5rem)] justify-center">
             {played.map((p, index) => (
               <div key={`${cardInstanceKey(p.card)}-${p.playerId}`} className={p.playerId === winnerId ? 'rounded-md ring-2 ring-[#E8A317]' : undefined}>
                 <CardFace card={p.card} width={width} thirty={thirtyIndexes?.has(index) ?? false} />
               </div>
             ))}
           </div>
-          <div className="text-xs text-white/80">
+          <div className="text-sm text-white/80">
             {played.map((p) => playerNames[p.playerId] ?? p.playerId).join(' · ')}
           </div>
         </>

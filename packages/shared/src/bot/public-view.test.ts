@@ -68,6 +68,11 @@ describe('public bot view', () => {
     expect(visiblePartners(played.state)).toEqual(['p4']);
     expect(toPublicView(played.state, 'p2').revealedPartners).toEqual(['p4']);
     expect(visiblePartners(played.state)).not.toContain('p6');
+    const holderView = toPublicView(state, 'p4');
+    expect(holderView.revealedPartners).not.toContain('p4');
+    expect(holderView).not.toHaveProperty('selfIsPartner');
+    expect(JSON.stringify(holderView)).not.toContain("You're a partner");
+    expect(JSON.stringify(toPublicView(state, 'p2'))).not.toContain("You're a partner");
   });
 
   it('hides unfilled 500 partners and lists a double-slot partner once', () => {
