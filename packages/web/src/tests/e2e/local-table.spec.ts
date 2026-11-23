@@ -25,14 +25,9 @@ async function playOneHand(page: import('@playwright/test').Page, variant: '250'
       await page.screenshot({ path: `/opt/cursor/artifacts/hidden-partners-${label}.png`, fullPage: true });
       hiddenShot = true;
     }
-    if (!paused && (await page.getByTestId('trick-pause').isVisible().catch(() => false))) {
-      const spills = await page.getByTestId('trick-row').evaluate((row) => {
-        const box = row.getBoundingClientRect();
-        return box.left < -1 || box.right > window.innerWidth + 1;
-      });
-      expect(spills).toBe(false);
-      await page.screenshot({ path: `/opt/cursor/artifacts/trick-pause-${label}.png`, fullPage: true });
+    if (await holdTrickPause(page, label, paused)) {
       paused = true;
+      continue;
     }
     if (await page.getByTestId('hand-complete').isVisible().catch(() => false)) break;
     const pass = page.getByRole('button', { name: 'Pass' });
@@ -40,7 +35,7 @@ async function playOneHand(page: import('@playwright/test').Page, variant: '250'
       await pass.click();
       continue;
     }
-    const card = page.locator('[data-testid="hand-card"]:not([disabled])').first();
+    const card = page.locator('[data-testid="hand-card"][aria-disabled="false"]').first();
     if (await card.isVisible().catch(() => false)) {
       await card.click();
       await page.getByTestId('confirm-play').click();
@@ -55,6 +50,21 @@ async function playOneHand(page: import('@playwright/test').Page, variant: '250'
   }
   await page.screenshot({ path: `/opt/cursor/artifacts/local-table-${label}.png`, fullPage: true });
   expect(errors, errors.join('\n')).toEqual([]);
+}
+
+async function holdTrickPause(page: import('@playwright/test').Page, label: string, alreadyShot: boolean): Promise<boolean> {
+  const pause = page.getByTestId('trick-pause');
+  if (!(await pause.isVisible().catch(() => false))) return false;
+  if (!alreadyShot) {
+    const spills = await page.getByTestId('trick-row').evaluate((row) => {
+      const box = row.getBoundingClientRect();
+      return box.left < -1 || box.right > window.innerWidth + 1;
+    });
+    expect(spills).toBe(false);
+    await page.screenshot({ path: `/opt/cursor/artifacts/trick-pause-${label}.png`, fullPage: true });
+  }
+  await expect(pause).toBeHidden({ timeout: 5_000 });
+  return true;
 }
 
 async function expectDeclarationHand(

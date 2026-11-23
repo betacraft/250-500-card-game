@@ -42,6 +42,48 @@ export async function assertHandCorners(page: Page): Promise<void> {
   expect(report.fanBottom).toBeLessThanOrEqual(report.height + 0.5);
 }
 
+/** One card width for the whole hand, stable enough to compare across phases. */
+export async function assertHandSize(page: Page): Promise<number> {
+  const raw = await page.getByTestId('hand-fan').getAttribute('data-card-width');
+  const width = Number(raw);
+  expect(width).toBeGreaterThan(40);
+  return width;
+}
+
+/** Rank buttons stay above the dock. A fitted grid is fully visible without scrolling it. */
+export async function assertGridClear(page: Page, mustFit: boolean): Promise<void> {
+  await page.evaluate(() => {
+    window.scrollTo(0, 0);
+    const grid = document.querySelector('[data-testid="rank-grid"]');
+    if (grid) grid.scrollTop = 0;
+  });
+  const report = await page.evaluate((fitted) => {
+    const grid = document.querySelector('[data-testid="rank-grid"]');
+    const dock = document.querySelector('[data-testid="hand-dock"]');
+    const problems: string[] = [];
+    if (!grid || !dock) return { problems: ['missing grid'], fit: false };
+    const dockTop = dock.getBoundingClientRect().top;
+    const buttons = [...grid.querySelectorAll('button')];
+    const form = grid.closest('[data-testid="declare-form"]');
+    const scroller = form instanceof HTMLElement ? form : grid instanceof HTMLElement ? grid : null;
+    if (!scroller) return { problems: ['missing scroller'], fit: false };
+    const fits = scroller.scrollHeight <= scroller.clientHeight + 4;
+    if (fitted && !fits) problems.push(`grid scrolls ${scroller.scrollHeight}>${scroller.clientHeight}`);
+    buttons.forEach((button, index) => {
+      const frame = scroller.getBoundingClientRect();
+      const box = button.getBoundingClientRect();
+      if (box.top < frame.top - 1) scroller.scrollTop -= frame.top - box.top;
+      if (box.bottom > frame.bottom - 2) scroller.scrollTop += box.bottom - frame.bottom + 6;
+      const seen = button.getBoundingClientRect();
+      if (seen.bottom > dockTop + 0.5) problems.push(`cell ${index} under the dock`);
+      const hit = document.elementFromPoint(seen.left + seen.width / 2, seen.top + seen.height / 2);
+      if (dock.contains(hit) && hit !== button && !button.contains(hit)) problems.push(`cell ${index} covered`);
+    });
+    return { problems, fit: fits };
+  }, mustFit);
+  expect(report.problems, JSON.stringify(report)).toEqual([]);
+}
+
 /** Every score chip shows its score, with no ellipsis and no clipped text. */
 export async function assertScoreChips(page: Page): Promise<void> {
   const report = await page.evaluate(() => {
@@ -79,6 +121,17 @@ export async function assertControlsClear(page: Page): Promise<void> {
   for (let i = 0; i < count; i += 1) {
     const control = controls.nth(i);
     await control.evaluate((node) => {
+      let parent = node.parentElement;
+      while (parent) {
+        const style = getComputedStyle(parent);
+        if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+          const frame = parent.getBoundingClientRect();
+          const box = node.getBoundingClientRect();
+          if (box.bottom > frame.bottom - 4) parent.scrollTop += box.bottom - frame.bottom + 8;
+          if (box.top < frame.top) parent.scrollTop -= frame.top - box.top + 4;
+        }
+        parent = parent.parentElement;
+      }
       const dock = document.querySelector('[data-testid="hand-dock"]');
       if (!dock) return;
       const limit = dock.getBoundingClientRect().top - 8;

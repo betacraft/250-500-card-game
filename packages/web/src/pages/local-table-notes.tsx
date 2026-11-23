@@ -97,7 +97,8 @@ export function ScoreStrip({
   return (
     <ul data-testid="score-strip" className="grid grid-cols-2 gap-1 text-sm text-stone-700">
       {items.map((item) => (
-        <li key={item.id} data-testid="score-chip" title={item.name} aria-label={`${item.name} ${item.score}`} className={chipClass(item, 'flex justify-between rounded-lg bg-white px-2 py-1')}>
+        <li key={item.id} data-testid="score-chip" title={item.name} aria-label={`${item.name} ${item.score}`} className={chipClass(item, 'relative flex items-center justify-between gap-1 rounded-lg bg-white px-2 py-1')}>
+          <ChipCues item={item} />
           <span data-testid="score-chip-text">{item.name}</span>
           <span data-testid="score-chip-score" className="tabular-nums">{item.score}</span>
         </li>
@@ -120,8 +121,9 @@ function ScoreChip({ item, label, fill }: { item: { id: string; name: string; sc
       data-testid="score-chip"
       title={item.name}
       aria-label={`${item.name} ${item.score}`}
-      className={chipClass(item, `${fill ? 'min-w-0 flex-1' : 'shrink-0'} rounded-full bg-white px-1 py-1 text-center text-sm text-stone-700`)}
+      className={chipClass(item, `relative ${fill ? 'min-w-0 flex-1' : 'shrink-0'} rounded-full bg-white px-1 py-1 text-center text-sm text-stone-700`)}
     >
+      <ChipCues item={item} />
       <span data-testid="score-chip-text" className="block whitespace-nowrap">
         {label} <span data-testid="score-chip-score" className="tabular-nums">{item.score}</span>
       </span>
@@ -130,7 +132,19 @@ function ScoreChip({ item, label, fill }: { item: { id: string; name: string; sc
 }
 
 function chipClass(item: { turn: boolean; bidder: boolean }, base: string): string {
-  if (item.turn) return `${base} ring-2 ring-felt`;
-  if (item.bidder) return `${base} ring-2 ring-gold-border`;
-  return base;
+  const cue = [
+    item.turn ? 'ring-4 ring-felt' : '',
+    item.bidder ? 'border-2 border-dashed border-[#8A6700]' : '',
+  ].filter(Boolean).join(' ');
+  return `${base} ${cue}`;
+}
+
+function ChipCues({ item }: { item: { turn: boolean; bidder: boolean } }): JSX.Element | null {
+  if (!item.turn && !item.bidder) return null;
+  return (
+    <span className="absolute -top-1 left-1/2 flex -translate-x-1/2 gap-0.5 text-[10px] leading-none">
+      {item.turn && <span data-testid="turn-marker" aria-hidden="true">▶</span>}
+      {item.bidder && <span data-testid="bidder-marker" aria-hidden="true">B</span>}
+    </span>
+  );
 }

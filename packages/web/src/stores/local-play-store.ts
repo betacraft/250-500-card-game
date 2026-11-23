@@ -147,9 +147,17 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
     else if (state.phase === 'declaring') set(botDeclare(state));
     else if (state.phase === 'playing') set(botPlay(state));
   },
-  dismissTrick: () => set({ settledTrick: null }),
+  dismissTrick: () => {
+    const state = get();
+    const finished = state.hand?.ended === true && state.summary !== null;
+    set({ settledTrick: null, phase: finished ? 'scored' : state.phase });
+  },
   leave: () => set({ ...SETUP }),
 }));
+
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  (window as unknown as { __localPlay?: typeof useLocalPlayStore }).__localPlay = useLocalPlayStore;
+}
 
 function seatIds(gameType: GameType): string[] {
   return Array.from({ length: rulesFor(gameType).PLAYER_COUNT }, (_, index) => `p${index + 1}`);
@@ -187,7 +195,12 @@ function applyCard(state: LocalPlayState, playerId: string, card: Card): Partial
   const result = playCard(state.hand, playerId, card);
   if (!result.ok) return {};
   const settledTrick = result.trickWinnerId && snapshot ? { plays: snapshot, winnerId: result.trickWinnerId } : null;
-  return { ...scoreIfDone(state, result.state), settledTrick, decision: state.decision + 1 };
+  const next = scoreIfDone(state, result.state);
+  // Keep the table on the trick until the pause ends, including the last trick.
+  if (settledTrick && next.phase === 'scored') {
+    return { ...next, phase: 'playing', settledTrick, decision: state.decision + 1 };
+  }
+  return { ...next, settledTrick, decision: state.decision + 1 };
 }
 
 function scoreIfDone(state: LocalPlayState, hand: GameHand): Partial<LocalPlayState> {

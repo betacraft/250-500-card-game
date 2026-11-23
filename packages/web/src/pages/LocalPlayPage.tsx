@@ -36,6 +36,9 @@ export function LocalPlayPage(): JSX.Element {
   const fanRef = useRef<HTMLDivElement>(null);
   const [dockHeight, setDockHeight] = useState(240);
   const [canConfirm, setCanConfirm] = useState(false);
+  const [blocked, setBlocked] = useState<string | null>(null);
+
+  useEffect(() => { setBlocked(null); }, [phase]);
 
   useEffect(() => {
     if (!settledTrick) return undefined;
@@ -55,7 +58,7 @@ export function LocalPlayPage(): JSX.Element {
 
   useEffect(() => {
     if (phase === 'setup' || phase === 'scored' || settledTrick) return undefined;
-    const timer = window.setTimeout(() => stepBot(), 40);
+    const timer = window.setTimeout(() => stepBot(), 220);
     return () => window.clearTimeout(timer);
   }, [phase, decision, hand?.toPlayerId, hand?.currentTrick.length, bidHistory.length, settledTrick, stepBot]);
 
@@ -83,7 +86,8 @@ export function LocalPlayPage(): JSX.Element {
       thirtySuits={handThirties(hand)}
       calledIds={new Set(hand.calledCards.map((card) => cardId(card)))}
       reasons={reasons}
-      compact={!myTurn || short}
+      compact={short}
+      onBlocked={setBlocked}
     />
   );
 
@@ -91,7 +95,7 @@ export function LocalPlayPage(): JSX.Element {
     <div className="min-h-screen">
     <main
       className={`mx-auto flex min-h-screen w-full max-w-[980px] flex-col overflow-x-clip px-3 pt-2 ${short ? 'gap-1' : 'gap-3'}`}
-      style={{ paddingBottom: docked ? dockHeight + 8 : 16 }}
+      style={{ paddingBottom: docked ? dockHeight + 16 : 16 }}
     >
       <header className="flex items-center justify-between gap-2">
         <h1 className="text-base font-medium">Play vs bots · {gameType}</h1>
@@ -108,6 +112,7 @@ export function LocalPlayPage(): JSX.Element {
         bidderId={hand.bidder}
       />
       <TableStatus hand={hand} names={names} />
+      {blocked && <p data-testid="disabled-reason" role="status" className="text-sm font-medium text-red-700">{blocked}</p>}
       {phase !== 'bidding' && !(short && !wide && humanDeclaring) && (
         <AuctionRecap
           history={bidHistory}
@@ -130,6 +135,7 @@ export function LocalPlayPage(): JSX.Element {
             onPass={() => pass()}
             onAuctionClose={() => stepBot()}
             compact={short}
+            onBlocked={setBlocked}
           />
         </div>
       )}
@@ -139,7 +145,7 @@ export function LocalPlayPage(): JSX.Element {
           gameType={gameType}
           need={rulesFor(gameType).PARTNERS_TO_CALL}
           heldFaces={new Set(humanHand.map((card) => cardId(card)))}
-          compact={short}
+          compact={short || !wide}
           wide={wide}
           onCanConfirm={setCanConfirm}
           onDeclare={declare}
@@ -196,7 +202,7 @@ export function LocalPlayPage(): JSX.Element {
           {fan}
           {humanDeclaring && (
             <div className="py-2">
-              <button type="submit" form="declare-form" disabled={!canConfirm} className="w-full rounded-xl bg-felt p-3 text-base font-medium text-white disabled:bg-stone-300">
+              <button type="submit" form="declare-form" aria-disabled={!canConfirm} onClick={(event) => { if (!canConfirm) { event.preventDefault(); setBlocked('Name a trump and the called cards first'); } }} className={`w-full rounded-xl p-3 text-base font-medium text-white ${canConfirm ? 'bg-felt' : 'bg-stone-300'}`}>
                 Confirm declaration
               </button>
             </div>
@@ -336,12 +342,32 @@ function DeclareForm({
 }): JSX.Element {
   const [trump, setTrump] = useState<Suit | null>(null);
   const [called, setCalled] = useState<Card[]>([]);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [formMax, setFormMax] = useState<number | null>(null);
   const ready = trump !== null && called.length === need;
   useEffect(() => { onCanConfirm(ready); }, [onCanConfirm, ready]);
+  useEffect(() => {
+    const apply = (): void => {
+      const node = formRef.current;
+      const dock = document.querySelector('[data-testid="hand-dock"]');
+      if (!node || !dock) return;
+      const room = Math.floor(dock.getBoundingClientRect().top - node.getBoundingClientRect().top - 8);
+      setFormMax(Math.max(140, room));
+    };
+    apply();
+    window.addEventListener('resize', apply);
+    const dock = document.querySelector('[data-testid="hand-dock"]');
+    const observer = typeof ResizeObserver === 'undefined' || !dock ? null : new ResizeObserver(apply);
+    if (dock) observer?.observe(dock);
+    return () => {
+      window.removeEventListener('resize', apply);
+      observer?.disconnect();
+    };
+  }, []);
   return (
-    <form id="declare-form" data-testid="declare-form" className={compact ? 'flex flex-col gap-1' : 'flex flex-col gap-3'} onSubmit={(event) => { event.preventDefault(); if (trump) onDeclare(trump, called); }}>
-      <h2 className="text-sm font-medium">You won the bid. Name trump and {need} cards.</h2>
-      <p data-testid="score-explainer" className="text-sm text-stone-700">{scoreExplainer(gameType, compact)}</p>
+    <form ref={formRef} id="declare-form" data-testid="declare-form" style={formMax ? { maxHeight: formMax } : undefined} className={`overflow-y-auto ${compact && wide ? 'flex flex-col gap-0' : compact ? 'flex flex-col gap-1' : 'flex flex-col gap-3'}`} onSubmit={(event) => { event.preventDefault(); if (trump) onDeclare(trump, called); }}>
+      <h2 className={compact && wide ? 'text-xs font-medium leading-tight' : 'text-sm font-medium'}>You won the bid. Name trump and {need} cards.</h2>
+      <p data-testid="score-explainer" className={compact && wide ? 'text-xs leading-tight text-stone-700' : 'text-sm text-stone-700'}>{scoreExplainer(gameType, compact)}</p>
       <TrumpPicker value={trump} onChange={setTrump} compact={compact} />
       <PartnerPicker selected={called} maxCount={need} heldFaces={heldFaces} compact={compact} wide={wide} onChange={setCalled} />
     </form>

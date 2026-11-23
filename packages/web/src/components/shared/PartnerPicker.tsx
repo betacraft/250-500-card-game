@@ -41,18 +41,16 @@ export function PartnerPicker({ selected, maxCount, onChange, heldFaces, compact
   };
 
   return (
-    <div className={compact ? 'rounded-xl bg-white p-2' : 'rounded-xl bg-white p-3'}>
-      <div className={compact ? 'mb-1 flex items-center justify-end' : 'mb-2 flex items-center justify-between'}>
-        {!compact && (
-        <div className="text-sm font-medium text-stone-600">
+    <div className={compact && wide ? 'rounded-xl bg-white px-2 py-0.5' : compact ? 'rounded-xl bg-white p-2' : 'rounded-xl bg-white p-3'}>
+      <div className={compact && wide ? 'flex items-baseline justify-between gap-2' : compact ? 'mb-1 flex items-baseline justify-between gap-2' : 'mb-2 flex items-center justify-between'}>
+        <div data-testid="held-legend" className={compact ? 'text-xs leading-tight text-stone-600' : 'text-sm font-medium text-stone-600'}>
           Tap to select. Grey marks a card in your hand.
         </div>
-        )}
-        <div className="text-sm font-medium tabular-nums">
+        <div className="shrink-0 text-sm font-medium tabular-nums">
           {selected.length} / {maxCount}
         </div>
       </div>
-      <div className={compact ? 'flex flex-col gap-1' : 'flex flex-col gap-3'}>
+      <div data-testid="rank-grid" className={compact ? 'flex flex-col gap-0' : 'flex flex-col gap-3'}>
         {SUITS_ORDERED.map((suit: Suit) => (
           <SuitBlock key={suit} suit={suit} selected={selected} heldFaces={heldFaces} onToggle={toggle} compact={compact} wide={wide} />
         ))}
@@ -77,17 +75,20 @@ function SuitBlock({
   wide: boolean;
 }): JSX.Element {
   const color = suitColor(suit);
+  const tight = compact && !wide;
+  const ranks = tight ? [RANKS_ORDERED.slice(0, 6), RANKS_ORDERED.slice(6)] : [RANKS_ORDERED];
   return (
-    <div>
-      {!(compact && wide) && (
-        <div className={compact ? 'flex items-center' : 'mb-1 flex items-center gap-1.5'}>
+    <div className={tight ? 'flex flex-col gap-0.5' : undefined}>
+      {!compact && (
+        <div className="mb-1 flex items-center gap-1.5">
           <SuitIcon suit={suit} size={16} />
-          {!compact && <span className="text-sm font-medium capitalize text-stone-600">{suit}</span>}
+          <span className="text-sm font-medium capitalize text-stone-600">{suit}</span>
         </div>
       )}
-      <div className={clsx('grid', wide && compact ? 'grid-cols-[20px_repeat(12,minmax(0,1fr))] items-center gap-1' : 'grid-cols-6', compact ? 'gap-1' : 'gap-2')}>
-        {compact && wide && <SuitIcon suit={suit} size={16} />}
-        {RANKS_ORDERED.map((rank) => {
+      {ranks.map((row, rowIndex) => (
+      <div key={rowIndex} className={clsx('grid', wide && compact ? 'grid-cols-[20px_repeat(12,minmax(0,1fr))] items-center gap-1' : tight && rowIndex === 0 ? 'grid-cols-[16px_repeat(6,minmax(0,1fr))] items-center gap-0.5' : compact ? 'grid-cols-6 gap-0.5' : 'grid-cols-6 gap-2')}>
+        {compact && (wide || rowIndex === 0) && <SuitIcon suit={suit} size={14} />}
+        {row.map((rank) => {
           const card: Card = { suit, rank };
           const sel = isSelected(card, selected);
           const held = heldFaces?.has(cardId(card)) ?? false;
@@ -101,7 +102,7 @@ function SuitBlock({
               data-held={held ? 'true' : undefined}
               className={clsx(
                 'rounded-md border text-sm font-medium tabular-nums transition-transform active:scale-95',
-                compact ? 'h-8' : 'h-11',
+                compact ? 'h-[26px]' : 'h-11',
                 sel
                   ? 'border-gold-border bg-gold text-gold-dark'
                   : held
@@ -116,6 +117,7 @@ function SuitBlock({
           );
         })}
       </div>
+      ))}
     </div>
   );
 }

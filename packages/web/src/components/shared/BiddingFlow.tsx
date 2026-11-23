@@ -31,6 +31,8 @@ interface BiddingFlowProps {
   onAuctionClose: (winnerId: string, amount: number) => void;
   /** Less padding so Pass and Bid stay above a pinned hand. */
   compact?: boolean;
+  /** A tap landed on a control that cannot do anything right now. */
+  onBlocked?: (reason: string) => void;
 }
 
 /** Round-robin bidding flow for the current hand. */
@@ -43,6 +45,7 @@ export function BiddingFlow({
   onPass,
   onAuctionClose,
   compact = false,
+  onBlocked,
 }: BiddingFlowProps): JSX.Element {
   const rules = rulesFor(gameType);
   const playerIds = players.map((p) => p.id);
@@ -159,20 +162,20 @@ export function BiddingFlow({
           <div className="mb-3 flex items-center justify-center gap-3">
             <button
               type="button"
-              onClick={() => adjust(-rules.BID_INCREMENT)}
+              onClick={() => (draftAmount <= rules.MIN_BID ? onBlocked?.(`The lowest bid is ${rules.MIN_BID}`) : adjust(-rules.BID_INCREMENT))}
               aria-label="Decrease bid by 5"
+              aria-disabled={draftAmount <= rules.MIN_BID}
               className="flex h-12 w-12 items-center justify-center rounded-full bg-stone-100 text-stone-700 active:scale-95 active:bg-stone-200"
-              disabled={draftAmount <= rules.MIN_BID}
             >
               <Minus size={18} />
             </button>
             <div className="min-w-[6rem] text-center text-3xl font-medium tabular-nums">{draftAmount}</div>
             <button
               type="button"
-              onClick={() => adjust(rules.BID_INCREMENT)}
+              onClick={() => (draftAmount >= rules.MAX_BID ? onBlocked?.(`The highest bid is ${rules.MAX_BID}`) : adjust(rules.BID_INCREMENT))}
               aria-label="Increase bid by 5"
+              aria-disabled={draftAmount >= rules.MAX_BID}
               className="flex h-12 w-12 items-center justify-center rounded-full bg-stone-100 text-stone-700 active:scale-95 active:bg-stone-200"
-              disabled={draftAmount >= rules.MAX_BID}
             >
               <Plus size={18} />
             </button>
@@ -190,9 +193,9 @@ export function BiddingFlow({
                 key={step}
                 type="button"
                 aria-label={`Add ${step} to the bid`}
-                onClick={() => adjust(step)}
-                disabled={draftAmount >= rules.MAX_BID}
-                className="h-11 min-w-11 rounded-full border border-stone-300 px-3 text-sm font-medium text-stone-700 active:scale-95 disabled:opacity-40"
+                onClick={() => (draftAmount >= rules.MAX_BID ? onBlocked?.(`The highest bid is ${rules.MAX_BID}`) : adjust(step))}
+                aria-disabled={draftAmount >= rules.MAX_BID}
+                className="h-11 min-w-11 rounded-full border border-stone-300 px-3 text-sm font-medium text-stone-700 active:scale-95 aria-disabled:opacity-40"
               >
                 +{step}
               </button>
@@ -209,9 +212,9 @@ export function BiddingFlow({
             </button>
             <button
               type="button"
-              onClick={handleBid}
-              disabled={!validation.ok}
-              className="flex-1 rounded-xl bg-felt p-3 text-base font-medium text-white active:scale-95 active:bg-felt-dark disabled:cursor-not-allowed disabled:bg-stone-300 disabled:text-stone-500"
+              onClick={() => (validation.ok ? handleBid() : onBlocked?.(validation.message ?? 'That bid is not allowed'))}
+              aria-disabled={!validation.ok}
+              className="flex-1 rounded-xl bg-felt p-3 text-base font-medium text-white active:scale-95 active:bg-felt-dark aria-disabled:bg-stone-300 aria-disabled:text-stone-500"
             >
               Bid {draftAmount}
             </button>

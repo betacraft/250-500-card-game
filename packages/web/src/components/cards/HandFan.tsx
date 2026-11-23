@@ -12,8 +12,10 @@ interface HandFanProps {
   thirtySuits?: ReadonlySet<Suit>;
   calledIds?: ReadonlySet<string>;
   reasons?: ReadonlyMap<string, string>;
-  /** Declaration view: the fan stays short so it fits above the picker. */
+  /** Short window: one size for every phase, larger than the old 58px fan. */
   compact?: boolean;
+  /** A tap on a card that cannot be played. Touch has no hover tooltip. */
+  onBlocked?: (reason: string) => void;
 }
 
 /**
@@ -30,6 +32,7 @@ export function HandFan({
   calledIds,
   reasons,
   compact = false,
+  onBlocked,
 }: HandFanProps): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(360);
@@ -50,7 +53,7 @@ export function HandFan({
 
   const chosen = cards.find((card) => cardInstanceKey(card) === selectedId) ?? null;
   return (
-    <div ref={ref} className="relative w-full overflow-hidden" style={{ height: metrics.cardH + lift + headroom }} data-testid="hand-fan">
+    <div ref={ref} className="relative w-full overflow-hidden" style={{ height: metrics.cardH + lift + headroom }} data-testid="hand-fan" data-card-width={metrics.cardW}>
       {cards.map((card, index) => {
         const key = cardInstanceKey(card);
         const legal = !legalCardIds || legalCardIds.has(key);
@@ -84,10 +87,15 @@ export function HandFan({
             type="button"
             data-testid="hand-card"
             aria-label={`${card.rank} of ${card.suit}`}
-            title={reasons?.get(key) || undefined}
-            disabled={!canPlay || !legal}
-            onClick={() => setSelectedId(key)}
-            className={`absolute top-0 h-14 min-w-11 bg-transparent ${legal ? 'z-40' : 'pointer-events-none z-20'}`}
+            aria-disabled={!canPlay || !legal}
+            onClick={() => {
+              if (!canPlay || !legal) {
+                onBlocked?.(reasons?.get(key) || (canPlay ? 'Not a legal play' : 'Wait for your turn'));
+                return;
+              }
+              setSelectedId(key);
+            }}
+            className={`absolute top-0 z-40 h-14 min-w-11 bg-transparent`}
             style={{ left: metrics.hitLeft(index), width: metrics.hitW }}
           />
           </Fragment>
@@ -121,7 +129,7 @@ function fanMetrics(count: number, container: number, compact = false): {
   // The play column is max 980px minus 24px of padding, so a 1280 window measures about 956.
   const wide = !compact && container >= 900;
   const inset = wide ? 48 : 36;
-  const base = compact ? (count > 8 ? 58 : 64) : wide ? (count > 8 ? 156 : 176) : count > 8 ? 84 : 96;
+  const base = compact ? 84 : wide ? (count > 8 ? 156 : 176) : count > 8 ? 84 : 96;
   const span = Math.max(container - inset * 2, 220);
   const cardW = Math.min(base, span);
   const step = count <= 1 ? 0 : Math.min(cardW * 0.62, (span - cardW) / Math.max(count - 1, 1));

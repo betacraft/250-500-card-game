@@ -31,9 +31,8 @@ export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerI
     observer.observe(node);
     return () => observer.disconnect();
   }, [played.length]);
-  const count = Math.max(played.length, 1);
-  const fit = Math.floor((rowWidth - 4) / count);
-  const width = Math.min(72, Math.max(28, fit));
+  const layout = trickLayout(played.length, rowWidth);
+  const rows = splitRows(played, layout.rows);
   return (
     <div className="flex min-h-[150px] flex-col items-center justify-center gap-2 rounded-xl bg-felt px-1 py-3">
       {ledSuit && (
@@ -45,10 +44,18 @@ export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerI
         <div className="text-sm text-white/60">Trick area</div>
       ) : (
         <>
-          <div ref={rowRef} data-testid="trick-row" className="flex w-full justify-center">
-            {played.map((p, index) => (
-              <div key={`${cardInstanceKey(p.card)}-${p.playerId}`} className={p.playerId === winnerId ? 'rounded-md ring-2 ring-[#E8A317]' : undefined}>
-                <CardFace card={p.card} width={width} thirty={thirtyIndexes?.has(index) ?? false} />
+          <div ref={rowRef} data-testid="trick-row" className="flex w-full flex-col items-center gap-1">
+            {rows.map((row, rowIndex) => (
+              <div key={rowIndex} className="flex justify-center">
+                {row.map((p) => {
+                  const index = played.indexOf(p);
+                  const won = p.playerId === winnerId;
+                  return (
+                    <div key={`${cardInstanceKey(p.card)}-${p.playerId}`} data-testid={won ? 'trick-winner' : 'trick-card'} data-card-width={layout.width} className={won ? 'rounded-md ring-4 ring-[#E8A317]' : undefined}>
+                      <CardFace card={p.card} width={layout.width} thirty={thirtyIndexes?.has(index) ?? false} />
+                    </div>
+                  );
+                })}
               </div>
             ))}
           </div>
@@ -59,4 +66,21 @@ export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerI
       )}
     </div>
   );
+}
+
+/** Eight-card tricks use two rows so each card stays at least 47px wide. */
+function trickLayout(count: number, rowWidth: number): { width: number; rows: number } {
+  const cards = Math.max(count, 1);
+  const single = Math.floor((rowWidth - 4) / cards);
+  if (cards >= 8 && single < 47) {
+    const perRow = Math.ceil(cards / 2);
+    return { width: Math.min(72, Math.max(47, Math.floor((rowWidth - 8) / perRow))), rows: 2 };
+  }
+  return { width: Math.min(72, Math.max(28, single)), rows: 1 };
+}
+
+function splitRows<T>(items: T[], rows: number): T[][] {
+  if (rows <= 1) return [items];
+  const mid = Math.ceil(items.length / 2);
+  return [items.slice(0, mid), items.slice(mid)];
 }

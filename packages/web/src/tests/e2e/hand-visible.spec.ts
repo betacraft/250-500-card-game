@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { assertControlsClear, assertHandCorners, assertScoreChips } from './visible-hand';
+import { assertControlsClear, assertGridClear, assertHandCorners, assertHandSize, assertScoreChips } from './visible-hand';
 
 const views = [
   { width: 1024, height: 572, shot: true },
   { width: 1280, height: 800, shot: false },
   { width: 1366, height: 768, shot: false },
-  { width: 390, height: 844, shot: false },
+  { width: 390, height: 844, shot: true },
   { width: 360, height: 740, shot: true },
 ] as const;
 
@@ -39,6 +39,10 @@ test.describe('hand stays readable', () => {
         });
         page.on('pageerror', (error) => errors.push(error.message));
         await deal(page, variant, view.width, view.height);
+        const handSizes: number[] = [];
+        handSizes.push(await assertHandSize(page));
+        await page.getByRole('button', { name: 'Decrease bid by 5' }).tap({ force: true });
+        await expect(page.getByTestId('disabled-reason')).toContainText(/lowest bid/i);
         await assertHandCorners(page);
         await assertControlsClear(page);
         await page.evaluate(() => window.scrollTo(0, 0));
@@ -46,6 +50,13 @@ test.describe('hand stays readable', () => {
         if (view.shot) await page.screenshot({ path: `/opt/cursor/artifacts/bid-${variant}-${view.width}x${view.height}.png`, fullPage: false });
         await bidMax(page);
         await expect(page.getByTestId('declare-form')).toBeVisible();
+        handSizes.push(await assertHandSize(page));
+        await expect(page.getByTestId('turn-marker')).toBeVisible();
+        await expect(page.getByTestId('bidder-marker')).toBeVisible();
+        if (view.height <= 760) await expect(page.getByTestId('held-legend')).toBeVisible();
+        await assertGridClear(page, variant === '250' && (view.width === 360 || view.width === 1024));
+        await page.getByRole('button', { name: 'Confirm declaration' }).tap({ force: true });
+        await expect(page.getByTestId('disabled-reason')).toContainText(/trump/i);
         await assertHandCorners(page);
         await assertControlsClear(page);
         await page.evaluate(() => window.scrollTo(0, 0));
@@ -60,13 +71,90 @@ test.describe('hand stays readable', () => {
         }
         await page.getByRole('button', { name: 'Confirm declaration' }).click();
         await expect(page.getByText('Your turn')).toBeVisible();
+        handSizes.push(await assertHandSize(page));
+        expect(new Set(handSizes).size, `hand widths ${handSizes.join(',')}`).toBe(1);
+        if (view.width === 360 || view.width === 1024) expect(handSizes[0]).toBeGreaterThanOrEqual(80);
         await assertHandCorners(page);
         await assertControlsClear(page);
         await page.evaluate(() => window.scrollTo(0, 0));
         await assertScoreChips(page);
         if (view.shot) await page.screenshot({ path: `/opt/cursor/artifacts/play-${variant}-${view.width}x${view.height}.png`, fullPage: false });
+        await page.locator('[data-testid="hand-card"][aria-disabled="false"]').first().tap();
+        await page.getByTestId('confirm-play').tap();
+        await expect(page.getByText(/Bot \d+ to play/)).toBeVisible();
+        if (view.shot) await page.screenshot({ path: `/opt/cursor/artifacts/other-${variant}-${view.width}x${view.height}.png`, fullPage: false });
+        await expect(page.getByTestId('trick-pause')).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByTestId('trick-winner')).toBeVisible();
+        await expect(page.getByTestId('hand-complete')).toHaveCount(0);
+        const trickWidth = Number(await page.getByTestId('trick-winner').getAttribute('data-card-width'));
+        if (variant === '500' && (view.width === 360 || view.width === 390)) expect(trickWidth).toBeGreaterThanOrEqual(47);
+        if (variant === '250') expect(trickWidth).toBeGreaterThanOrEqual(50);
+        if (view.shot) await page.screenshot({ path: `/opt/cursor/artifacts/pause-${variant}-${view.width}x${view.height}.png`, fullPage: false });
         expect(errors, errors.join('\n')).toEqual([]);
       });
     }
   }
+
+  test('every trick pauses on the winner, including the last', async ({ page }) => {
+    test.setTimeout(180_000);
+    const errors: string[] = [];
+    page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });
+    page.on('pageerror', (error) => errors.push(error.message));
+    for (const variant of ['250', '500'] as const) {
+      await deal(page, variant, 360, 740);
+      await bidMax(page);
+      await page.getByRole('button', { name: 'Trump Spades' }).click();
+      const need = variant === '250' ? 2 : 3;
+      for (const rank of ['3', '4', '5'].slice(0, need)) {
+        await page.getByTestId('declare-form').getByRole('button', { name: new RegExp(`^${rank} of clubs`) }).click();
+      }
+      await page.getByRole('button', { name: 'Confirm declaration' }).click();
+      await page.evaluate(() => {
+        const win = window as unknown as { __pauseMs?: number };
+        let opened = 0;
+        const note = (): void => {
+          const on = Boolean(document.querySelector('[data-testid="trick-pause"]'));
+          if (on && opened === 0) opened = Date.now();
+          if (!on && opened > 0) {
+            win.__pauseMs = Date.now() - opened;
+            opened = 0;
+          }
+        };
+        new MutationObserver(note).observe(document.body, { subtree: true, attributes: true, childList: true, attributeFilter: ['data-testid'] });
+      });
+      const target = variant === '250' ? 8 : 12;
+      for (let trick = 0; trick < target; trick += 1) {
+        const pause = page.getByTestId('trick-pause');
+        const deadline = Date.now() + 20_000;
+        while (!(await pause.isVisible()) && Date.now() < deadline) {
+          if (await page.getByText('Your turn').isVisible()) {
+            await playHumanCard(page);
+            await expect(page.getByText('Your turn')).toBeHidden({ timeout: 2_000 });
+          }
+          await page.waitForTimeout(80);
+        }
+        await expect(pause).toBeVisible();
+        await expect(page.getByTestId('trick-winner')).toBeVisible();
+        await expect(page.getByTestId('hand-complete')).toHaveCount(0);
+        await expect(pause).toBeHidden({ timeout: 5_000 });
+        const held = await page.evaluate(() => (window as unknown as { __pauseMs?: number }).__pauseMs ?? 0);
+        expect(held).toBeGreaterThanOrEqual(1100);
+      }
+      await expect(page.getByTestId('hand-complete')).toBeVisible();
+    }
+    expect(errors, errors.join('\n')).toEqual([]);
+  });
 });
+
+async function playHumanCard(page: import('@playwright/test').Page): Promise<void> {
+  await page.evaluate(() => {
+    const bridge = (window as unknown as { __localPlay?: { getState: () => { hand: { hands: Record<string, { rank: string; suit: string }[]> }; play: (card: { rank: string; suit: string }) => void } } }).__localPlay;
+    const api = bridge?.getState();
+    const label = document.querySelector('[data-testid="hand-card"][aria-disabled="false"]')?.getAttribute('aria-label') ?? '';
+    const [rank, , suit] = label.replace(', in your hand', '').split(' ');
+    const held = api?.hand.hands.p1 ?? [];
+    const card = held.find((item) => item.rank === rank && item.suit === suit);
+    if (!api || !card) throw new Error(`no card to play (${label})`);
+    api.play(card);
+  });
+}
