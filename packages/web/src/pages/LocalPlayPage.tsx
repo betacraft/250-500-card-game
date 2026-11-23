@@ -32,9 +32,10 @@ export function LocalPlayPage(): JSX.Element {
   const stepBot = useLocalPlayStore((s) => s.stepBot);
   const dismissTrick = useLocalPlayStore((s) => s.dismissTrick);
   const nextHand = useLocalPlayStore((s) => s.nextHand);
-  const short = useShortViewport();
+  const { short, wide } = useViewport();
   const fanRef = useRef<HTMLDivElement>(null);
-  const [fanHeight, setFanHeight] = useState(180);
+  const [dockHeight, setDockHeight] = useState(240);
+  const [canConfirm, setCanConfirm] = useState(false);
 
   useEffect(() => {
     if (!settledTrick) return undefined;
@@ -45,7 +46,7 @@ export function LocalPlayPage(): JSX.Element {
   useEffect(() => {
     const node = fanRef.current;
     if (!node || typeof ResizeObserver === 'undefined') return undefined;
-    const apply = (): void => setFanHeight(node.offsetHeight);
+    const apply = (): void => setDockHeight(node.offsetHeight);
     apply();
     const observer = new ResizeObserver(apply);
     observer.observe(node);
@@ -90,7 +91,7 @@ export function LocalPlayPage(): JSX.Element {
     <div className="min-h-screen">
     <main
       className={`mx-auto flex min-h-screen w-full max-w-[980px] flex-col overflow-x-clip px-3 pt-2 ${short ? 'gap-1' : 'gap-3'}`}
-      style={{ paddingBottom: docked ? fanHeight + (humanDeclaring ? 84 : 12) : 16 }}
+      style={{ paddingBottom: docked ? dockHeight + 8 : 16 }}
     >
       <header className="flex items-center justify-between gap-2">
         <h1 className="text-base font-medium">Play vs bots · {gameType}</h1>
@@ -99,7 +100,7 @@ export function LocalPlayPage(): JSX.Element {
       {!short && <p className="text-sm text-stone-500">Free to play. No coins or stakes.</p>}
       <ScoreStrip names={names} scores={runningScores} order={seatOrder} chips={short} />
       <TableStatus hand={hand} names={names} />
-      {phase !== 'bidding' && (
+      {phase !== 'bidding' && !(short && !wide && humanDeclaring) && (
         <AuctionRecap
           history={bidHistory}
           names={names}
@@ -120,6 +121,7 @@ export function LocalPlayPage(): JSX.Element {
             onBid={(_id, amount) => bid(amount)}
             onPass={() => pass()}
             onAuctionClose={() => stepBot()}
+            compact={short}
           />
         </div>
       )}
@@ -129,6 +131,9 @@ export function LocalPlayPage(): JSX.Element {
           gameType={gameType}
           need={rulesFor(gameType).PARTNERS_TO_CALL}
           heldFaces={new Set(humanHand.map((card) => cardId(card)))}
+          compact={short}
+          wide={wide}
+          onCanConfirm={setCanConfirm}
           onDeclare={declare}
         />
       )}
@@ -148,7 +153,7 @@ export function LocalPlayPage(): JSX.Element {
         </div>
       )}
       {phase === 'playing' && !settledTrick && (
-        <p className="text-sm text-stone-500">
+        <p className="mb-2 text-sm text-stone-500">
           {myTurn ? 'Your turn' : `${names[hand.toPlayerId ?? ''] ?? 'Bot'} to play`}
           {myTurn && [...reasons.values()].find((reason) => reason) ? ` · ${[...reasons.values()].find((reason) => reason)}` : ''}
         </p>
@@ -178,23 +183,32 @@ export function LocalPlayPage(): JSX.Element {
       )}
     </main>
     {docked && (
-      <div ref={fanRef} data-testid="hand-dock" className="fixed inset-x-0 z-30 bg-[#F5F1E8]" style={{ bottom: humanDeclaring ? 76 : 0 }}>
-        <div className="mx-auto w-full max-w-[980px] px-3">{fan}</div>
+      <div ref={fanRef} data-testid="hand-dock" className="fixed inset-x-0 bottom-0 z-30 bg-[#F5F1E8]">
+        <div className="mx-auto w-full max-w-[980px] px-3">
+          {fan}
+          {humanDeclaring && (
+            <div className="py-2">
+              <button type="submit" form="declare-form" disabled={!canConfirm} className="w-full rounded-xl bg-felt p-3 text-base font-medium text-white disabled:bg-stone-300">
+                Confirm declaration
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     )}
     </div>
   );
 }
 
-function useShortViewport(): boolean {
-  const [short, setShort] = useState(false);
+function useViewport(): { short: boolean; wide: boolean } {
+  const [size, setSize] = useState({ short: false, wide: true });
   useEffect(() => {
-    const apply = (): void => setShort(window.innerHeight <= 640);
+    const apply = (): void => setSize({ short: window.innerHeight <= 760, wide: window.innerWidth >= 720 });
     apply();
     window.addEventListener('resize', apply);
     return () => window.removeEventListener('resize', apply);
   }, []);
-  return short;
+  return size;
 }
 
 function legalContext(hand: NonNullable<ReturnType<typeof useLocalPlayStore.getState>['hand']>) {
@@ -299,27 +313,30 @@ function DeclareForm({
   gameType,
   need,
   heldFaces,
+  compact,
+  wide,
+  onCanConfirm,
   onDeclare,
 }: {
   gameType: GameType;
   need: number;
   heldFaces: ReadonlySet<string>;
+  compact: boolean;
+  wide: boolean;
+  onCanConfirm: (ready: boolean) => void;
   onDeclare: (trump: Suit, called: Card[]) => void;
 }): JSX.Element {
   const [trump, setTrump] = useState<Suit | null>(null);
   const [called, setCalled] = useState<Card[]>([]);
+  const ready = trump !== null && called.length === need;
+  useEffect(() => { onCanConfirm(ready); }, [onCanConfirm, ready]);
   return (
-    <div className="flex flex-col gap-3 pb-20" data-testid="declare-form">
+    <form id="declare-form" data-testid="declare-form" className={compact ? 'flex flex-col gap-1' : 'flex flex-col gap-3'} onSubmit={(event) => { event.preventDefault(); if (trump) onDeclare(trump, called); }}>
       <h2 className="text-sm font-medium">You won the bid. Name trump and {need} cards.</h2>
-      <p data-testid="score-explainer" className="text-sm text-stone-700">{scoreExplainer(gameType)}</p>
-      <TrumpPicker value={trump} onChange={setTrump} />
-      <PartnerPicker selected={called} maxCount={need} heldFaces={heldFaces} onChange={setCalled} />
-      <div className="fixed inset-x-0 bottom-0 z-40 bg-[#F5F1E8] px-3 py-2">
-        <button type="button" disabled={!trump || called.length !== need} onClick={() => trump && onDeclare(trump, called)} className="mx-auto block w-full max-w-[980px] rounded-xl bg-felt p-4 font-medium text-white disabled:bg-stone-300">
-          Confirm declaration
-        </button>
-      </div>
-    </div>
+      <p data-testid="score-explainer" className="text-sm text-stone-700">{scoreExplainer(gameType, compact)}</p>
+      <TrumpPicker value={trump} onChange={setTrump} compact={compact} />
+      <PartnerPicker selected={called} maxCount={need} heldFaces={heldFaces} compact={compact} wide={wide} onChange={setCalled} />
+    </form>
   );
 }
 

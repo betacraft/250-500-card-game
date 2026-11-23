@@ -18,6 +18,9 @@ interface PartnerPickerProps {
   onChange: (cards: Card[]) => void;
   /** Faces in the bidder's hand. Marked, and still selectable. */
   heldFaces?: ReadonlySet<string>;
+  /** Tighter spacing. Wide windows put all 12 ranks on one row. */
+  compact?: boolean;
+  wide?: boolean;
 }
 
 function isSelected(card: Card, selected: Card[]): boolean {
@@ -27,7 +30,7 @@ function isSelected(card: Card, selected: Card[]): boolean {
 /** 4 suits × 12 ranks; tap to toggle up to maxCount.
  * Mobile layout: each suit gets two rows of 6 ranks (no horizontal scroll, ≥44px tap targets,
  * ≥8px adjacent spacing). Fits comfortably at 360px portrait. */
-export function PartnerPicker({ selected, maxCount, onChange, heldFaces }: PartnerPickerProps): JSX.Element {
+export function PartnerPicker({ selected, maxCount, onChange, heldFaces, compact = false, wide = false }: PartnerPickerProps): JSX.Element {
   const toggle = (card: Card) => {
     const exists = isSelected(card, selected);
     if (exists) {
@@ -38,18 +41,20 @@ export function PartnerPicker({ selected, maxCount, onChange, heldFaces }: Partn
   };
 
   return (
-    <div className="rounded-xl bg-white p-3">
-      <div className="mb-3 flex items-center justify-between">
+    <div className={compact ? 'rounded-xl bg-white p-2' : 'rounded-xl bg-white p-3'}>
+      <div className={compact ? 'mb-1 flex items-center justify-end' : 'mb-2 flex items-center justify-between'}>
+        {!compact && (
         <div className="text-sm font-medium text-stone-600">
           Tap to select. Grey marks a card in your hand.
         </div>
+        )}
         <div className="text-sm font-medium tabular-nums">
           {selected.length} / {maxCount}
         </div>
       </div>
-      <div className="flex flex-col gap-3">
+      <div className={compact ? 'flex flex-col gap-1' : 'flex flex-col gap-3'}>
         {SUITS_ORDERED.map((suit: Suit) => (
-          <SuitBlock key={suit} suit={suit} selected={selected} heldFaces={heldFaces} onToggle={toggle} />
+          <SuitBlock key={suit} suit={suit} selected={selected} heldFaces={heldFaces} onToggle={toggle} compact={compact} wide={wide} />
         ))}
       </div>
     </div>
@@ -61,24 +66,28 @@ function SuitBlock({
   selected,
   heldFaces,
   onToggle,
+  compact,
+  wide,
 }: {
   suit: Suit;
   selected: Card[];
   heldFaces?: ReadonlySet<string>;
   onToggle: (card: Card) => void;
+  compact: boolean;
+  wide: boolean;
 }): JSX.Element {
   const color = suitColor(suit);
-  // Split 12 ranks into 2 rows of 6
-  const rowA = RANKS_ORDERED.slice(0, 6);
-  const rowB = RANKS_ORDERED.slice(6);
   return (
     <div>
-      <div className="mb-1.5 flex items-center gap-1.5">
-        <SuitIcon suit={suit} size={16} />
-        <span className="text-sm font-medium capitalize text-stone-600">{suit}</span>
-      </div>
-      <div className="grid grid-cols-6 gap-2">
-        {[...rowA, ...rowB].map((rank) => {
+      {!(compact && wide) && (
+        <div className={compact ? 'flex items-center' : 'mb-1 flex items-center gap-1.5'}>
+          <SuitIcon suit={suit} size={16} />
+          {!compact && <span className="text-sm font-medium capitalize text-stone-600">{suit}</span>}
+        </div>
+      )}
+      <div className={clsx('grid', wide && compact ? 'grid-cols-[20px_repeat(12,minmax(0,1fr))] items-center gap-1' : 'grid-cols-6', compact ? 'gap-1' : 'gap-2')}>
+        {compact && wide && <SuitIcon suit={suit} size={16} />}
+        {RANKS_ORDERED.map((rank) => {
           const card: Card = { suit, rank };
           const sel = isSelected(card, selected);
           const held = heldFaces?.has(cardId(card)) ?? false;
@@ -91,7 +100,8 @@ function SuitBlock({
               aria-label={held ? `${rank} of ${suit}, in your hand` : `${rank} of ${suit}`}
               data-held={held ? 'true' : undefined}
               className={clsx(
-                'h-11 rounded-md border text-sm font-medium tabular-nums transition-transform active:scale-95',
+                'rounded-md border text-sm font-medium tabular-nums transition-transform active:scale-95',
+                compact ? 'h-8' : 'h-11',
                 sel
                   ? 'border-gold-border bg-gold text-gold-dark'
                   : held

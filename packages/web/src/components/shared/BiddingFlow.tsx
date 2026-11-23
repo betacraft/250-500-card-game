@@ -29,6 +29,8 @@ interface BiddingFlowProps {
   onPass: (playerId: string) => void;
   /** Called when auction closes (winner + amount) */
   onAuctionClose: (winnerId: string, amount: number) => void;
+  /** Less padding so Pass and Bid stay above a pinned hand. */
+  compact?: boolean;
 }
 
 /** Round-robin bidding flow for the current hand. */
@@ -40,6 +42,7 @@ export function BiddingFlow({
   onBid,
   onPass,
   onAuctionClose,
+  compact = false,
 }: BiddingFlowProps): JSX.Element {
   const rules = rulesFor(gameType);
   const playerIds = players.map((p) => p.id);
@@ -106,9 +109,10 @@ export function BiddingFlow({
     );
   }
 
+  const pad = compact ? 'p-2' : 'p-4';
   return (
-    <div className="flex flex-col gap-4">
-      <section className="rounded-xl bg-white p-4">
+    <div className={compact ? 'flex flex-col gap-2' : 'flex flex-col gap-4'}>
+      <section className={`rounded-xl bg-white ${pad}`}>
         <div className="text-sm font-medium uppercase tracking-wider text-stone-500">Current high</div>
         {high ? (
           <div className="mt-1 flex items-baseline gap-2">
@@ -120,7 +124,7 @@ export function BiddingFlow({
         )}
       </section>
 
-      <section className="rounded-xl bg-white p-4">
+      {!(compact && bidHistory.length === 0) && <section className={`rounded-xl bg-white ${pad}`}>
         <div className="mb-2 text-sm font-medium uppercase tracking-wider text-stone-500">Bidding history</div>
         {bidHistory.length === 0 ? (
           <div className="text-sm text-stone-500">No actions yet.</div>
@@ -141,11 +145,11 @@ export function BiddingFlow({
             })}
           </ul>
         )}
-      </section>
+      </section>}
 
       {currentPlayer && (
-        <section className="rounded-xl border-2 border-felt bg-white p-4">
-          <div className="mb-3 flex items-center gap-2">
+        <section className={`rounded-xl border-2 border-felt bg-white ${pad}`}>
+          <div className={compact ? 'mb-2 flex items-center gap-2' : 'mb-3 flex items-center gap-2'}>
             <div className="h-2 w-2 animate-pulse rounded-full bg-felt"></div>
             <div className="text-sm font-medium text-stone-700">
               <span className="text-felt">{currentPlayer.name}</span>'s turn

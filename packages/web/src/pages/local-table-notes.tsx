@@ -20,8 +20,9 @@ export function privateNotice(
   return stillMine ? 'You hold a called card' : null;
 }
 
-export function scoreExplainer(gameType: GameType): string {
+export function scoreExplainer(gameType: GameType, compact = false): string {
   const bonus = gameType === '250' ? 100 : 200;
+  if (compact) return `Bidder ± bid + ${bonus}. Partners ± bid.`;
   return `The bidder wins or loses the bid + ${bonus}. Each partner wins or loses the bid.`;
 }
 

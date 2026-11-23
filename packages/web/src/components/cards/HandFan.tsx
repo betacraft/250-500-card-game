@@ -121,7 +121,7 @@ function fanMetrics(count: number, container: number, compact = false): {
   // The play column is max 980px minus 24px of padding, so a 1280 window measures about 956.
   const wide = !compact && container >= 900;
   const inset = wide ? 48 : 36;
-  const base = compact ? (count > 8 ? 64 : 72) : wide ? (count > 8 ? 156 : 176) : count > 8 ? 84 : 96;
+  const base = compact ? (count > 8 ? 58 : 64) : wide ? (count > 8 ? 156 : 176) : count > 8 ? 84 : 96;
   const span = Math.max(container - inset * 2, 220);
   const cardW = Math.min(base, span);
   const step = count <= 1 ? 0 : Math.min(cardW * 0.62, (span - cardW) / Math.max(count - 1, 1));

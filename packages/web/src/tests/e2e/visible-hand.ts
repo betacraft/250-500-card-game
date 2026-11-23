@@ -41,3 +41,61 @@ export async function assertHandCorners(page: Page): Promise<void> {
   expect(report.fanTop).toBeGreaterThanOrEqual(-0.5);
   expect(report.fanBottom).toBeLessThanOrEqual(report.height + 0.5);
 }
+
+/** Scroll each control above the pinned fan, then prove the fan does not cover its centre. */
+export async function assertControlsClear(page: Page): Promise<void> {
+  const controls = page.locator('main button, [data-testid="hand-dock"] button:not([data-testid="hand-card"])');
+  const count = await controls.count();
+  const handCards = page.locator('[data-testid="hand-card"]');
+  expect(count + await handCards.count()).toBeGreaterThan(0);
+  for (let i = 0; i < count; i += 1) {
+    const control = controls.nth(i);
+    await control.evaluate((node) => {
+      const dock = document.querySelector('[data-testid="hand-dock"]');
+      if (!dock) return;
+      const limit = dock.getBoundingClientRect().top - 8;
+      const box = node.getBoundingClientRect();
+      const delta = box.bottom - limit;
+      if (delta > 0) window.scrollBy(0, delta + 2);
+    });
+    const hit = await control.evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      const x = Math.round(box.left + box.width / 2);
+      const y = Math.round(box.top + box.height / 2);
+      const target = document.elementFromPoint(x, y);
+      const dock = document.querySelector('[data-testid="hand-dock"]');
+      const label = node.getAttribute('aria-label') ?? node.textContent ?? '';
+      const self = target === node || (!!target && node.contains(target));
+      return {
+        label: label.trim().slice(0, 40),
+        covered: !self && (dock?.contains(target) ?? false),
+        self,
+      };
+    });
+    expect(hit.covered, hit.label).toBe(false);
+    expect(hit.self, hit.label).toBe(true);
+  }
+  await page.evaluate(() => {
+    const dock = document.querySelector('[data-testid="hand-dock"]');
+    if (!dock) return;
+    const limit = dock.getBoundingClientRect().top - 8;
+    const nodes = [...document.querySelectorAll('main button, main p')];
+    const last = nodes[nodes.length - 1];
+    if (!last) return;
+    const delta = last.getBoundingClientRect().bottom - limit;
+    if (delta > 0) window.scrollBy(0, delta + 2);
+  });
+  const gap = await page.evaluate(() => {
+    const dock = document.querySelector('[data-testid="hand-dock"]');
+    if (!dock) return 99;
+    const top = dock.getBoundingClientRect().top;
+    let nearest = Number.POSITIVE_INFINITY;
+    for (const node of document.querySelectorAll('main button, main p')) {
+      const box = node.getBoundingClientRect();
+      if (box.height < 1 || box.bottom > top + 0.5) continue;
+      nearest = Math.min(nearest, top - box.bottom);
+    }
+    return nearest;
+  });
+  expect(gap).toBeGreaterThanOrEqual(8);
+}
