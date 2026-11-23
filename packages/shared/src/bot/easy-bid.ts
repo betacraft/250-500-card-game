@@ -98,9 +98,10 @@ function projectedTeamPoints(hand: readonly Card[], trump: Suit, gameType: GameT
 
 function rawBid(team: number, gameType: GameType, highBid: number | null): BidDecision {
   const rules = rulesFor(gameType);
-  if (team < rules.MIN_BID) return { action: 'pass' };
-  const stepped = Math.floor(team / rules.BID_INCREMENT) * rules.BID_INCREMENT;
-  const ceiling = Math.min(rules.MAX_BID, Math.max(rules.MIN_BID, stepped));
+  const margin = gameType === '250' ? 20 : 35;
+  const stepped = Math.floor((team - margin) / rules.BID_INCREMENT) * rules.BID_INCREMENT;
+  if (stepped < rules.MIN_BID) return { action: 'pass' };
+  const ceiling = Math.min(rules.MAX_BID, stepped);
   let best: number | null = null;
   for (let amount = rules.MIN_BID; amount <= ceiling; amount += rules.BID_INCREMENT) {
     if (highBid !== null && amount <= highBid) continue;

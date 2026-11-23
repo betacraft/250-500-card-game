@@ -23,9 +23,19 @@ export interface PublicBotView {
   premiumAwarded: { spades: boolean; hearts: boolean };
 }
 
-/** Build the public view for one seat. 250 partners are public at declaration. */
+/** Partners the table has seen. 250 stays hidden until that player plays a called card. */
+export function visiblePartners(state: GameHand): string[] {
+  if (state.gameType === '250') return [...state.shownPartners];
+  const ids = new Set<string>();
+  for (const slot of state.slots) {
+    if (slot.filledBy && slot.filledBy !== state.bidder) ids.add(slot.filledBy);
+  }
+  return [...ids];
+}
+
+/** Build the public view for one seat. Unrevealed partners are omitted in both variants. */
 export function toPublicView(state: GameHand, selfId: string): PublicBotView {
-  const unique = [...new Set(revealedPartnerIds(state).filter((id) => id !== state.bidder))];
+  const unique = visiblePartners(state);
   const known = new Set<string>([state.bidder ?? '', ...unique]);
   let points = 0;
   for (const id of known) {
@@ -55,11 +65,3 @@ export function toPublicView(state: GameHand, selfId: string): PublicBotView {
   };
 }
 
-function revealedPartnerIds(state: GameHand): string[] {
-  if (state.gameType === '250') return [...state.partners];
-  const ids: string[] = [];
-  for (const slot of state.slots) {
-    if (slot.filledBy && slot.filledBy !== state.bidder) ids.push(slot.filledBy);
-  }
-  return ids;
-}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import {
   type Player,
@@ -50,7 +50,11 @@ export function BiddingFlow({
   const passed = passedPlayers(bidHistory);
   const winner = closed ? getAuctionWinner(auctionState) : null;
 
-  const [draftAmount, setDraftAmount] = useState<number>(() => suggestedNextBid(auctionState));
+  const nextLegal = suggestedNextBid(auctionState);
+  const [draftAmount, setDraftAmount] = useState<number>(nextLegal);
+  useEffect(() => {
+    setDraftAmount((current) => (current < nextLegal ? nextLegal : current));
+  }, [nextLegal]);
   const playerById = useMemo(() => {
     const map: Record<string, Player> = {};
     for (const p of players) map[p.id] = p;
@@ -175,6 +179,21 @@ export function BiddingFlow({
               {validation.message}
             </div>
           )}
+
+          <div className="mb-3 flex justify-center gap-2">
+            {[5, 10, 20].map((step) => (
+              <button
+                key={step}
+                type="button"
+                aria-label={`Add ${step} to the bid`}
+                onClick={() => adjust(step)}
+                disabled={draftAmount >= rules.MAX_BID}
+                className="h-11 min-w-11 rounded-full border border-stone-300 px-3 text-sm font-medium text-stone-700 active:scale-95 disabled:opacity-40"
+              >
+                +{step}
+              </button>
+            ))}
+          </div>
 
           <div className="flex gap-2">
             <button

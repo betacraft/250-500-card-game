@@ -82,7 +82,7 @@ export function HandFan({
             title={reasons?.get(key) || undefined}
             disabled={!canPlay || !legal}
             onClick={() => setSelectedId(key)}
-            className="absolute top-0 z-30 h-11 min-w-11 bg-transparent"
+            className={`absolute top-0 h-11 min-w-11 bg-transparent ${legal ? 'z-40' : 'pointer-events-none z-20'}`}
             style={{ left: metrics.hitLeft(index), width: metrics.hitW }}
           />
           </Fragment>
@@ -113,19 +113,20 @@ function fanMetrics(count: number, container: number): {
   hitLeft: (index: number) => number;
   hitW: number;
 } {
-  const wide = container >= 900;
-  const base = count > 8 ? (wide ? 118 : 92) : wide ? 124 : 104;
-  const span = Math.max(container - 8, 280);
-  const step = count <= 1 ? 0 : Math.min(base * 0.42, (span - base) / (count - 1));
+  const wide = container >= 1000;
+  const inset = wide ? 48 : 40;
+  const base = wide ? (count > 8 ? 156 : 176) : count > 8 ? 84 : 96;
+  const span = Math.max(container - inset * 2, 220);
   const cardW = Math.min(base, span);
+  const step = count <= 1 ? 0 : Math.min(cardW * 0.62, (span - cardW) / Math.max(count - 1, 1));
   const cardH = cardW * 1.4;
-  const total = wide ? (count > 8 ? 22 : 20) : 16;
+  const total = wide ? (count > 8 ? 18 : 16) : 14;
   const origin = (span - (cardW + step * Math.max(count - 1, 0))) / 2;
-  const hitW = count <= 1 ? 48 : Math.max(44, Math.floor(span / count));
+  const hitW = count <= 1 ? 48 : Math.max(44, Math.floor((span + inset) / count));
   return {
     cardW,
     cardH,
-    left: (index) => origin + index * step,
+    left: (index) => inset + origin + index * step,
     angle: (index) => (count <= 1 ? 0 : -total / 2 + (index * total) / (count - 1)),
     hitLeft: (index) => (count <= 1 ? 8 : index * ((span - hitW) / (count - 1))),
     hitW,

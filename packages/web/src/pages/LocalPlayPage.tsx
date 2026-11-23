@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { cardId, cardInstanceKey, illegalReason, legalPlaysFor, nextBidder, rulesFor, type Card, type GameType, type Suit } from '@250-500/shared';
+import { cardId, cardInstanceKey, illegalReason, legalPlaysFor, nextBidder, rulesFor, visiblePartners, type Card, type GameType, type Suit } from '@250-500/shared';
 import { BiddingFlow } from '../components/shared/BiddingFlow';
 import { PartnerPicker } from '../components/shared/PartnerPicker';
 import { SuitIcon } from '../components/shared/SuitIcon';
@@ -57,7 +57,7 @@ export function LocalPlayPage(): JSX.Element {
   const reasons = new Map(humanHand.map((card) => [cardInstanceKey(card), illegalReason(legalContext(hand), card) ?? '']));
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-[980px] flex-col gap-3 overflow-x-hidden px-3 pb-4 pt-3">
+    <main className="mx-auto flex min-h-screen w-full max-w-[980px] flex-col gap-3 overflow-x-clip px-3 pb-4 pt-3">
       <header className="flex items-center justify-between gap-2">
         <div>
           <h1 className="text-lg font-medium">Play vs bots · {gameType}</h1>
@@ -183,7 +183,7 @@ function trickThirties(played: ReadonlyArray<{ card: Card }>, hand: { gameType: 
 
 function TableStatus({ hand, names }: { hand: NonNullable<ReturnType<typeof useLocalPlayStore.getState>['hand']>; names: Record<string, string> }): JSX.Element | null {
   if (!hand.bidder || hand.bidAmount === null) return null;
-  const revealed = hand.gameType === '250' ? [...hand.partners] : hand.slots.map((slot) => slot.filledBy).filter((id): id is string => !!id && id !== hand.bidder);
+  const revealed = visiblePartners(hand);
   return (
     <div className="flex flex-wrap items-end gap-2 text-sm text-stone-700" data-testid="table-status">
       <span>{names[hand.bidder] ?? 'Bidder'} bid {hand.bidAmount}</span>
@@ -200,9 +200,7 @@ function TableStatus({ hand, names }: { hand: NonNullable<ReturnType<typeof useL
 }
 
 function publicTeamPoints(hand: NonNullable<ReturnType<typeof useLocalPlayStore.getState>['hand']>): number {
-  const known = new Set<string>([hand.bidder ?? '']);
-  if (hand.gameType === '250') hand.partners.forEach((id) => known.add(id));
-  else hand.slots.forEach((slot) => { if (slot.filledBy) known.add(slot.filledBy); });
+  const known = new Set<string>([hand.bidder ?? '', ...visiblePartners(hand)]);
   let points = 0;
   for (const id of known) {
     for (const card of hand.collected[id] ?? []) {
@@ -248,8 +246,8 @@ function DeclareForm({ need, onDeclare }: { need: number; onDeclare: (trump: Sui
       <h2 className="text-sm font-medium">You won the bid. Name trump and {need} cards.</h2>
       <TrumpPicker value={trump} onChange={setTrump} />
       <PartnerPicker selected={called} maxCount={need} onChange={setCalled} />
-      <div className="sticky bottom-0 bg-[#F5F1E8] py-2">
-        <button type="button" disabled={!trump || called.length !== need} onClick={() => trump && onDeclare(trump, called)} className="w-full rounded-xl bg-felt p-4 font-medium text-white disabled:bg-stone-300">
+      <div className="fixed inset-x-0 bottom-0 z-40 bg-[#F5F1E8] px-3 py-2">
+        <button type="button" disabled={!trump || called.length !== need} onClick={() => trump && onDeclare(trump, called)} className="mx-auto block w-full max-w-[980px] rounded-xl bg-felt p-4 font-medium text-white disabled:bg-stone-300">
           Confirm declaration
         </button>
       </div>

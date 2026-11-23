@@ -18,7 +18,12 @@ async function playOneHand(page: import('@playwright/test').Page, variant: '250'
   const scrolls = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2);
   expect(scrolls).toBe(false);
   let paused = false;
+  let hiddenShot = false;
   for (let step = 0; step < 500; step += 1) {
+    if (variant === '250' && !hiddenShot && (await page.getByText('Partners: none yet').isVisible().catch(() => false))) {
+      await page.screenshot({ path: `/opt/cursor/artifacts/hidden-partners-${label}.png`, fullPage: true });
+      hiddenShot = true;
+    }
     if (!paused && (await page.getByTestId('trick-pause').isVisible().catch(() => false))) {
       await page.screenshot({ path: `/opt/cursor/artifacts/trick-pause-${label}.png`, fullPage: true });
       paused = true;
@@ -63,5 +68,32 @@ test.describe('local table', () => {
   test('500 desktop', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await playOneHand(page, '500');
+  });
+
+  test('declare button is on screen at 390', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') errors.push(msg.text());
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/play');
+    await page.getByRole('button', { name: /^250/ }).click();
+    await page.getByLabel('Your name').fill('Ada');
+    await page.getByTestId('start-vs-bots').click();
+    for (let i = 0; i < 8; i += 1) {
+      const add = page.getByRole('button', { name: 'Add 20 to the bid' });
+      if (!(await add.isVisible().catch(() => false))) break;
+      if (await add.isDisabled()) break;
+      await add.click();
+    }
+    await page.getByRole('button', { name: /^Bid / }).click();
+    const confirm = page.getByRole('button', { name: 'Confirm declaration' });
+    await expect(confirm).toBeVisible();
+    const box = await confirm.boundingBox();
+    expect(box).not.toBeNull();
+    expect((box?.y ?? 999) + (box?.height ?? 0)).toBeLessThanOrEqual(844);
+    expect(box?.y ?? -1).toBeGreaterThanOrEqual(0);
+    await page.screenshot({ path: '/opt/cursor/artifacts/declare-footer-390.png', fullPage: false });
+    expect(errors).toEqual([]);
   });
 });

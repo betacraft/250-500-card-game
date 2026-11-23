@@ -27,8 +27,10 @@ export interface GameHand {
   calledCards: Card[];
   /** 500 only. 250 leaves this empty. */
   slots: PartnerSlot[];
-  /** Revealed 500 partners, or 250 partners fixed at declaration. Excludes the bidder. */
+  /** Scoring partners. In 250 this is fixed at declaration and stays hidden until play. */
   partners: Set<string>;
+  /** Partners the table has seen play a called card. Excludes the bidder. */
+  shownPartners: Set<string>;
   currentTrick: PlayedCard[];
   toPlayerId: string | null;
   collected: Record<string, Card[]>;
@@ -81,12 +83,13 @@ export function startHand(args: {
     trump: null,
     calledCards: [],
     slots: [],
-    partners: new Set(),
     currentTrick: [],
     toPlayerId: null,
     collected,
     trickCount: 0,
     ended: false,
+    partners: new Set(),
+    shownPartners: new Set(),
     first3sPlayed: { spades: null, hearts: null },
     premiumWinner: { spades: null, hearts: null },
     holdersByCardId,
@@ -251,6 +254,23 @@ function apply500Slot(
   return { slots: slotResult.slots, partners, newPartner: slotResult.newPartner };
 }
 
+function noteShownPartner(
+  state: GameHand,
+  playerId: string,
+  card: Card,
+  slots: readonly PartnerSlot[],
+): Set<string> {
+  if (!state.bidder || playerId === state.bidder || state.shownPartners.has(playerId)) return state.shownPartners;
+  const face = `${card.rank}${card.suit}`;
+  const called = state.calledCards.some((item) => `${item.rank}${item.suit}` === face);
+  if (!called) return state.shownPartners;
+  const revealed = state.gameType === '250' || slots.some((slot) => slot.filledBy === playerId);
+  if (!revealed) return state.shownPartners;
+  const next = new Set(state.shownPartners);
+  next.add(playerId);
+  return next;
+}
+
 function markPlayedPremium(state: GameHand, playerId: string, card: Card): GameHand['first3sPlayed'] {
   const next = { ...state.first3sPlayed };
   if (card.suit === 'spades' && card.rank === '3' && next.spades === null) next.spades = playerId;
@@ -273,6 +293,7 @@ function applyPlayedCard(
     currentTrick: [...state.currentTrick, { playerId, card }],
     slots: slots.slots,
     partners: slots.partners,
+    shownPartners: noteShownPartner(state, playerId, card, slots.slots),
     first3sPlayed: markPlayedPremium(state, playerId, card),
   };
 }
