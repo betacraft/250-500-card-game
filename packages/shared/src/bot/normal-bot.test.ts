@@ -62,6 +62,45 @@ describe('normal bot', () => {
     expect(source).not.toMatch(/from '\.\.\/engine\/hand'/);
   });
 
+  it('builds the public view without reading another seat\'s hand', () => {
+    const seats = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'];
+    let state = startHand({ gameType: '250', seatOrder: seats, firstBidderId: 'p1', seed: 8 });
+    state = setBidder(state, 'p1', 170);
+    state = declareTrumpAndPartners(state, 'spades', [
+      { suit: 'hearts', rank: 'A' },
+      { suit: 'clubs', rank: 'K' },
+    ]);
+    const guarded = guardHiddenHands(state, 'p1');
+    const view = toPublicView(guarded, 'p1');
+    expect(view.revealedPartners).toEqual([]);
+    const legal = legalPlaysFor(state, 'p1');
+    const card = chooseNormalPlay({ view, legal, rng: createRng(2), now: () => 0, samples: 2, rollouts: 1 });
+    expect(legal.some((item) => item.id === card.id)).toBe(true);
+  });
+
+  it('returns inside the move budget after the sample in progress', () => {
+    const seats = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'];
+    let state = startHand({ gameType: '250', seatOrder: seats, firstBidderId: 'p1', seed: 11 });
+    state = setBidder(state, 'p1', 180);
+    state = declareTrumpAndPartners(state, 'hearts', [
+      { suit: 'spades', rank: 'A' },
+      { suit: 'diamonds', rank: 'K' },
+    ]);
+    const legal = legalPlaysFor(state, 'p1');
+    const view = toPublicView(state, 'p1');
+    let reads = 0;
+    const now = (): number => {
+      reads += 1;
+      return reads > 2 ? 10_000 : 0;
+    };
+    const card = chooseNormalPlay({ view, legal, rng: createRng(4), now, budgetMs: 150, samples: 120, rollouts: 10 });
+    expect(legal.some((item) => item.id === card.id)).toBe(true);
+    expect(reads).toBeLessThan(40);
+    const started = performance.now();
+    chooseNormalPlay({ view, legal, rng: createRng(4) });
+    expect(performance.now() - started).toBeLessThan(500);
+  });
+
   it('bids deterministically for the same seed', () => {
     const hand = [
       { suit: 'spades' as const, rank: 'A' as const },
@@ -74,3 +113,20 @@ describe('normal bot', () => {
     expect(once).toEqual(twice);
   });
 });
+
+function guardHiddenHands<T extends { hands: Record<string, unknown> }>(state: T, selfId: string): T {
+  const hands = new Proxy(state.hands, {
+    get(target, prop, receiver) {
+      if (typeof prop === 'string' && prop !== selfId && Object.prototype.hasOwnProperty.call(target, prop)) {
+        throw new Error(`hidden hand ${prop}`);
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+  return new Proxy(state, {
+    get(target, prop, receiver) {
+      if (prop === 'hands') return hands;
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+}

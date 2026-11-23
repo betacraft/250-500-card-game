@@ -9,6 +9,7 @@ import { CardFace } from '../components/cards/CardFace';
 import { HandFan } from '../components/cards/HandFan';
 import { TrickArea } from '../components/online/TrickArea';
 import { HUMAN_ID, useLocalPlayStore } from '../stores/local-play-store';
+import { useSettingsStore } from '../stores/settings-store';
 import { AuctionRecap, ScoreStrip, privateNotice, scoreExplainer } from './local-table-notes';
 
 /** Free local table: one human and five or seven bots. Easy is the default. No coins, no stakes. */
@@ -99,10 +100,8 @@ export function LocalPlayPage(): JSX.Element {
       style={{ paddingBottom: docked ? dockHeight + 16 : 16 }}
     >
       <header className="flex items-center justify-between gap-2">
-        <div>
-          <h1 className="text-base font-medium">Play vs bots · {gameType}</h1>
-          <p className="text-sm text-stone-500">Bots: {difficulty === 'normal' ? 'Normal' : 'Easy'}.</p>
-        </div>
+        <h1 className="text-base font-medium">Play vs bots · {gameType}</h1>
+        <p className="text-sm text-stone-500">Bots: {difficulty === 'normal' ? 'Normal' : 'Easy'}</p>
         <Link to="/" className="text-sm text-stone-600 underline">Home</Link>
       </header>
       {!short && <p className="text-sm text-stone-500">Free to play. No coins or stakes.</p>}
@@ -305,7 +304,8 @@ function publicTeamPoints(hand: NonNullable<ReturnType<typeof useLocalPlayStore.
 function Setup({ onStart }: { onStart: (gameType: GameType, name: string, difficulty: 'easy' | 'normal') => void }): JSX.Element {
   const [gameType, setGameType] = useState<GameType>('250');
   const [name, setName] = useState('');
-  const [difficulty, setDifficulty] = useState<'easy' | 'normal'>('easy');
+  const difficulty = useSettingsStore((s) => s.botDifficulty);
+  const setDifficulty = useSettingsStore((s) => s.setBotDifficulty);
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[980px] flex-col gap-4 px-5 pt-6">
       <Link to="/" className="text-sm text-stone-600 underline">Home</Link>
@@ -325,6 +325,7 @@ function Setup({ onStart }: { onStart: (gameType: GameType, name: string, diffic
           <button
             key={level}
             type="button"
+            data-testid={`difficulty-${level}`}
             aria-pressed={difficulty === level}
             onClick={() => setDifficulty(level)}
             className={`h-11 rounded-xl border text-base font-medium ${difficulty === level ? 'border-felt bg-felt text-white' : 'border-stone-300 bg-white'}`}

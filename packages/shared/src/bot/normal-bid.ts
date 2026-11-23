@@ -3,7 +3,7 @@ import { SUITS_ORDERED } from '../cards/types';
 import { rulesFor } from '../games';
 import type { GameType } from '../games/types';
 import type { BidDecision } from './easy-bid';
-import { chooseTrump, projectedTeamPoints } from './easy-bid';
+import { chooseCalledCards, chooseTrump, projectedTeamPoints } from './easy-bid';
 
 /**
  * Normal bidding. A full Monte Carlo auction is not cheap: every seat would
@@ -11,6 +11,20 @@ import { chooseTrump, projectedTeamPoints } from './easy-bid';
  * and adds trump shape: long trump and side voids bid higher, a short trump bids lower.
  * Noise is rarer than Easy so the estimate is usually the bid.
  */
+/** Trump from the same shape estimate as the bid, then the called cards. */
+export function chooseNormalDeclaration(hand: readonly Card[], gameType: GameType): { trump: Suit; called: Card[] } {
+  let trump = chooseTrump(hand);
+  let best = -1;
+  for (const suit of SUITS_ORDERED) {
+    const score = shapedPoints(hand, suit, gameType);
+    if (score > best) {
+      best = score;
+      trump = suit;
+    }
+  }
+  return { trump, called: chooseCalledCards(hand, trump, gameType) };
+}
+
 export function chooseNormalBid(args: {
   gameType: GameType;
   hand: readonly Card[];

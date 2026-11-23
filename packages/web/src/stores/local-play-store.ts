@@ -3,6 +3,7 @@ import {
   chooseBid,
   chooseCalledCards,
   chooseNormalBid,
+  chooseNormalDeclaration,
   chooseNormalPlay,
   choosePlay,
   chooseTrump,
@@ -255,10 +256,10 @@ function botDeclare(state: LocalPlayState): Partial<LocalPlayState> {
   if (!state.hand?.bidder || state.hand.bidder === HUMAN_ID) return {};
   const cards = state.hand.hands[state.hand.bidder] ?? [];
   const trump = chooseTrump(cards);
-  return {
-    hand: declareTrumpAndPartners(state.hand, trump, chooseCalledCards(cards, trump, state.gameType)),
-    phase: 'playing',
-  };
+  const choice = state.difficulty === 'normal'
+    ? chooseNormalDeclaration(cards, state.gameType)
+    : { trump, called: chooseCalledCards(cards, trump, state.gameType) };
+  return { hand: declareTrumpAndPartners(state.hand, choice.trump, choice.called), phase: 'playing' };
 }
 
 function botPlay(state: LocalPlayState): Partial<LocalPlayState> {

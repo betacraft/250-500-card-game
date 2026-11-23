@@ -9,7 +9,7 @@ import {
 import type { BidEntry } from '../state/scorekeeper';
 import { chooseBid, chooseCalledCards, chooseTrump } from '../bot/easy-bid';
 import { choosePlay } from '../bot/easy-play';
-import { chooseNormalBid } from '../bot/normal-bid';
+import { chooseNormalBid, chooseNormalDeclaration } from '../bot/normal-bid';
 import { chooseNormalPlay } from '../bot/normal-play';
 import { toPublicView } from '../bot/public-view';
 import {
@@ -65,13 +65,17 @@ export function simulateTable(args: {
   gameType: GameType;
   hands: number;
   seed: number;
+  from?: number;
   botFor: (seatIndex: number, handIndex: number) => SeatDifficulty;
+  latencies?: number[];
 }): TableReport {
   const report = emptyTable(args.gameType, args.hands);
-  const latencies: number[] = [];
+  const latencies = args.latencies ?? [];
   const searches: number[] = [];
   const started = Date.now();
-  for (let i = 0; i < args.hands; i += 1) {
+  const from = args.from ?? 0;
+  for (let n = 0; n < args.hands; n += 1) {
+    const i = from + n;
     try {
       playOne(args.gameType, mixSeed(args.seed, i), i, args.botFor, report, latencies, searches);
     } catch (error) {
@@ -116,9 +120,13 @@ function playOne(
     const playerId = nextBidder(auction());
     if (!playerId) break;
     const seat = seats.indexOf(playerId);
+    const hand = state.hands[playerId] ?? [];
+    const highBid = currentHigh(history);
+    const bidStarted = performance.now();
     const decision = kinds[seat] === 'normal'
-      ? chooseNormalBid({ gameType, hand: state.hands[playerId] ?? [], highBid: currentHigh(history), rng })
-      : chooseBid({ gameType, hand: state.hands[playerId] ?? [], highBid: currentHigh(history), rng });
+      ? chooseNormalBid({ gameType, hand, highBid, rng })
+      : chooseBid({ gameType, hand, highBid, rng });
+    if (kinds[seat] === 'normal') latencies.push(performance.now() - bidStarted);
     if (!pushAuction(auction(), playerId, decision, history, report)) {
       report.deadlocks += 1;
       return;
@@ -134,8 +142,13 @@ function playOne(
   const bidderSeat = seats.indexOf(winner.playerId);
   state = setBidder(state, winner.playerId, winner.amount);
   const bidderHand = state.hands[winner.playerId] ?? [];
+  const declareStarted = performance.now();
   const trump = chooseTrump(bidderHand);
-  state = declareTrumpAndPartners(state, trump, chooseCalledCards(bidderHand, trump, gameType));
+  const declared = kinds[bidderSeat] === 'normal'
+    ? chooseNormalDeclaration(bidderHand, gameType)
+    : { trump, called: chooseCalledCards(bidderHand, trump, gameType) };
+  if (kinds[bidderSeat] === 'normal') latencies.push(performance.now() - declareStarted);
+  state = declareTrumpAndPartners(state, declared.trump, declared.called);
   const finished = playTricks(state, rng, report, kinds, latencies, searches);
   if (!finished) return;
   scoreSeats(finished, report, kinds, bidderSeat);

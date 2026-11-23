@@ -74,6 +74,14 @@ async function holdTrickPause(page: import('@playwright/test').Page, label: stri
   return true;
 }
 
+async function shootSelector(page: import('@playwright/test').Page, width: number, height: number): Promise<void> {
+  await page.setViewportSize({ width, height });
+  await page.goto('/play');
+  await page.getByRole('button', { name: /^250/ }).click();
+  await expect(page.getByTestId('difficulty-easy')).toHaveAttribute('aria-pressed', 'true');
+  await page.screenshot({ path: `/opt/cursor/artifacts/difficulty-${width}x${height}.png`, fullPage: false });
+}
+
 async function expectDeclarationHand(
   page: import('@playwright/test').Page,
   width: number,
@@ -149,15 +157,15 @@ test.describe('local table', () => {
     await expectDeclarationHand(page, 1366, 768, '/opt/cursor/artifacts/declare-hand-1366.png');
   });
 
-  test('250 normal mobile', async ({ page }) => {
+  test('normal hand at 360', async ({ page }) => {
     test.setTimeout(180_000);
-    await page.setViewportSize({ width: 390, height: 844 });
+    await shootSelector(page, 360, 740);
     await playOneHand(page, '250', 'Normal');
   });
 
-  test('250 normal desktop', async ({ page }) => {
+  test('normal hand at 1024', async ({ page }) => {
     test.setTimeout(180_000);
-    await page.setViewportSize({ width: 1280, height: 800 });
+    await shootSelector(page, 1024, 572);
     await playOneHand(page, '250', 'Normal');
   });
 
