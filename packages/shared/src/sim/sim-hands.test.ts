@@ -13,6 +13,10 @@ describe('headless easy-vs-easy sim', () => {
       expect(report.pointMismatches).toBe(0);
       expect(report.scoreMismatches).toBe(0);
       expect(report.cardMismatches).toBe(0);
+      expect(report.auctionsWithBid / report.completed).toBeGreaterThan(0.5);
+      const meanBid = report.winningBidSum / report.completed;
+      const makeRate = report.madeHands / report.completed;
+      console.info(JSON.stringify({ gameType, bidShare: report.auctionsWithBid / report.completed, meanBid, makeRate }));
     }
   }, 120_000);
 });

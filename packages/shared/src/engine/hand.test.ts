@@ -99,6 +99,11 @@ describe('first-copy 30s go to the trick winner', () => {
 });
 
 describe('partnership split', () => {
+  it('rejects a repeated called face', () => {
+    const state = setBidder(startHand({ gameType: '250', seatOrder: SEATS6, firstBidderId: 'p1', seed: 1 }), 'p1', 160);
+    expect(() => declareTrumpAndPartners(state, 'hearts', [AS, AS])).toThrow(/different/);
+  });
+
   it('250 self-call is fixed at declaration and does not use slots', () => {
     let state = ready('250');
     state = {
@@ -212,11 +217,42 @@ describe('partnership split', () => {
     expect(banned.ok).toBe(false);
     if (!banned.ok) expect(banned.code).toBe('CANNOT_SELF_REVEAL');
     const last = playCard({ ...state, trickCount: 11 }, 'p3', QH);
-    expect(last.ok).toBe(true);
+    expect(last.ok).toBe(false);
+    const only = playCard({ ...state, hands: { ...state.hands, p3: [QH] }, trickCount: 4 }, 'p3', QH);
+    expect(only.ok).toBe(true);
     let twoFifty = ready('250', 'p2');
     twoFifty = declareTrumpAndPartners(twoFifty, 'clubs', [QH, KD]);
     twoFifty = { ...twoFifty, hands: { ...twoFifty.hands, p3: [QH, CLUB] }, toPlayerId: 'p3' };
     expect(playCard(twoFifty, 'p3', QH).ok).toBe(true);
+  });
+
+  it('void discard of an open called card is blocked while another card is held', () => {
+    let state = ready('500', 'p2');
+    state = declareTrumpAndPartners(state, 'clubs', [QH, KD, JS]);
+    state = {
+      ...state,
+      hands: { ...state.hands, p3: [QH, CLUB] },
+      toPlayerId: 'p3',
+      currentTrick: [{ playerId: 'p1', card: { suit: 'diamonds', rank: '4', id: 'd4' } }],
+    };
+    const dumped = playCard(state, 'p3', QH);
+    expect(dumped.ok).toBe(false);
+    const other = playCard(state, 'p3', CLUB);
+    expect(other.ok).toBe(true);
+  });
+
+  it('a filled slot lets the second copy be led, and the bidder is exempt', () => {
+    let state = ready('500');
+    state = declareTrumpAndPartners(state, 'clubs', [QH, KD, JS]);
+    state = {
+      ...state,
+      slots: state.slots.map((slot, index) => (index === 0 ? { ...slot, filledBy: 'p5' } : slot)),
+      hands: { ...state.hands, p3: [QH, CLUB], p1: [QH2, CLUB] },
+      toPlayerId: 'p3',
+    };
+    expect(playCard(state, 'p3', QH).ok).toBe(true);
+    const bidder = { ...state, toPlayerId: 'p1' };
+    expect(playCard(bidder, 'p1', QH2).ok).toBe(true);
   });
 
   it('a lead of a called card is allowed when every card would self-reveal', () => {

@@ -74,6 +74,7 @@ describe('room-game', () => {
     expect(declare(g, 'p2', 'spades', [{ suit: 'hearts', rank: 'Q' }, { suit: 'diamonds', rank: 'K' }]).ok).toBe(false);
     // wrong count (250 needs 2)
     expect(declare(g, 'p1', 'spades', [{ suit: 'hearts', rank: 'Q' }]).ok).toBe(false);
+    expect(declare(g, 'p1', 'spades', [{ suit: 'hearts', rank: 'Q' }, { suit: 'hearts', rank: 'Q' }]).ok).toBe(false);
     // valid
     const d = declare(g, 'p1', 'spades', [{ suit: 'hearts', rank: 'Q' }, { suit: 'diamonds', rank: 'K' }]);
     expect(d.ok).toBe(true);

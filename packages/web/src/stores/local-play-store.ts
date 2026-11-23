@@ -16,17 +16,22 @@ import {
   rulesFor,
   setBidder,
   startHand,
+  toPublicView,
   validateBid,
   validatePass,
   type BidEntry,
   type Card,
   type GameHand,
   type GameType,
-  type PlayView,
   type Suit,
 } from '@250-500/shared';
 
 export const HUMAN_ID = 'p1';
+
+export interface SettledTrick {
+  plays: Array<{ playerId: string; card: Card }>;
+  winnerId: string;
+}
 
 export interface LocalSummary {
   bidMade: boolean;
@@ -34,6 +39,7 @@ export interface LocalSummary {
   partners: string[];
   bidAmount: number;
   bidder: string;
+  scoreDeltas: Record<string, number>;
 }
 
 interface LocalPlayState {
@@ -50,33 +56,33 @@ interface LocalPlayState {
   seed: number;
   decision: number;
   summary: LocalSummary | null;
+  settledTrick: SettledTrick | null;
   startGame: (gameType: GameType, humanName: string) => void;
   bid: (amount: number) => void;
   pass: () => void;
   declare: (trump: Suit, called: Card[]) => void;
   play: (card: Card) => void;
   stepBot: () => void;
+  dismissTrick: () => void;
   nextHand: () => void;
   leave: () => void;
 }
 
-const SETUP: Pick<
-  LocalPlayState,
-  'phase' | 'gameType' | 'humanName' | 'seatOrder' | 'names' | 'hand' | 'bidHistory' | 'firstBidderId' | 'runningScores' | 'handsPlayed' | 'seed' | 'decision' | 'summary'
-> = {
-  phase: 'setup',
-  gameType: '250',
+const SETUP = {
+  phase: 'setup' as const,
+  gameType: '250' as const,
   humanName: '',
-  seatOrder: [],
-  names: {},
-  hand: null,
-  bidHistory: [],
+  seatOrder: [] as string[],
+  names: {} as Record<string, string>,
+  hand: null as GameHand | null,
+  bidHistory: [] as BidEntry[],
   firstBidderId: HUMAN_ID,
-  runningScores: {},
+  runningScores: {} as Record<string, number>,
   handsPlayed: 0,
   seed: 1,
   decision: 0,
-  summary: null,
+  summary: null as LocalSummary | null,
+  settledTrick: null as SettledTrick | null,
 };
 
 /** Local free-to-play table. The human is seat 1. Everyone else is an Easy bot. */
@@ -85,12 +91,13 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
   startGame: (gameType, humanName) => {
     const seed = (Date.now() % 100000) + 1;
     const seats = seatIds(gameType);
+    const name = humanName.trim() || 'You';
     set({
       ...SETUP,
       gameType,
-      humanName: humanName.trim() || 'You',
+      humanName: name,
       seatOrder: seats,
-      names: nameMap(seats, humanName.trim() || 'You'),
+      names: nameMap(seats, name),
       runningScores: Object.fromEntries(seats.map((id) => [id, 0])),
       seed,
       phase: 'bidding',
@@ -107,16 +114,18 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
       firstBidderId: first,
       seed: state.seed + state.handsPlayed * 97,
     });
-    set({ hand, bidHistory: [], firstBidderId: first, phase: 'bidding', summary: null, seatOrder: seats });
+    set({ hand, bidHistory: [], firstBidderId: first, phase: 'bidding', summary: null, settledTrick: null, seatOrder: seats });
   },
   bid: (amount) => {
     const state = get();
+    if (state.settledTrick) return;
     const auction = auctionOf(state);
     if (nextBidder(auction) !== HUMAN_ID || !validateBid(auction, HUMAN_ID, amount).ok) return;
     set(afterBid(state, [...state.bidHistory, { playerId: HUMAN_ID, action: 'bid', amount }]));
   },
   pass: () => {
     const state = get();
+    if (state.settledTrick) return;
     const auction = auctionOf(state);
     if (nextBidder(auction) !== HUMAN_ID || !validatePass(auction, HUMAN_ID).ok) return;
     set(afterBid(state, [...state.bidHistory, { playerId: HUMAN_ID, action: 'pass' }]));
@@ -128,18 +137,17 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
   },
   play: (card) => {
     const state = get();
-    if (!state.hand || state.hand.toPlayerId !== HUMAN_ID) return;
-    const result = playCard(state.hand, HUMAN_ID, card);
-    if (!result.ok) return;
-    set(afterPlay(state, result.state));
+    if (!state.hand || state.settledTrick || state.hand.toPlayerId !== HUMAN_ID) return;
+    set(applyCard(state, HUMAN_ID, card));
   },
   stepBot: () => {
     const state = get();
-    if (!state.hand) return;
+    if (!state.hand || state.settledTrick) return;
     if (state.phase === 'bidding') set(botBid(state));
     else if (state.phase === 'declaring') set(botDeclare(state));
     else if (state.phase === 'playing') set(botPlay(state));
   },
+  dismissTrick: () => set({ settledTrick: null }),
   leave: () => set({ ...SETUP }),
 }));
 
@@ -172,7 +180,17 @@ function afterBid(state: LocalPlayState, bidHistory: BidEntry[]): Partial<LocalP
   return { bidHistory, hand: setBidder(state.hand, winner.playerId, winner.amount), phase: 'declaring' };
 }
 
-function afterPlay(state: LocalPlayState, hand: GameHand): Partial<LocalPlayState> {
+function applyCard(state: LocalPlayState, playerId: string, card: Card): Partial<LocalPlayState> {
+  if (!state.hand) return {};
+  const completing = state.hand.currentTrick.length + 1 === state.hand.seatOrder.length;
+  const snapshot = completing ? [...state.hand.currentTrick, { playerId, card }] : null;
+  const result = playCard(state.hand, playerId, card);
+  if (!result.ok) return {};
+  const settledTrick = result.trickWinnerId && snapshot ? { plays: snapshot, winnerId: result.trickWinnerId } : null;
+  return { ...scoreIfDone(state, result.state), settledTrick, decision: state.decision + 1 };
+}
+
+function scoreIfDone(state: LocalPlayState, hand: GameHand): Partial<LocalPlayState> {
   if (!hand.ended || !hand.bidder || hand.bidAmount === null) return { hand };
   const fin = finalizeHand(hand);
   const runningScores = { ...state.runningScores };
@@ -188,6 +206,7 @@ function afterPlay(state: LocalPlayState, hand: GameHand): Partial<LocalPlayStat
       partners: fin.partners,
       bidAmount: hand.bidAmount,
       bidder: hand.bidder,
+      scoreDeltas: fin.scoreDeltas,
     },
   };
 }
@@ -198,72 +217,38 @@ function botBid(state: LocalPlayState): Partial<LocalPlayState> {
   if (isAuctionClosed(auction)) return afterBid(state, state.bidHistory);
   const turn = nextBidder(auction);
   if (!turn || turn === HUMAN_ID) return {};
-  const rng = createRng(state.seed + state.decision + 1);
   const decision = chooseBid({
     gameType: state.gameType,
     hand: state.hand.hands[turn] ?? [],
     highBid: currentHighBid(state.bidHistory)?.amount ?? null,
-    rng,
+    rng: createRng(state.seed + state.decision + 1),
   });
   const bidHistory = [...state.bidHistory];
   if (decision.action === 'bid' && typeof decision.amount === 'number' && validateBid(auction, turn, decision.amount).ok) {
     bidHistory.push({ playerId: turn, action: 'bid', amount: decision.amount });
   } else if (validatePass(auction, turn).ok) {
     bidHistory.push({ playerId: turn, action: 'pass' });
-  } else {
-    return {};
-  }
+  } else return {};
   return { ...afterBid(state, bidHistory), decision: state.decision + 1 };
 }
 
 function botDeclare(state: LocalPlayState): Partial<LocalPlayState> {
-  if (!state.hand || state.hand.bidder === HUMAN_ID || !state.hand.bidder) return {};
+  if (!state.hand?.bidder || state.hand.bidder === HUMAN_ID) return {};
   const cards = state.hand.hands[state.hand.bidder] ?? [];
   const trump = chooseTrump(cards);
-  return { hand: declareTrumpAndPartners(state.hand, trump, chooseCalledCards(cards, trump, state.gameType)), phase: 'playing' };
+  return {
+    hand: declareTrumpAndPartners(state.hand, trump, chooseCalledCards(cards, trump, state.gameType)),
+    phase: 'playing',
+  };
 }
 
 function botPlay(state: LocalPlayState): Partial<LocalPlayState> {
-  if (!state.hand || !state.hand.toPlayerId || state.hand.toPlayerId === HUMAN_ID || !state.hand.trump) return {};
+  if (!state.hand?.toPlayerId || state.hand.toPlayerId === HUMAN_ID || !state.hand.trump) return {};
   const turn = state.hand.toPlayerId;
   const legal = legalPlaysFor(state.hand, turn);
   const first = legal[0];
   if (!first) return {};
   const rng = createRng(state.seed + state.decision + 3);
-  const card = choosePlay(legal, playView(state.hand, turn, rng));
-  const result = playCard(state.hand, turn, card);
-  if (!result.ok) return {};
-  return { ...afterPlay(state, result.state), decision: state.decision + 1 };
-}
-
-function playView(hand: GameHand, selfId: string, rng: () => number): PlayView {
-  const team = new Set([hand.bidder ?? '', ...hand.partners]);
-  let teamPoints = 0;
-  for (const id of team) {
-    for (const card of hand.collected[id] ?? []) teamPoints += face(card);
-  }
-  if (hand.premiumWinner.spades && team.has(hand.premiumWinner.spades)) teamPoints += 30;
-  if (hand.gameType === '500' && hand.premiumWinner.hearts && team.has(hand.premiumWinner.hearts)) teamPoints += 30;
-  return {
-    gameType: hand.gameType,
-    selfId,
-    bidderId: hand.bidder ?? selfId,
-    trump: hand.trump ?? 'spades',
-    slots: hand.slots,
-    partners: [...hand.partners],
-    seatOrder: hand.seatOrder,
-    currentTrick: hand.currentTrick,
-    trickCount: hand.trickCount,
-    cardsPerPlayer: rulesFor(hand.gameType).CARDS_PER_PLAYER,
-    teamPoints,
-    bidAmount: hand.bidAmount ?? 0,
-    premiumAwarded: { spades: hand.premiumWinner.spades !== null, hearts: hand.premiumWinner.hearts !== null },
-    rng,
-  };
-}
-
-function face(card: Card): number {
-  if (card.rank === 'A' || card.rank === 'K' || card.rank === 'Q' || card.rank === 'J' || card.rank === '10') return 10;
-  if (card.rank === '5') return 5;
-  return 0;
+  const card = choosePlay(legal, { ...toPublicView(state.hand, turn), rng });
+  return applyCard(state, turn, card);
 }

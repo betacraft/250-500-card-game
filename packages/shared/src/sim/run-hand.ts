@@ -8,7 +8,8 @@ import {
 } from '../bidding/state-machine';
 import type { BidEntry } from '../state/scorekeeper';
 import { chooseBid, chooseCalledCards, chooseTrump } from '../bot/easy-bid';
-import { choosePlay, type PlayView } from '../bot/easy-play';
+import { choosePlay } from '../bot/easy-play';
+import { toPublicView } from '../bot/public-view';
 import {
   declareTrumpAndPartners,
   finalizeHand,
@@ -34,6 +35,9 @@ export interface SimReport {
   pointMismatches: number;
   scoreMismatches: number;
   cardMismatches: number;
+  auctionsWithBid: number;
+  winningBidSum: number;
+  madeHands: number;
 }
 
 /** Play `hands` full Easy-vs-Easy deals. One shared report, no thrown errors. */
@@ -82,6 +86,8 @@ function playOne(gameType: GameType, seed: number, report: SimReport): void {
     report.deadlocks += 1;
     return;
   }
+  report.auctionsWithBid += history.some((entry) => entry.action === 'bid') ? 1 : 0;
+  report.winningBidSum += winner.amount;
   state = setBidder(state, winner.playerId, winner.amount);
   const bidderHand = state.hands[winner.playerId] ?? [];
   const trump = chooseTrump(bidderHand);
@@ -106,7 +112,7 @@ function playTricks(state: GameHand, rng: () => number, report: SimReport): bool
       report.deadlocks += 1;
       return false;
     }
-    const card = choosePlay(legal, playView(state, playerId, rng));
+    const card = choosePlay(legal, { ...toPublicView(state, playerId), rng });
     const played = playCard(state, playerId, card);
     if (!played.ok) {
       report.illegalMoves += 1;
@@ -147,6 +153,7 @@ function checkFinished(state: GameHand, report: SimReport): void {
     report.scoreMismatches += 1;
     return;
   }
+  if (fin.bidMade) report.madeHands += 1;
   for (const id of state.seatOrder) {
     if (fin.scoreDeltas[id] !== expected.deltas[id]) {
       report.scoreMismatches += 1;
@@ -170,38 +177,6 @@ function pushAuction(
   if (!validatePass(auction, playerId).ok) return false;
   history.push({ playerId, action: 'pass' });
   return true;
-}
-
-function playView(state: GameHand, selfId: string, rng: () => number): PlayView {
-  const team = new Set([state.bidder ?? '', ...state.partners]);
-  let teamPoints = 0;
-  for (const id of team) {
-    for (const card of state.collected[id] ?? []) {
-      if (card.rank === 'A' || card.rank === 'K' || card.rank === 'Q' || card.rank === 'J' || card.rank === '10') teamPoints += 10;
-      else if (card.rank === '5') teamPoints += 5;
-    }
-  }
-  if (state.premiumWinner.spades && team.has(state.premiumWinner.spades)) teamPoints += 30;
-  if (state.gameType === '500' && state.premiumWinner.hearts && team.has(state.premiumWinner.hearts)) teamPoints += 30;
-  return {
-    gameType: state.gameType,
-    selfId,
-    bidderId: state.bidder ?? selfId,
-    trump: state.trump ?? 'spades',
-    slots: state.slots,
-    partners: [...state.partners],
-    seatOrder: state.seatOrder,
-    currentTrick: state.currentTrick,
-    trickCount: state.trickCount,
-    cardsPerPlayer: rulesFor(state.gameType).CARDS_PER_PLAYER,
-    teamPoints,
-    bidAmount: state.bidAmount ?? 0,
-    premiumAwarded: {
-      spades: state.premiumWinner.spades !== null,
-      hearts: state.premiumWinner.hearts !== null,
-    },
-    rng,
-  };
 }
 
 function currentHigh(history: readonly BidEntry[]): number | null {
@@ -241,5 +216,8 @@ function emptyReport(gameType: GameType, hands: number): SimReport {
     pointMismatches: 0,
     scoreMismatches: 0,
     cardMismatches: 0,
+    auctionsWithBid: 0,
+    winningBidSum: 0,
+    madeHands: 0,
   };
 }

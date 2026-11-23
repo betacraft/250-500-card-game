@@ -16,12 +16,14 @@ export interface PlayView {
   bidderId: string;
   trump: Suit;
   slots: readonly PartnerSlot[];
-  partners: readonly string[];
+  /** Partners already shown to the table. Unrevealed 500 partners are omitted. */
+  revealedPartners: readonly string[];
   seatOrder: readonly string[];
   currentTrick: readonly PlayedCard[];
   trickCount: number;
   cardsPerPlayer: number;
-  teamPoints: number;
+  /** Points of the bidder plus revealed partners only. */
+  revealedTeamPoints: number;
   bidAmount: number;
   premiumAwarded: { spades: boolean; hearts: boolean };
   rng: () => number;
@@ -52,7 +54,7 @@ function scoreCard(card: Card, view: PlayView): number {
 function leadBonus(card: Card, view: PlayView, called: boolean): number {
   let score = 0;
   const openSuits = new Set(view.slots.filter((slot) => slot.filledBy === null).map((slot) => slot.card.suit));
-  const defending = view.selfId !== view.bidderId && !view.partners.includes(view.selfId);
+  const defending = view.selfId !== view.bidderId && !view.revealedPartners.includes(view.selfId);
   if (defending && openSuits.has(card.suit) && !called) score += 50;
   if (card.rank === 'A' && card.suit !== view.trump) score += 35;
   if (called && isCloserHolder(view) && pointsNeeded(view) <= 30) score += 25;
@@ -79,7 +81,7 @@ function mustPlayCalled(view: PlayView): boolean {
 }
 
 function pointsNeeded(view: PlayView): number {
-  return view.bidAmount - view.teamPoints;
+  return view.bidAmount - view.revealedTeamPoints;
 }
 
 function isCloserHolder(view: PlayView): boolean {

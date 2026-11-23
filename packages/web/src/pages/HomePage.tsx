@@ -9,7 +9,7 @@ export function HomePage(): JSX.Element {
       <header className="mb-12 mt-8">
         <h1 className="text-3xl font-medium text-suit-black">250 &amp; 500</h1>
         <p className="mt-2 text-sm text-stone-600">
-          The card game scorekeeper for your group.
+          Play a hand against bots, or keep score at the table.
         </p>
       </header>
 
@@ -46,7 +46,7 @@ export function HomePage(): JSX.Element {
       </section>
 
       <footer className="mt-8 text-center text-xs text-stone-500">
-        v0.1.0 — Mobile only · Works offline
+        v0.1.0 · Free to play · Works offline
       </footer>
     </main>
   );

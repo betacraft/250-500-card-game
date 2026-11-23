@@ -66,9 +66,7 @@ export function chooseBid(args: {
   rng: () => number;
 }): BidDecision {
   const trump = chooseTrump(args.hand);
-  const calls = chooseCalledCards(args.hand, trump, args.gameType);
-  const own = ownExpectation(args.hand, trump, args.gameType);
-  const team = teamExpectation(args.hand, calls, args.gameType, own);
+  const team = projectedTeamPoints(args.hand, trump, args.gameType);
   const base = rawBid(team, args.gameType, args.highBid);
   return applyBidNoise(base, team, args.gameType, args.highBid, args.rng);
 }
@@ -85,62 +83,27 @@ function uniqueFaces(cards: readonly Card[]): Card[] {
   return out;
 }
 
-function ownExpectation(hand: readonly Card[], trump: Suit, gameType: GameType): number {
-  const pot = rulesFor(gameType).TOTAL_POINTS;
-  let value = 0;
-  for (const card of hand) {
-    if (FACE_RANKS.has(card.rank)) value += 10;
-    else if (card.rank === '5') value += 5;
-  }
-  const premiums: Suit[] = gameType === '250' ? ['spades'] : ['spades', 'hearts'];
-  for (const suit of premiums) value += 30 * firstCopyChance(hand, suit);
-  const trumpCards = hand.filter((card) => card.suit === trump);
-  value += 8 * (trumpCards.length - 3);
-  value += 10 * trumpCards.filter((card) => TRUMP_HONORS.has(card.rank)).length;
-  return clamp(value, 0, pot);
-}
-
-function firstCopyChance(hand: readonly Card[], suit: Suit): number {
-  const copies = hand.filter((card) => card.suit === suit && card.rank === '3').length;
-  const length = hand.filter((card) => card.suit === suit).length;
-  if (copies >= 2) return 1;
-  if (copies === 1 && length >= 4) return 0.7;
-  if (copies === 1) return 0.5;
-  return 0;
-}
-
-function teamExpectation(hand: readonly Card[], calls: readonly Card[], gameType: GameType, own: number): number {
+/** Project the points this hand can support, scaled to the whole pot rather than one seat's raw cards. */
+function projectedTeamPoints(hand: readonly Card[], trump: Suit, gameType: GameType): number {
   const rules = rulesFor(gameType);
-  const pot = rules.TOTAL_POINTS;
-  const maxCopies = gameType === '250' ? 1 : 2;
-  let guess: number = rules.MIN_BID;
-  let team = own;
-  for (let pass = 0; pass < 4; pass += 1) {
-    const comeOut = own + 80 >= guess ? 0.75 : 0.4;
-    let partner = 0;
-    for (const call of calls) {
-      const held = hand.filter((card) => card.suit === call.suit && card.rank === call.rank).length;
-      partner += 0.18 * pot * comeOut * (Math.max(0, maxCopies - held) / maxCopies);
-    }
-    team = clamp(own + partner, 0, pot);
-    const next = rawBid(team, gameType, null);
-    const nextGuess = next.action === 'bid' ? (next.amount ?? guess) : guess;
-    if (nextGuess === guess) return team;
-    guess = nextGuess;
-  }
-  return team;
+  const trumpCards = hand.filter((card) => card.suit === trump);
+  const honors = trumpCards.filter((card) => TRUMP_HONORS.has(card.rank)).length;
+  const sideAces = hand.filter((card) => card.suit !== trump && card.rank === 'A').length;
+  const sideFaces = hand.filter((card) => card.suit !== trump && FACE_RANKS.has(card.rank)).length;
+  const premium = hand.some((card) => card.rank === '3' && (card.suit === 'spades' || (gameType === '500' && card.suit === 'hearts')));
+  const anchor = gameType === '250' ? 120 : 250;
+  const value = anchor + trumpCards.length * 10 + honors * 12 + sideAces * 8 + sideFaces * 2 + (premium ? 10 : 0);
+  return clamp(value, 0, rules.TOTAL_POINTS);
 }
 
 function rawBid(team: number, gameType: GameType, highBid: number | null): BidDecision {
   const rules = rulesFor(gameType);
-  const margin = gameType === '250' ? 15 : 25;
   if (team < rules.MIN_BID) return { action: 'pass' };
-  const ceiling = team <= rules.MIN_BID + 30 ? rules.MIN_BID : Math.min(rules.MAX_BID, team - margin, team);
+  const stepped = Math.floor(team / rules.BID_INCREMENT) * rules.BID_INCREMENT;
+  const ceiling = Math.min(rules.MAX_BID, Math.max(rules.MIN_BID, stepped));
   let best: number | null = null;
-  for (let amount = rules.MIN_BID; amount <= ceiling + 1e-9; amount += rules.BID_INCREMENT) {
-    if (amount > team) break;
+  for (let amount = rules.MIN_BID; amount <= ceiling; amount += rules.BID_INCREMENT) {
     if (highBid !== null && amount <= highBid) continue;
-    if (amount > rules.MAX_BID) break;
     best = amount;
   }
   return best === null ? { action: 'pass' } : { action: 'bid', amount: best };

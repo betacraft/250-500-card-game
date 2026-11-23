@@ -109,6 +109,8 @@ export function declareTrumpAndPartners(
   if (calledCards.length !== rules.PARTNERS_TO_CALL) {
     throw new Error(`Need exactly ${rules.PARTNERS_TO_CALL} called cards`);
   }
+  const faces = new Set(calledCards.map((card) => `${card.rank}${card.suit}`));
+  if (faces.size !== calledCards.length) throw new Error('Called cards must be different faces');
   if (state.gameType === '250') {
     const partners = partnersFromCalledHolders({
       calledCards,

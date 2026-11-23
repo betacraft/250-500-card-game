@@ -204,7 +204,7 @@ The bidding team's final size depends on how the called cards are distributed:
   - Highest trump wins; otherwise highest of led suit wins.
   - Trick winner leads the next.
 - Neither 3♠ nor 3♥ has any special play rule. They are normal cards that just happen to carry 30 points (when first played).
-- A potential partner may **not** lead a called card to self-reveal. They must wait until forced.
+- A non-bidder may play a copy of a called card whose partner slot is still open only when that card is the only one they can follow suit with. They may not lead it, and they may not discard it when void if they hold any other card, unless it is the only card left in their hand. The bidder is exempt, and the restriction ends once that slot is filled. 250 has no partner slots and no such restriction.
 - When two identical cards contest the same trick, the one played **first** wins. (This only arises in 500, which has two copies of every card.)
 
 ### Scoring

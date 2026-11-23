@@ -274,6 +274,8 @@ export function createApp(): { app: express.Express; httpServer: ReturnType<type
       if (!result.ok) return sendError({ code: 'INVALID_MOVE', message: result.message });
       games.set(code, result.state);
       broadcastGame(code, io);
+      const updatedHand = result.state.hand?.hands[player.id];
+      if (updatedHand) socket.emit('game:hand-dealt', { hand: updatedHand });
       if (result.handEnded && result.breakdown) {
         io.to(code).emit('game:hand-scored', {
           ...result.breakdown,

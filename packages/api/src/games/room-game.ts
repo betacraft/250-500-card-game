@@ -138,6 +138,9 @@ export function declare(
   const rules = rulesFor(state.gameType);
   if (calledCards.length !== rules.PARTNERS_TO_CALL)
     return { ok: false, code: 'INVALID_CALLED', message: `Need ${rules.PARTNERS_TO_CALL} called cards` };
+  const faces = new Set(calledCards.map((card) => `${card.rank}${card.suit}`));
+  if (faces.size !== calledCards.length)
+    return { ok: false, code: 'INVALID_CALLED', message: 'Called cards must be different' };
   const updated = declareTrumpAndPartners(state.hand, trump, calledCards);
   return { ok: true, state: { ...state, hand: updated, phase: 'playing' } };
 }

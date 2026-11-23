@@ -11,8 +11,18 @@ async function playOneHand(page: import('@playwright/test').Page, variant: '250'
   await page.getByRole('button', { name: new RegExp(`^${variant}`) }).click();
   await page.getByLabel('Your name').fill('Ada');
   await page.getByTestId('start-vs-bots').click();
-  await expect(page.getByRole('heading', { name: /play vs bots/i })).toBeVisible();
-  for (let step = 0; step < 400; step += 1) {
+  await expect(page.getByTestId('hand-fan')).toBeVisible();
+  await expect(page.getByTestId('hand-card')).toHaveCount(variant === '250' ? 8 : 12);
+  const label = test.info().title.replace(/\s+/g, '-').toLowerCase();
+  await page.screenshot({ path: `/opt/cursor/artifacts/bidding-hand-${label}.png`, fullPage: true });
+  const scrolls = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2);
+  expect(scrolls).toBe(false);
+  let paused = false;
+  for (let step = 0; step < 500; step += 1) {
+    if (!paused && (await page.getByTestId('trick-pause').isVisible().catch(() => false))) {
+      await page.screenshot({ path: `/opt/cursor/artifacts/trick-pause-${label}.png`, fullPage: true });
+      paused = true;
+    }
     if (await page.getByTestId('hand-complete').isVisible().catch(() => false)) break;
     const pass = page.getByRole('button', { name: 'Pass' });
     if (await pass.isVisible().catch(() => false)) {
@@ -28,8 +38,7 @@ async function playOneHand(page: import('@playwright/test').Page, variant: '250'
     await page.waitForTimeout(60);
   }
   await expect(page.getByTestId('hand-complete')).toBeVisible({ timeout: 20_000 });
-  const shot = test.info().title.replace(/\s+/g, '-').toLowerCase();
-  await page.screenshot({ path: `/opt/cursor/artifacts/local-table-${shot}.png`, fullPage: true });
+  await page.screenshot({ path: `/opt/cursor/artifacts/local-table-${label}.png`, fullPage: true });
   expect(errors, errors.join('\n')).toEqual([]);
 }
 
