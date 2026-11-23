@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { clsx } from 'clsx';
-import { type Card, cardId, suitColor } from '@250-500/shared';
+import { type Card, cardId, cardInstanceKey, suitColor } from '@250-500/shared';
 import { SuitIcon } from '../shared/SuitIcon';
 
 interface HandSliderProps {
@@ -14,12 +14,17 @@ interface HandSliderProps {
 /** Mobile horizontal snap-scroll hand display. Tap-to-select with lift; Play button confirms. */
 export function HandSlider({ cards, legalCardIds, onPlay, alwaysConfirm = true, canPlay }: HandSliderProps): JSX.Element {
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected = cards.find((c) => cardId(c) === selectedId) ?? null;
+  const selected = cards.find((c) => cardInstanceKey(c) === selectedId) ?? null;
+
+  const allowed = (card: Card): boolean => {
+    if (!legalCardIds) return true;
+    return legalCardIds.has(cardInstanceKey(card)) || legalCardIds.has(cardId(card));
+  };
 
   const handleTap = (card: Card) => {
     if (!canPlay) return;
-    const id = cardId(card);
-    if (legalCardIds && !legalCardIds.has(id)) return;
+    const id = cardInstanceKey(card);
+    if (!allowed(card)) return;
     if (!alwaysConfirm) {
       onPlay(card);
       return;
@@ -35,14 +40,15 @@ export function HandSlider({ cards, legalCardIds, onPlay, alwaysConfirm = true, 
       </div>
       <div className="flex gap-2 overflow-x-auto px-2 pb-2" style={{ scrollSnapType: 'x mandatory' }}>
         {cards.map((c) => {
-          const id = cardId(c);
+          const id = cardInstanceKey(c);
           const isSelected = selectedId === id;
-          const isLegal = !legalCardIds || legalCardIds.has(id);
+          const isLegal = allowed(c);
           const color = suitColor(c.suit);
           return (
             <button
               key={id}
               type="button"
+              data-testid="hand-card"
               onClick={() => handleTap(c)}
               aria-label={`${c.rank} of ${c.suit}`}
               aria-pressed={isSelected}
@@ -65,6 +71,7 @@ export function HandSlider({ cards, legalCardIds, onPlay, alwaysConfirm = true, 
       {alwaysConfirm && selected && canPlay && (
         <button
           type="button"
+          data-testid="confirm-play"
           onClick={() => {
             onPlay(selected);
             setSelectedId(null);

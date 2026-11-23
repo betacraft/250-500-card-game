@@ -11,8 +11,8 @@ test.describe('smoke (mobile viewport)', () => {
 
     await expect(page.getByRole('heading', { name: /250 & 500/i })).toBeVisible();
     await expect(page.getByRole('link', { name: /score in-person game/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /play online/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /play online/i })).toBeDisabled();
+    await expect(page.getByRole('link', { name: /play vs bots/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /play online/i })).toBeVisible();
 
     expect(consoleErrors).toHaveLength(0);
   });
@@ -20,6 +20,6 @@ test.describe('smoke (mobile viewport)', () => {
   test('scoring flow link navigates correctly', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('link', { name: /score in-person game/i }).click();
-    await expect(page.getByRole('heading', { name: /scorekeeper/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /new game/i })).toBeVisible();
   });
 });

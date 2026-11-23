@@ -25,8 +25,18 @@ export function HomePage(): JSX.Element {
         </Link>
 
         <Link
-          to="/online"
+          to="/play"
           className="block rounded-xl border-2 border-felt bg-white p-6 text-stone-900 active:scale-95 transition-transform"
+        >
+          <div className="text-lg font-medium">Play vs bots</div>
+          <div className="mt-1 text-sm text-stone-600">
+            Free to play. You against 5 or 7 bots. No coins or stakes.
+          </div>
+        </Link>
+
+        <Link
+          to="/online"
+          className="block rounded-xl border-2 border-stone-200 bg-white p-6 text-stone-900 active:scale-95 transition-transform"
         >
           <div className="text-lg font-medium">Play online</div>
           <div className="mt-1 text-sm text-stone-600">

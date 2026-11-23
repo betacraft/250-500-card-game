@@ -47,10 +47,11 @@ Both games are zero-sum from the bidding team's perspective — the opposing sid
 ### Bidding
 
 - Bidding determines who will lead the hand and how many points their team commits to scoring.
-- **Opening floor:** conventionally **160–170** (no hard rule, but groups bid competitively to keep the game interesting).
+- **Opening floor:** **160.**
 - **Increment:** **5 points.** (160, 165, 170, …)
 - **Maximum bid:** **250** (the whole pot).
 - Players take turns bidding higher or passing. Once a player passes, they're out of the auction. The last remaining bidder wins.
+- If every other player passes and nobody has bid, the remaining player **must** take the hand at **160**. There is no redeal.
 
 ### Declaration
 
@@ -63,8 +64,8 @@ The winning bidder must immediately and openly:
 
 - **3 vs 3** is the default — bidder + 2 partners against the other 3 players.
 - **2 vs 4** if both called cards happen to be in the same player's hand. Bidder + 1 partner against 4 opponents. (This makes the bidding side smaller but each player carries the partner's full payout.)
-- The bidder *may* legally call a card from their own hand, but doing so shrinks their team and is generally a poor strategic move.
-- **Partners are not announced.** They are revealed naturally during play: when a called card hits the table, everyone learns who that partner was.
+- The bidder *may* legally call a card from their own hand, but doing so shrinks their team and is generally a poor strategic move. A called card the bidder holds adds no partner.
+- **Partners are fixed at declaration.** Whoever was dealt a called card, other than the bidder, is a partner for that card. There is one copy of each card, so there is no voluntary reveal, no partner-slot race, and no clockwise default. Playing the card does not change the team.
 
 ### Play
 
@@ -110,7 +111,7 @@ Each hand is its own settlement; the game can be played as a single hand or accu
 | Total points | 250 | 500 |
 | Premium card(s) | 3♠ = 30 | First 3♠ played = 30; first 3♥ played = 30 |
 | Number of called partners | 2 | 3 |
-| Opening bid floor | 160–170 | 300 |
+| Opening bid floor | 160 | 300 |
 | Bidder bonus | ±100 | ±200 |
 | Partnership reveal | Forced (when called card is played) | **Optional** — partners may choose to stay hidden by holding the card |
 | Default partner rule | N/A | Closest-clockwise holder if hand ends mathematically before reveal |
@@ -130,7 +131,7 @@ Each hand is its own settlement; the game can be played as a single hand or accu
 | **First** 3♠ played to a trick | 30 | 1 of 2 copies counts | 30 |
 | **First** 3♥ played to a trick | 30 | 1 of 2 copies counts | 30 |
 | Second copy of 3♠ and 3♥ (after first is played) | 0 | 2 cards | 0 |
-| All other cards | 0 | 45 cards | 0 |
+| All other cards | 0 | 44 cards | 0 |
 | **Total** | | **96 cards** | **500** |
 
 > **Important:** When the first 3♠ is played to a trick, it is worth 30 points. The second copy of 3♠ played later in the hand is worth 0. Same rule for 3♥. This is what keeps the total at exactly 500.
@@ -141,6 +142,7 @@ Each hand is its own settlement; the game can be played as a single hand or accu
 - **Increment:** **5 points.**
 - **Maximum bid:** **500.**
 - Bids of 410–420 are seen occasionally; higher is rare but legal.
+- If every other player passes and nobody has bid, the remaining player **must** take the hand at **300**. There is no redeal.
 
 ### Declaration
 
@@ -203,6 +205,7 @@ The bidding team's final size depends on how the called cards are distributed:
   - Trick winner leads the next.
 - Neither 3♠ nor 3♥ has any special play rule. They are normal cards that just happen to carry 30 points (when first played).
 - A potential partner may **not** lead a called card to self-reveal. They must wait until forced.
+- When two identical cards contest the same trick, the one played **first** wins. (This only arises in 500, which has two copies of every card.)
 
 ### Scoring
 
