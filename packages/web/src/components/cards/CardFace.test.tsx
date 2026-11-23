@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { CardFace } from './CardFace';
 import { HandFan } from './HandFan';
 
@@ -39,5 +39,16 @@ describe('card faces', () => {
     );
     expect(screen.getAllByTestId('hand-card')).toHaveLength(3);
     expect(screen.getAllByTestId('thirty-marker')).toHaveLength(2);
+  });
+
+  it('plays the card a tap just selected', () => {
+    const onPlay = vi.fn();
+    const onBlocked = vi.fn();
+    const card = { suit: 'spades' as const, rank: 'A' as const, id: 'ace' };
+    render(<HandFan cards={[card]} canPlay onPlay={onPlay} onBlocked={onBlocked} />);
+    fireEvent.pointerDown(screen.getByTestId('hand-card'));
+    fireEvent.pointerDown(screen.getByTestId('confirm-play'));
+    expect(onBlocked.mock.calls.map((call) => call[0])).not.toContain('Choose a card first');
+    expect(onPlay).toHaveBeenCalledWith(card);
   });
 });

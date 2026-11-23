@@ -36,9 +36,9 @@ export function Setup({ onStart }: { onStart: (gameType: GameType, name: string)
       <Link to="/" className="text-sm text-stone-600 underline">Home</Link>
       <h1 className="text-2xl font-medium">Play vs bots</h1>
       <p className="text-sm text-stone-600">Free to play against 5 bots (250) or 7 bots (500). No coins, no stakes, no buy-in.</p>
-      <div className="grid grid-cols-2 gap-3">
+      <div data-testid="variant-picker" className="grid grid-cols-2 gap-3">
         {(['250', '500'] as const).map((type) => (
-          <button key={type} type="button" onClick={() => setGameType(type)} className={`rounded-xl border p-4 text-left ${gameType === type ? 'border-felt bg-felt text-white' : 'border-stone-300 bg-white'}`}>
+          <button key={type} type="button" data-variant={type} aria-pressed={gameType === type} onPointerDown={(event) => { event.preventDefault(); setGameType(type); }} className={`rounded-xl border p-4 text-left ${gameType === type ? 'border-felt bg-felt text-white' : 'border-stone-300 bg-white'}`}>
             <div className="text-lg font-medium">{type}</div>
             <div className="text-sm opacity-80">{type === '250' ? 'You + 5 bots' : 'You + 7 bots'}</div>
           </button>

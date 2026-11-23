@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { cardId, cardInstanceKey, type Card, type Suit } from '@250-500/shared';
 import { CardFace } from './CardFace';
 import { fanMetrics } from './fan-metrics';
@@ -52,32 +53,41 @@ export function HandFan({
   }, []);
 
   const metrics = fanMetrics(cards.length, width, compact, maxHeight);
-  const selectedRef = useRef<string | null>(null);
+  const selectedRef = useRef<Card | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const live = useRef({ canPlay, onPlay, onBlocked });
+  live.current = { canPlay, onPlay, onBlocked };
+  const assign = (card: Card | null): void => {
+    selectedRef.current = card;
+    const id = card ? cardInstanceKey(card) : null;
+    flushSync(() => setSelectedId(id));
+  };
   useEffect(() => {
     if (canPlay) return;
     selectedRef.current = null;
     setSelectedId(null);
   }, [canPlay]);
 
-  const choose = (key: string, legal: boolean): void => {
-    if (!canPlay || !legal) {
-      onBlocked?.(reasons?.get(key) || (canPlay ? 'Not a legal play' : 'Wait for your turn'));
+  const choose = (card: Card, legal: boolean): void => {
+    const now = live.current;
+    const key = cardInstanceKey(card);
+    if (!now.canPlay || !legal) {
+      now.onBlocked?.(reasons?.get(key) || (now.canPlay ? 'Not a legal play' : 'Wait for your turn'));
       return;
     }
-    selectedRef.current = key;
-    setSelectedId(key);
+    assign(card);
+    now.onBlocked?.('');
   };
   const playChosen = (): void => {
-    const key = selectedRef.current;
-    const card = cards.find((item) => cardInstanceKey(item) === key);
-    if (!canPlay || !card) {
-      onBlocked?.(canPlay ? 'Choose a card first' : 'Wait for your turn');
+    const now = live.current;
+    const card = selectedRef.current;
+    if (!now.canPlay || !card) {
+      now.onBlocked?.(now.canPlay ? 'Choose a card first' : 'Wait for your turn');
       return;
     }
-    onPlay(card);
     selectedRef.current = null;
     setSelectedId(null);
+    now.onPlay(card);
   };
 
   const chosen = cards.find((card) => cardInstanceKey(card) === selectedId) ?? null;
@@ -88,6 +98,7 @@ export function HandFan({
         const key = cardInstanceKey(card);
         const legal = !legalCardIds || legalCardIds.has(key);
         const angle = metrics.angle(index);
+        const faceW = metrics.cardWidth(index);
         const isSelected = selectedId === key;
         return (
           <button
@@ -100,22 +111,23 @@ export function HandFan({
             aria-disabled={!canPlay || !legal}
             onPointerDown={(event) => {
               event.preventDefault();
-              choose(key, legal);
+              choose(card, legal);
             }}
             className="absolute bg-transparent p-0 touch-manipulation focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-[#0F766E]"
             style={{
               left: metrics.left(index),
               bottom: metrics.bottom(index),
-              width: metrics.cardW,
+              width: faceW,
               height: metrics.cardH,
               zIndex: isSelected ? 30 : index + 1,
               transform: `rotate(${angle}deg) translateY(${isSelected ? -18 : 0}px)`,
               transformOrigin: 'bottom center',
             }}
           >
+            <span className="absolute bottom-0 left-0">
             <CardFace
               card={card}
-              width={metrics.cardW}
+              width={faceW}
               selected={isSelected}
               playable={canPlay && legal && !isSelected}
               disabled={!legal}
@@ -123,6 +135,7 @@ export function HandFan({
               called={calledIds?.has(cardId(card)) ?? false}
               thirty={thirtySuits?.has(card.suit) === true && card.rank === '3'}
             />
+            </span>
           </button>
         );
       })}

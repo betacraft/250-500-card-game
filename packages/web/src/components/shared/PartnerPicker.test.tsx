@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { SUIT_FILL } from '../cards/suit-glyphs';
 import { PartnerPicker } from './PartnerPicker';
 
 describe('PartnerPicker', () => {
@@ -77,5 +78,13 @@ describe('PartnerPicker', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: /^5 of spades/i }));
     expect(onBlocked).toHaveBeenCalledWith("You've called 3 cards — tap one to unselect");
+  });
+
+  it('paints every rank from the shared suit colour, diamonds in blue', () => {
+    render(<PartnerPicker selected={[]} maxCount={2} onChange={() => {}} />);
+    expect(screen.getByRole('button', { name: /^4 of diamonds$/i })).toHaveStyle({ color: '#2563EB' });
+    expect(screen.getByRole('button', { name: /^4 of hearts$/i })).toHaveStyle({ color: SUIT_FILL.hearts });
+    expect(screen.getByRole('button', { name: /^4 of spades$/i })).toHaveStyle({ color: SUIT_FILL.spades });
+    expect(screen.getByRole('button', { name: /^4 of clubs$/i })).toHaveStyle({ color: SUIT_FILL.clubs });
   });
 });

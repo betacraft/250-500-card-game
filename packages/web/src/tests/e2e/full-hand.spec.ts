@@ -27,6 +27,10 @@ test.describe('full hands from the real controls', () => {
         page.on('pageerror', (error) => errors.push(error.message));
 
         await deal(page, variant, view, input);
+        if (view.width === 360) {
+          await assertSlivers(page);
+          if (variant === '500') await page.screenshot({ path: '/opt/cursor/artifacts/fan-500-360-12.png', fullPage: false });
+        }
         await loseAuction(page, input);
         const lostWidths: number[] = [];
         const clubsFollow = { pending: variant === '500' && view.width === 360 };
@@ -167,7 +171,7 @@ async function declare(page: Page, input: 'mouse' | 'touch', ranksPinned: boolea
   await clickCentre(page, page.getByRole('button', { name: 'Confirm declaration' }), input, true);
   await expect(page.getByTestId('disabled-reason')).toContainText(/trump/i);
   for (const suit of ['Hearts', 'Diamonds', 'Clubs', 'Spades']) {
-    await clickCentre(page, page.getByRole('button', { name: `Trump ${suit}` }), input, ranksPinned);
+    await clickCentre(page, page.getByRole('button', { name: `Trump: ${suit}` }), input, ranksPinned);
   }
   for (const suit of suits) {
     for (const rank of ranks) {
@@ -188,6 +192,40 @@ async function shootClubsLead(page: Page, input: 'mouse' | 'touch'): Promise<voi
   await page.screenshot({ path: '/opt/cursor/artifacts/play-500-360-clubs-lead.png', fullPage: false });
 }
 
+async function assertSlivers(page: Page): Promise<void> {
+  const hits = await page.evaluate(() => {
+    const cards = [...document.querySelectorAll('[data-testid="hand-card"]')];
+    return cards.map((card) => {
+      const box = card.getBoundingClientRect();
+      let hit = 0;
+      const y = box.top + box.height * 0.42;
+      for (let x = Math.floor(box.left); x <= Math.ceil(box.right); x += 1) {
+        const node = document.elementFromPoint(x + 0.5, y);
+        if (node === card || (node !== null && card.contains(node))) hit += 1;
+      }
+      return `${card.getAttribute('aria-label') ?? 'card'} ${hit}px`;
+    });
+  });
+  const narrow = hits.filter((item) => Number(item.match(/(\d+)px$/)?.[1] ?? '0') < 24);
+  expect(narrow, narrow.join(', ')).toEqual([]);
+}
+
+/** On one 250 phone hand, leave the final banner up, then let the 1.5s timer open the result. */
+async function holdFinalBanner(page: Page): Promise<boolean> {
+  const size = page.viewportSize();
+  const title = await page.locator('h1').textContent();
+  if (size?.width !== 390 || size.height !== 844 || !title?.includes('250')) return false;
+  const seen = await page.evaluate(() => document.body.getAttribute('data-last-shot') === '1');
+  if (seen) return false;
+  await page.evaluate(() => document.body.setAttribute('data-last-shot', '1'));
+  await page.waitForTimeout(1000);
+  await expect(page.getByText(/won the trick · tap to skip/)).toBeVisible();
+  await expect(page.getByTestId('hand-complete')).toHaveCount(0);
+  await page.screenshot({ path: '/opt/cursor/artifacts/last-trick-390x844.png', fullPage: false });
+  await expect(page.getByTestId('hand-complete')).toBeVisible({ timeout: 2_000 });
+  return true;
+}
+
 async function finishHand(
   page: Page,
   input: 'mouse' | 'touch',
@@ -195,10 +233,15 @@ async function finishHand(
   widths: number[],
   clubsFollow: { pending: boolean } = { pending: false },
 ): Promise<void> {
+  let sawFinal = false;
   for (let guard = 0; guard < 500; guard += 1) {
-    if (await page.getByTestId('hand-complete').isVisible().catch(() => false)) return;
+    if (await page.getByTestId('hand-complete').isVisible().catch(() => false)) {
+      expect(sawFinal, 'the result replaced the last trick').toBe(true);
+      return;
+    }
     if (await page.getByTestId('trick-pause').isVisible().catch(() => false)) {
-      if (holdScores && (await page.locator('[data-testid="hand-card"]').count()) === 0) {
+      const cardsLeft = await page.locator('[data-testid="hand-card"]').count();
+      if (holdScores && cardsLeft === 0) {
         const scores = await page.locator('[data-testid="score-chip-score"]').allTextContents();
         expect(scores.every((score) => score.trim() === '0')).toBe(true);
       }
@@ -206,6 +249,11 @@ async function finishHand(
       if (width) widths.push(Number(width));
       await expect(page.getByText(/won the trick · tap to skip/)).toBeVisible();
       await assertTableFacts(page);
+      if (cardsLeft === 0) {
+        sawFinal = true;
+        await expect(page.getByTestId('hand-complete')).toHaveCount(0);
+        if (await holdFinalBanner(page)) continue;
+      }
       await clickCentre(page, page.getByTestId('trick-pause'), input, false);
       continue;
     }
@@ -402,7 +450,7 @@ test('the latest card tap is the one that is played', async ({ page }) => {
   await raiseToMax(page, 'mouse');
   await clickCentre(page, page.getByRole('button', { name: /^Bid / }), 'mouse', true);
   await expect(page.getByTestId('declare-form')).toBeVisible({ timeout: 20_000 });
-  await clickCentre(page, page.getByRole('button', { name: 'Trump Spades' }), 'mouse', false);
+  await clickCentre(page, page.getByRole('button', { name: 'Trump: Spades' }), 'mouse', false);
   for (const rank of ['3', '4']) {
     await clickCentre(page, page.locator(`[data-testid="declare-form"] button[aria-label^="${rank} of clubs"]`), 'mouse', false);
   }

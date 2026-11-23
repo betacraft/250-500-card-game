@@ -48,7 +48,7 @@ export function CardFace({
       aria-hidden="true"
       data-suit={card.suit}
       data-rank={card.rank}
-      style={disabled ? { filter: 'brightness(0.78) saturate(0.6)' } : undefined}
+      style={{ overflow: 'visible', ...(disabled ? { filter: 'brightness(0.78) saturate(0.6)' } : {}) }}
     >
       <rect x="2" y="2" width="246" height="346" rx="16" fill="#FFFDF7" stroke="#1C1C24" strokeWidth="3.2" />
       {selected && <rect x="8" y="8" width="234" height="334" rx="12" fill="none" stroke="#E8A317" strokeWidth="7" />}

@@ -30,7 +30,7 @@ export function TrumpPicker({ value, onChange, compact = false }: TrumpPickerPro
             type="button"
             onClick={() => onChange(suit)}
             aria-pressed={selected}
-            aria-label={`Trump ${LABELS[suit]}`}
+            aria-label={`Trump: ${LABELS[suit]}`}
             className={clsx(
               'flex items-center justify-center transition-transform active:scale-95',
               compact ? 'min-h-11 flex-col gap-0.5 rounded-lg px-0.5 py-1' : 'flex-col gap-2 rounded-xl p-5',

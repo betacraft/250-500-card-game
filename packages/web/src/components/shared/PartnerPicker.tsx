@@ -3,10 +3,10 @@ import {
   type Card,
   type Suit,
   cardId,
-  suitColor,
   SUITS_ORDERED,
   RANKS_ORDERED,
 } from '@250-500/shared';
+import { SUIT_FILL } from '../cards/suit-glyphs';
 import { SuitIcon } from './SuitIcon';
 
 interface PartnerPickerProps {
@@ -78,7 +78,6 @@ function SuitBlock({
   compact: boolean;
   wide: boolean;
 }): JSX.Element {
-  const color = suitColor(suit);
   const tight = compact && !wide;
   const ranks = tight ? [RANKS_ORDERED.slice(0, 6), RANKS_ORDERED.slice(6)] : [RANKS_ORDERED];
   return (
@@ -112,9 +111,8 @@ function SuitBlock({
                   : held
                     ? 'border-stone-500 bg-stone-200'
                     : 'border-stone-200 bg-white',
-                !sel && color === 'red' && 'text-suit-red',
-                !sel && color === 'black' && 'text-suit-black',
               )}
+              style={sel ? undefined : { color: SUIT_FILL[suit] }}
             >
               {rank}
             </button>

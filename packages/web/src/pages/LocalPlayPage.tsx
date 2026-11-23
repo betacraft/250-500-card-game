@@ -83,7 +83,7 @@ export function LocalPlayPage(): JSX.Element {
       reasons={reasons}
       compact={short || !wide}
       maxHeight={wide && !short ? Math.floor(height * 0.3) : null}
-      onBlocked={setBlocked}
+      onBlocked={(reason) => setBlocked(reason ? reason : null)}
     />
   );
 
@@ -170,7 +170,7 @@ export function LocalPlayPage(): JSX.Element {
           {myTurn && [...reasons.values()].find((reason) => reason) ? ` · ${[...reasons.values()].find((reason) => reason)}` : ''}
         </p>
       )}
-      {phase === 'scored' && summary && (
+      {phase === 'scored' && summary && !settledTrick && (
         <section data-testid="hand-complete" className="rounded-xl bg-white p-4">
           <h2 className="text-lg font-medium">{summary.bidMade ? 'Bid made' : 'Bid failed'}</h2>
           <p data-testid="score-explainer" className="mt-1 text-sm text-stone-700">{scoreExplainer(gameType)}</p>
