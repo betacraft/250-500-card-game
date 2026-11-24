@@ -34,6 +34,7 @@ export function LocalPlayPage(): JSX.Element {
   const dismissTrick = useLocalPlayStore((s) => s.dismissTrick);
   const nextHand = useLocalPlayStore((s) => s.nextHand);
   const leave = useLocalPlayStore((s) => s.leave);
+  const playAgain = useLocalPlayStore((s) => s.playAgain);
   const gameOver = useLocalPlayStore((s) => s.gameOver);
   const { short, wide, height } = useViewport();
   const [canConfirm, setCanConfirm] = useState(false);
@@ -96,7 +97,7 @@ export function LocalPlayPage(): JSX.Element {
   const shownTrick = settledTrick?.plays ?? hand.currentTrick;
   const thirty = trickThirties(shownTrick, hand);
   const reasons = new Map(humanHand.map((card) => [cardInstanceKey(card), illegalReason(legalContext(hand), card) ?? '']));
-  const docked = phase === 'bidding' || phase === 'declaring' || phase === 'playing';
+  const docked = phase === 'bidding' || phase === 'declaring' || phase === 'playing' || gameOver;
   const humanDeclaring = phase === 'declaring' && hand.bidder === HUMAN_ID;
   const notice = privateNotice(humanHand, hand.calledCards, hand.bidder, gameType, hand.slots);
   const fan = (
@@ -233,13 +234,21 @@ export function LocalPlayPage(): JSX.Element {
       </div>
       {docked && (
         <div data-testid="hand-dock" className="hand-dock shrink-0">
-          {fan}
-          {humanDeclaring && (
-            <div className="pt-1">
-              <button type="submit" form="declare-form" aria-disabled={!canConfirm} onClick={(event) => { if (!canConfirm) { event.preventDefault(); setBlocked('Name a trump and the called cards first'); } }} className={`w-full rounded-xl p-3 text-base font-medium text-white ${canConfirm ? 'bg-felt' : 'bg-stone-300'}`}>
-                Confirm declaration
-              </button>
-            </div>
+          {gameOver ? (
+            <button type="button" data-testid="play-again" onClick={playAgain} className="min-h-11 w-full rounded-xl bg-felt p-4 text-base font-medium text-white focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#0F766E]">
+              Play again
+            </button>
+          ) : (
+            <>
+              {fan}
+              {humanDeclaring && (
+                <div className="pt-1">
+                  <button type="submit" form="declare-form" aria-disabled={!canConfirm} onClick={(event) => { if (!canConfirm) { event.preventDefault(); setBlocked('Name a trump and the called cards first'); } }} className={`w-full rounded-xl p-3 text-base font-medium text-white ${canConfirm ? 'bg-felt' : 'bg-stone-300'}`}>
+                    Confirm declaration
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

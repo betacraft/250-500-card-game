@@ -7,10 +7,10 @@ export function noteDifficulty(value: string): void {
   track('difficulty_selected', { value });
 }
 
-/** A local table is starting. */
-export function noteGameStart(game: '250' | '500', difficulty: string): void {
+/** A local table is starting. `replay` is true only for Play again. */
+export function noteGameStart(game: '250' | '500', difficulty: string, replay = false): void {
   setAnalyticsContext({ game, mode: 'local', difficulty });
-  track('game_start', {});
+  track('game_start', { replay });
   noteDifficulty(difficulty);
 }
 

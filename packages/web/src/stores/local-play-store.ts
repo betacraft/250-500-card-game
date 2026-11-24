@@ -75,6 +75,7 @@ interface LocalPlayState {
   dismissTrick: () => void;
   nextHand: () => void;
   leave: (reason?: 'new_game' | 'home') => void;
+  playAgain: () => void;
 }
 
 const SETUP = {
@@ -201,6 +202,28 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
     }
     if (state.phase !== 'setup') noteNewGame();
     set({ ...SETUP });
+  },
+  playAgain: () => {
+    const state = get();
+    if (!state.gameOver) return;
+    const seed = (Date.now() % 100000) + 1;
+    const seats = localSeatIds(rulesFor(state.gameType).PLAYER_COUNT);
+    const name = state.humanName.trim() || 'You';
+    set({
+      ...SETUP,
+      gameType: state.gameType,
+      humanName: name,
+      seatOrder: seats,
+      names: localNames(seats, HUMAN_ID, name),
+      runningScores: Object.fromEntries(seats.map((id) => [id, 0])),
+      seed,
+      phase: 'bidding',
+      difficulty: state.difficulty,
+      targetScore: state.targetScore,
+      gameOver: false,
+    });
+    noteGameStart(state.gameType, state.difficulty, true);
+    get().nextHand();
   },
 }));
 
