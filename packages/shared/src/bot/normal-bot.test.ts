@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { createRng } from '../cards/deck';
 import { declareTrumpAndPartners, legalPlaysFor, setBidder, startHand } from '../engine/hand';
 import { chooseNormalBid } from './normal-bid';
+import { dealHidden } from './normal-search';
 import { chooseNormalPlay } from './normal-play';
+import { dealRespectingVoids } from './normal-play-search';
 import { toPublicView } from './public-view';
 
 describe('normal bot', () => {
@@ -99,6 +101,25 @@ describe('normal bot', () => {
     const started = performance.now();
     chooseNormalPlay({ view, legal, rng: createRng(4) });
     expect(performance.now() - started).toBeLessThan(500);
+  });
+
+  it('does not deal a shown void into a hidden hand', () => {
+    const pool = [
+      { suit: 'spades' as const, rank: 'A' as const, id: 'a' },
+      { suit: 'hearts' as const, rank: 'K' as const, id: 'b' },
+      { suit: 'diamonds' as const, rank: 'Q' as const, id: 'c' },
+    ];
+    const dealt = dealRespectingVoids(pool, ['p2'], [2], { p2: ['spades'] }, () => 0.2);
+    expect(dealt?.p2).toHaveLength(2);
+    expect((dealt?.p2 ?? []).every((card) => card.suit !== 'spades')).toBe(true);
+    expect(dealRespectingVoids(pool.slice(0, 2), ['p2'], [2], { p2: ['spades'] }, () => 0)).toBeNull();
+  });
+
+  it('does not deal a shown void', () => {
+    const dealt = dealHidden([13, 25, 0], [0, 2], [[], [0]], () => 0.2);
+    expect(dealt?.[1]).toHaveLength(2);
+    expect((dealt?.[1] ?? []).every((serial) => Math.floor((serial % 48) / 12) !== 0)).toBe(true);
+    expect(dealHidden([0, 1], [0, 2], [[], [0]], () => 0)).toBeNull();
   });
 
   it('bids deterministically for the same seed', () => {

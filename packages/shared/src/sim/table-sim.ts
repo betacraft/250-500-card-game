@@ -55,9 +55,14 @@ export interface TableReport {
   moveSamples: number;
   latencyP50Ms: number;
   latencyP95Ms: number;
+  bidSamples: number;
+  bidP50Ms: number;
+  bidP95Ms: number;
   searchSamples: number;
   searchP50Ms: number;
   searchP95Ms: number;
+  /** Normal mean score minus Easy mean score, one number per mixed hand. */
+  marginSamples: number[];
 }
 
 /** One table. `botFor` picks Easy or Normal per seat. Latencies are Normal card-play times. */
@@ -71,13 +76,14 @@ export function simulateTable(args: {
 }): TableReport {
   const report = emptyTable(args.gameType, args.hands);
   const latencies = args.latencies ?? [];
+  const bids: number[] = [];
   const searches: number[] = [];
   const started = Date.now();
   const from = args.from ?? 0;
   for (let n = 0; n < args.hands; n += 1) {
     const i = from + n;
     try {
-      playOne(args.gameType, mixSeed(args.seed, i), i, args.botFor, report, latencies, searches);
+      playOne(args.gameType, mixSeed(args.seed, i), i, args.botFor, report, latencies, bids, searches);
     } catch (error) {
       report.crashes += 1;
       if (report.crashes <= 3) console.error(`table crash ${args.gameType} ${i}: ${error instanceof Error ? error.message : 'unknown'}`);
@@ -87,10 +93,14 @@ export function simulateTable(args: {
     }
   }
   const sorted = latencies.slice().sort((a, b) => a - b);
+  const sortedBids = bids.slice().sort((a, b) => a - b);
   const sortedSearch = searches.slice().sort((a, b) => a - b);
   report.moveSamples = sorted.length;
   report.latencyP50Ms = percentile(sorted, 0.5);
   report.latencyP95Ms = percentile(sorted, 0.95);
+  report.bidSamples = sortedBids.length;
+  report.bidP50Ms = percentile(sortedBids, 0.5);
+  report.bidP95Ms = percentile(sortedBids, 0.95);
   report.searchSamples = sortedSearch.length;
   report.searchP50Ms = percentile(sortedSearch, 0.5);
   report.searchP95Ms = percentile(sortedSearch, 0.95);
@@ -104,6 +114,7 @@ function playOne(
   botFor: (seatIndex: number, handIndex: number) => SeatDifficulty,
   report: TableReport,
   latencies: number[],
+  bids: number[],
   searches: number[],
 ): void {
   const rules = rulesFor(gameType);
@@ -126,7 +137,7 @@ function playOne(
     const decision = kinds[seat] === 'normal'
       ? chooseNormalBid({ gameType, hand, highBid, rng })
       : chooseBid({ gameType, hand, highBid, rng });
-    if (kinds[seat] === 'normal') latencies.push(performance.now() - bidStarted);
+    if (kinds[seat] === 'normal') bids.push(performance.now() - bidStarted);
     if (!pushAuction(auction(), playerId, decision, history, report)) {
       report.deadlocks += 1;
       return;
@@ -147,7 +158,7 @@ function playOne(
   const declared = kinds[bidderSeat] === 'normal'
     ? chooseNormalDeclaration(bidderHand, gameType)
     : { trump, called: chooseCalledCards(bidderHand, trump, gameType) };
-  if (kinds[bidderSeat] === 'normal') latencies.push(performance.now() - declareStarted);
+  if (kinds[bidderSeat] === 'normal') bids.push(performance.now() - declareStarted);
   state = declareTrumpAndPartners(state, declared.trump, declared.called);
   const finished = playTricks(state, rng, report, kinds, latencies, searches);
   if (!finished) return;
@@ -254,16 +265,25 @@ function scoreSeats(state: GameHand, report: TableReport, kinds: SeatDifficulty[
     report.easyWinningBidSum += state.bidAmount;
     if (fin.bidMade) report.easyBidMade += 1;
   }
+  const normalDeltas: number[] = [];
+  const easyDeltas: number[] = [];
   state.seatOrder.forEach((id, index) => {
     const delta = fin.scoreDeltas[id] ?? 0;
     if (kinds[index] === 'normal') {
       report.normalScoreSum += delta;
       report.normalSeatSamples += 1;
+      normalDeltas.push(delta);
     } else {
       report.easyScoreSum += delta;
       report.easySeatSamples += 1;
+      easyDeltas.push(delta);
     }
   });
+  if (normalDeltas.length > 0 && easyDeltas.length > 0) {
+    const normalMean = normalDeltas.reduce((sum, value) => sum + value, 0) / normalDeltas.length;
+    const easyMean = easyDeltas.reduce((sum, value) => sum + value, 0) / easyDeltas.length;
+    report.marginSamples.push(normalMean - easyMean);
+  }
   report.completed += 1;
 }
 
@@ -340,8 +360,22 @@ function emptyTable(gameType: GameType, hands: number): TableReport {
     moveSamples: 0,
     latencyP50Ms: 0,
     latencyP95Ms: 0,
+    bidSamples: 0,
+    bidP50Ms: 0,
+    bidP95Ms: 0,
     searchSamples: 0,
     searchP50Ms: 0,
     searchP95Ms: 0,
+    marginSamples: [],
   };
+}
+
+/** Mean and 95% CI of a sample. */
+export function meanCi(samples: readonly number[]): { mean: number; low: number; high: number } {
+  const n = samples.length;
+  if (n === 0) return { mean: 0, low: 0, high: 0 };
+  const mean = samples.reduce((sum, value) => sum + value, 0) / n;
+  const variance = samples.reduce((sum, value) => sum + (value - mean) ** 2, 0) / Math.max(1, n - 1);
+  const margin = 1.96 * Math.sqrt(variance / n);
+  return { mean, low: mean - margin, high: mean + margin };
 }

@@ -3,10 +3,10 @@ import {
   type Card,
   type Suit,
   cardId,
-  suitColor,
   SUITS_ORDERED,
   RANKS_ORDERED,
 } from '@250-500/shared';
+import { SUIT_FILL } from '../cards/suit-glyphs';
 import { SuitIcon } from './SuitIcon';
 
 interface PartnerPickerProps {
@@ -21,6 +21,8 @@ interface PartnerPickerProps {
   /** Tighter spacing. Wide windows put all 12 ranks on one row. */
   compact?: boolean;
   wide?: boolean;
+  /** The bidder tried to call one more card than the game allows. */
+  onBlocked?: (reason: string) => void;
 }
 
 function isSelected(card: Card, selected: Card[]): boolean {
@@ -30,20 +32,22 @@ function isSelected(card: Card, selected: Card[]): boolean {
 /** 4 suits × 12 ranks; tap to toggle up to maxCount.
  * Mobile layout: each suit gets two rows of 6 ranks (no horizontal scroll, ≥44px tap targets,
  * ≥8px adjacent spacing). Fits comfortably at 360px portrait. */
-export function PartnerPicker({ selected, maxCount, onChange, heldFaces, compact = false, wide = false }: PartnerPickerProps): JSX.Element {
+export function PartnerPicker({ selected, maxCount, onChange, heldFaces, compact = false, wide = false, onBlocked }: PartnerPickerProps): JSX.Element {
   const toggle = (card: Card) => {
     const exists = isSelected(card, selected);
     if (exists) {
       onChange(selected.filter((c) => !(c.suit === card.suit && c.rank === card.rank)));
     } else if (selected.length < maxCount) {
       onChange([...selected, card]);
+    } else {
+      onBlocked?.(`You've called ${maxCount} cards — tap one to unselect`);
     }
   };
 
   return (
     <div className={compact && wide ? 'rounded-xl bg-white px-2 py-0.5' : compact ? 'rounded-xl bg-white p-2' : 'rounded-xl bg-white p-3'}>
       <div className={compact && wide ? 'flex items-baseline justify-between gap-2' : compact ? 'mb-1 flex items-baseline justify-between gap-2' : 'mb-2 flex items-center justify-between'}>
-        <div data-testid="held-legend" className={compact ? 'text-[13px] leading-snug text-stone-600' : 'text-sm font-medium text-stone-600'}>
+        <div data-testid="held-legend" className="text-sm leading-snug text-stone-600">
           Tap to select. Grey marks a card in your hand.
         </div>
         <div className="shrink-0 text-sm font-medium tabular-nums">
@@ -74,7 +78,6 @@ function SuitBlock({
   compact: boolean;
   wide: boolean;
 }): JSX.Element {
-  const color = suitColor(suit);
   const tight = compact && !wide;
   const ranks = tight ? [RANKS_ORDERED.slice(0, 6), RANKS_ORDERED.slice(6)] : [RANKS_ORDERED];
   return (
@@ -108,9 +111,8 @@ function SuitBlock({
                   : held
                     ? 'border-stone-500 bg-stone-200'
                     : 'border-stone-200 bg-white',
-                !sel && color === 'red' && 'text-suit-red',
-                !sel && color === 'black' && 'text-suit-black',
               )}
+              style={sel ? undefined : { color: SUIT_FILL[suit] }}
             >
               {rank}
             </button>

@@ -33,6 +33,8 @@ interface BiddingFlowProps {
   compact?: boolean;
   /** A tap landed on a control that cannot do anything right now. */
   onBlocked?: (reason: string) => void;
+  /** The draft amount changed, so an old warning no longer applies. */
+  onDraft?: () => void;
 }
 
 /** Round-robin bidding flow for the current hand. */
@@ -46,6 +48,7 @@ export function BiddingFlow({
   onAuctionClose,
   compact = false,
   onBlocked,
+  onDraft,
 }: BiddingFlowProps): JSX.Element {
   const rules = rulesFor(gameType);
   const playerIds = players.map((p) => p.id);
@@ -73,6 +76,7 @@ export function BiddingFlow({
     : { ok: false as const, code: 'NOT_YOUR_TURN' as const, message: '' };
 
   const adjust = (delta: number) => {
+    onDraft?.();
     const next = Math.max(rules.MIN_BID, Math.min(rules.MAX_BID, draftAmount + delta));
     setDraftAmount(Math.round(next / rules.BID_INCREMENT) * rules.BID_INCREMENT);
   };
@@ -127,28 +131,14 @@ export function BiddingFlow({
         )}
       </section>
 
-      {!(compact && bidHistory.length === 0) && <section className={`rounded-xl bg-white ${pad}`}>
-        <div className="mb-2 text-sm font-medium uppercase tracking-wider text-stone-500">Bidding history</div>
-        {bidHistory.length === 0 ? (
-          <div className="text-sm text-stone-500">No actions yet.</div>
-        ) : (
-          <ul className="flex flex-col gap-1.5 text-sm">
-            {bidHistory.map((entry, i) => {
-              const p = playerById[entry.playerId];
-              return (
-                <li key={i} className="flex items-center justify-between">
-                  <span className="text-stone-700">{p?.name ?? entry.playerId}</span>
-                  {entry.action === 'bid' ? (
-                    <span className="font-medium tabular-nums">{entry.amount}</span>
-                  ) : (
-                    <span className="text-stone-500">passed</span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>}
+      {bidHistory.length > 0 && (
+        <p className="truncate text-sm text-stone-600">
+          {bidHistory.map((entry) => {
+            const name = playerById[entry.playerId]?.name ?? entry.playerId;
+            return entry.action === 'bid' ? `${name} ${entry.amount ?? ''}` : `${name} pass`;
+          }).join(', ')}
+        </p>
+      )}
 
       {currentPlayer && (
         <section className={`rounded-xl border-2 border-felt bg-white ${pad}`}>

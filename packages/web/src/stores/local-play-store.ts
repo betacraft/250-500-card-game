@@ -156,7 +156,15 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
   dismissTrick: () => {
     const state = get();
     const finished = state.hand?.ended === true && state.summary !== null;
-    set({ settledTrick: null, phase: finished ? 'scored' : state.phase });
+    if (!finished || !state.summary) {
+      set({ settledTrick: null });
+      return;
+    }
+    const runningScores = { ...state.runningScores };
+    for (const [id, delta] of Object.entries(state.summary.scoreDeltas)) {
+      runningScores[id] = (runningScores[id] ?? 0) + delta;
+    }
+    set({ settledTrick: null, phase: 'scored', runningScores });
   },
   leave: () => set({ ...SETUP }),
 }));
@@ -204,7 +212,8 @@ function applyCard(state: LocalPlayState, playerId: string, card: Card): Partial
   const next = scoreIfDone(state, result.state);
   // Keep the table on the trick until the pause ends, including the last trick.
   if (settledTrick && next.phase === 'scored') {
-    return { ...next, phase: 'playing', settledTrick, decision: state.decision + 1 };
+    // Scores stay put until the result screen. The summary holds the deltas.
+    return { ...next, runningScores: state.runningScores, phase: 'playing', settledTrick, decision: state.decision + 1 };
   }
   return { ...next, settledTrick, decision: state.decision + 1 };
 }

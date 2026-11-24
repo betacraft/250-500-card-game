@@ -41,6 +41,8 @@ export interface GameHand {
   /** Trick winner who captured the first 3♠ / first 3♥. That win is worth 30. */
   premiumWinner: { spades: string | null; hearts: string | null };
   holdersByCardId: Map<string, Set<string>>;
+  /** Suits a seat has shown it cannot follow. Public: everyone saw the discard. */
+  voids: Record<string, Suit[]>;
 }
 
 export type PlayResult =
@@ -93,6 +95,7 @@ export function startHand(args: {
     first3sPlayed: { spades: null, hearts: null },
     premiumWinner: { spades: null, hearts: null },
     holdersByCardId,
+    voids: {},
   };
 }
 
@@ -295,7 +298,18 @@ function applyPlayedCard(
     partners: slots.partners,
     shownPartners: noteShownPartner(state, playerId, card, slots.slots),
     first3sPlayed: markPlayedPremium(state, playerId, card),
+    voids: noteVoid(state, playerId, card),
   };
+}
+
+/** A discard off the led suit shows that seat is void. The hand itself is not inspected. */
+function noteVoid(state: GameHand, playerId: string, card: Card): Record<string, Suit[]> {
+  const led = state.currentTrick[0]?.card.suit;
+  const voids = state.voids ?? {};
+  if (!led || card.suit === led) return voids;
+  const known = voids[playerId] ?? [];
+  if (known.includes(led)) return voids;
+  return { ...voids, [playerId]: [...known, led] };
 }
 
 function advanceSeat(state: GameHand, playerId: string, newPartner: string | null): PlayResult {

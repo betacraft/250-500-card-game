@@ -1,6 +1,33 @@
 import { expect, test } from '@playwright/test';
 import { assertHandCorners } from './visible-hand';
 
+async function clickLegalFace(page: import('@playwright/test').Page): Promise<boolean> {
+  const point = await page.evaluate(() => {
+    const buttons = [...document.querySelectorAll('[data-testid="hand-card"]')];
+    const labelAt = (x: number, y: number): string => document.elementFromPoint(x, y)?.closest('[data-testid="hand-card"]')?.getAttribute('aria-label') ?? '';
+    for (const button of buttons) {
+      if (button.getAttribute('aria-disabled') === 'true') continue;
+      const svg = button.querySelector('svg');
+      if (!(svg instanceof SVGSVGElement)) continue;
+      const ctm = svg.getScreenCTM();
+      const at = (x: number, y: number): { x: number; y: number } => {
+        const spot = svg.createSVGPoint();
+        spot.x = x;
+        spot.y = y;
+        const screen = ctm ? spot.matrixTransform(ctm) : spot;
+        return { x: screen.x, y: screen.y };
+      };
+      const label = button.getAttribute('aria-label') ?? '';
+      const hit = [at(48, 70), at(125, 175), at(48, 140)].find((item) => labelAt(item.x, item.y) === label);
+      if (hit) return hit;
+    }
+    return null;
+  });
+  if (!point) return false;
+  await page.mouse.click(point.x, point.y);
+  return true;
+}
+
 async function playOneHand(
   page: import('@playwright/test').Page,
   variant: '250' | '500',
@@ -42,9 +69,7 @@ async function playOneHand(
       await pass.click();
       continue;
     }
-    const card = page.locator('[data-testid="hand-card"][aria-disabled="false"]').first();
-    if (await card.isVisible().catch(() => false)) {
-      await card.click({ force: true });
+    if (await clickLegalFace(page)) {
       await page.getByTestId('confirm-play').click();
       continue;
     }
@@ -117,7 +142,7 @@ async function expectDeclarationHand(
   expect(scroll).toBe(0);
   await expect(page.locator('[data-held="true"]')).toHaveCount(8);
   await expect(page.getByTestId('score-explainer')).toContainText('bid + 100');
-  if (height > 760) await expect(page.getByTestId('auction-recap')).toBeVisible();
+  if (height > 760 && width >= 720) await expect(page.getByTestId('auction-recap')).toBeVisible();
   await page.screenshot({ path: shot, fullPage: false });
   expect(errors, errors.join('\n')).toEqual([]);
 }
@@ -167,6 +192,12 @@ test.describe('local table', () => {
     test.setTimeout(180_000);
     await shootSelector(page, 1024, 572);
     await playOneHand(page, '250', 'Normal');
+  });
+
+  test('normal hand at 390', async ({ page }) => {
+    test.setTimeout(180_000);
+    await shootSelector(page, 390, 844);
+    await playOneHand(page, '500', 'Normal');
   });
 
   test('declare button is on screen at 390', async ({ page }) => {

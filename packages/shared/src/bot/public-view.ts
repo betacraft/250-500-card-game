@@ -27,6 +27,8 @@ export interface PublicBotView {
   wonCards: readonly { playerId: string; card: Card }[];
   /** Who won an already-awarded 30, or null. The trick winner is public. */
   premiumWinner: { spades: string | null; hearts: string | null };
+  /** Suits each seat has shown it cannot follow. */
+  voids: Readonly<Record<string, readonly Suit[]>>;
 }
 
 /** Partners the table has seen. 250 stays hidden until that player plays a called card. */
@@ -75,6 +77,7 @@ export function toPublicView(state: GameHand, selfId: string): PublicBotView {
     calledCards: state.calledCards.map((card) => ({ suit: card.suit, rank: card.rank, id: card.id })),
     wonCards,
     premiumWinner: { spades: state.premiumWinner.spades, hearts: state.premiumWinner.hearts },
+    voids: state.voids ?? {},
   };
 }
 

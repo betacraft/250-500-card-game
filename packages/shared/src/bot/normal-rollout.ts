@@ -98,16 +98,21 @@ function drawSerial(work: Work, seat: number, led: number, rng: () => number): n
   const n = strict > 0 ? strict : countAllowed(work, seat, led, false);
   const useStrict = strict > 0;
   if (n === 0) return work.cards[seat * STRIDE] ?? 0;
-  let pick = Math.floor(rng() * n);
   const base = seat * STRIDE;
   const len = work.counts[seat] ?? 0;
+  let best = work.cards[base] ?? 0;
+  let bestRank = 99;
   for (let i = 0; i < len; i += 1) {
     const serial = work.cards[base + i] ?? 0;
     if (!cardAllowed(work, seat, serial, led, useStrict)) continue;
-    if (pick === 0) return serial;
-    pick -= 1;
+    const rank = RANK_OF[serial % FACES] ?? 0;
+    if (rank < bestRank) {
+      bestRank = rank;
+      best = serial;
+    }
   }
-  return work.cards[base] ?? 0;
+  void rng;
+  return best;
 }
 
 function countAllowed(work: Work, seat: number, led: number, strict: boolean): number {

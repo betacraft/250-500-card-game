@@ -123,7 +123,7 @@ export function ScorekeeperHandPage(): JSX.Element {
           <div className="mt-1 flex items-center gap-2 text-sm text-stone-600">
             <span>{settings.players.find((p) => p.id === bidder)?.name}</span>
             <span className="tabular-nums">@ {currentHand.bidAmount}</span>
-            {currentHand.trump && <SuitIcon suit={currentHand.trump} size={14} />}
+            {currentHand.trump && <span className="inline-flex items-center gap-1">Trump: {currentHand.trump} <SuitIcon suit={currentHand.trump} size={18} className="shrink-0" /></span>}
           </div>
         </header>
         <HandResultEntry
