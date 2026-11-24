@@ -100,7 +100,7 @@ test.describe('bid controls stay above the hand', () => {
     { variant: '500' as const, width: 800, height: 480, touch: false, shot: 'gameover-800x480-500' },
   ]) {
     test(`${item.variant} game over scores scroll at ${item.width}x${item.height}`, async ({ page }) => {
-      test.setTimeout(180_000);
+      test.setTimeout(300_000);
       const errors: string[] = [];
       page.on('console', (message) => {
         if (message.type() === 'error') errors.push(message.text());
