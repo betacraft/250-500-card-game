@@ -113,7 +113,7 @@ test.describe('bid controls stay above the hand', () => {
       await page.keyboard.type('Ada');
       await page.getByTestId('start-vs-bots').click();
       await page.getByTestId('hand-fan').waitFor();
-      for (let hand = 0; hand < 12; hand += 1) {
+      for (let hand = 0; hand < 24; hand += 1) {
         await passAuction(page);
         await finishHand(page, item.variant === '250' ? 2 : 3);
         if (await page.getByTestId('game-over').isVisible().catch(() => false)) break;
@@ -156,7 +156,7 @@ test.describe('bid controls stay above the hand', () => {
     await page.keyboard.type('Ada');
     await page.getByTestId('start-vs-bots').click();
     await page.getByTestId('hand-fan').waitFor();
-    for (let hand = 0; hand < 12; hand += 1) {
+    for (let hand = 0; hand < 24; hand += 1) {
       await passAuction(page);
         await finishHand(page, 3);
       if (await page.getByTestId('game-over').isVisible().catch(() => false)) break;
