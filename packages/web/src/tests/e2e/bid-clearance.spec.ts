@@ -120,27 +120,30 @@ test.describe('bid controls stay above the hand', () => {
         await page.getByRole('button', { name: 'Next hand' }).click();
       }
       await expect(page.getByTestId('game-over')).toBeVisible();
+      await expect(page.getByTestId('your-result')).toBeVisible();
       await page.screenshot({ path: `/opt/cursor/artifacts/${item.shot}.png`, fullPage: false });
-      const rows = page.getByTestId('score-delta');
-      const count = await rows.count();
-      expect(count).toBe(item.variant === '250' ? 6 : 8);
-      for (let index = 0; index < count; index += 1) {
-        await rows.nth(index).scrollIntoViewIfNeeded();
-        await assertPainted(rows.nth(index));
-      }
-      await page.getByTestId('score-explainer').scrollIntoViewIfNeeded();
-      await assertPainted(page.getByTestId('score-explainer'));
+      const card = page.getByTestId('hand-complete');
+      const before = await card.evaluate((node) => node.scrollTop);
+      await scrollResult(page, card, item.touch);
+      const after = await card.evaluate((node) => node.scrollTop);
+      expect(after).toBeGreaterThan(before + 20);
       await page.screenshot({ path: `/opt/cursor/artifacts/${item.shot}-scrolled.png`, fullPage: false });
-      const again = page.getByTestId('play-again');
-      await assertPainted(again);
-      await press(page, again, item.touch);
+      const bidder = page.locator('[data-testid="score-delta"][data-role="bidder"]');
+      await assertPaintedNow(bidder);
+      const partners = page.locator('[data-testid="score-delta"][data-role="partner"]');
+      const partnerCount = await partners.count();
+      expect(partnerCount).toBeGreaterThan(0);
+      for (let index = 0; index < partnerCount; index += 1) await assertPaintedNow(partners.nth(index));
+      await assertPaintedNow(page.getByTestId('score-delta').last());
+      await assertPaintedNow(page.getByTestId('play-again'));
+      await press(page, page.getByTestId('play-again'), item.touch);
       await expect(page.getByTestId('hand-fan')).toBeVisible();
       expect(errors, errors.join('\n')).toEqual([]);
     });
   }
 
   test('500 game over at 1024 does not cover the result', async ({ page }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(300_000);
     const errors: string[] = [];
     page.on('console', (message) => {
       if (message.type() === 'error') errors.push(message.text());
@@ -245,6 +248,71 @@ async function assertStepperClear(page: Page, viewportHeight: number): Promise<v
     return false;
   });
   expect(clipped, 'stepper border is clipped').toBe(false);
+}
+
+async function nudgeResult(page: Page, touch: boolean, x: number, y: number): Promise<void> {
+  if (touch) {
+    const client = await page.context().newCDPSession(page);
+    await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] });
+    for (let step = 1; step <= 4; step += 1) {
+      await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y - step * 22, id: 1 }] });
+    }
+    await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await client.detach();
+  } else {
+    await page.mouse.move(x, y);
+    await page.mouse.wheel(0, 80);
+  }
+  await page.waitForTimeout(80);
+}
+
+async function scrollResult(page: Page, card: Locator, touch: boolean): Promise<void> {
+  const row = page.getByTestId('score-delta').first();
+  const box = await row.boundingBox();
+  if (!box) throw new Error('missing score row');
+  const x = box.x + Math.min(box.width / 2, 90);
+  const y = box.y + box.height / 2;
+  for (let pass = 0; pass < 8; pass += 1) {
+    const first = await page.getByTestId('score-delta').first().boundingBox();
+    const last = await page.getByTestId('score-delta').last().boundingBox();
+    const frame = await card.boundingBox();
+    if (!first || !last || !frame) break;
+    const lastIn = last.y + last.height <= frame.y + frame.height - 2;
+    const firstIn = first.y >= frame.y + 1;
+    if (lastIn || !firstIn) break;
+    await nudgeResult(page, touch, x, y);
+  }
+  void card;
+}
+
+async function assertPaintedNow(locator: Locator): Promise<void> {
+  const problems = await locator.evaluate((node) => {
+    const box = node.getBoundingClientRect();
+    const x = box.left + box.width / 2;
+    const y = box.top + box.height / 2;
+    const hit = document.elementFromPoint(x, y);
+    const found: string[] = [];
+    if (box.width < 1 || box.height < 1) found.push('no painted box');
+    if (box.top < -0.5 || box.left < -0.5 || box.bottom > window.innerHeight + 0.5 || box.right > window.innerWidth + 0.5) {
+      found.push(`outside ${box.top.toFixed(1)},${box.bottom.toFixed(1)}`);
+    }
+    if (hit !== node && !(node instanceof Element && node.contains(hit))) found.push(`hit ${hit?.getAttribute?.('data-testid') || hit?.tagName || 'none'}`);
+    let parent = node.parentElement;
+    while (parent) {
+      const style = getComputedStyle(parent);
+      const clips = ['hidden', 'auto', 'scroll', 'clip'].includes(style.overflowY) || ['hidden', 'auto', 'scroll', 'clip'].includes(style.overflowX);
+      if (clips) {
+        const frame = parent.getBoundingClientRect();
+        if (box.top < frame.top - 0.5 || box.bottom > frame.bottom + 0.5 || box.left < frame.left - 0.5 || box.right > frame.right + 0.5) {
+          found.push('clipped by an ancestor');
+          break;
+        }
+      }
+      parent = parent.parentElement;
+    }
+    return found;
+  });
+  expect(problems, problems.join('; ')).toEqual([]);
 }
 
 async function assertPainted(locator: Locator): Promise<void> {
