@@ -30,13 +30,15 @@ test.describe('full hands from the real controls', () => {
         if (view.width === 360 || view.width === 390) {
           await assertSlivers(page);
           if (variant === '500') await assertFanFits(page);
-          if (variant === '500' && view.width === 360) {
-            await page.screenshot({ path: '/opt/cursor/artifacts/fan-500-360-12.png', fullPage: false });
-            await page.screenshot({ path: '/opt/cursor/artifacts/bottom-pad-500-360.png', fullPage: false });
-            const pad = await page.getByTestId('hand-dock').evaluate((node) => Number.parseFloat(getComputedStyle(node).paddingBottom));
-            expect(pad).toBeGreaterThanOrEqual(12);
-          }
+          await assertHomeZone(page, 34);
+          await page.screenshot({ path: `/opt/cursor/artifacts/bottom-zone-${variant}-${view.width}x${view.height}-bid.png`, fullPage: false });
+          if (variant === '500' && view.width === 360) await page.screenshot({ path: '/opt/cursor/artifacts/fan-500-360-12.png', fullPage: false });
           if (variant === '500' && view.width === 390) await page.screenshot({ path: '/opt/cursor/artifacts/fan-500-390-12.png', fullPage: false });
+        }
+        if (view.width >= 720) {
+          const pad = await page.getByTestId('hand-dock').evaluate((node) => Number.parseFloat(getComputedStyle(node).paddingBottom));
+          expect(pad).toBeGreaterThanOrEqual(12);
+          expect(pad).toBeLessThan(20);
         }
         await loseAuction(page, input);
         const lostWidths: number[] = [];
@@ -75,6 +77,10 @@ test.describe('full hands from the real controls', () => {
         }
         await declare(page, input, isPhone(view));
         await expect(page.getByText('Your turn')).toBeVisible();
+        if (isPhone(view)) {
+          await assertHomeZone(page, 34);
+          await page.screenshot({ path: `/opt/cursor/artifacts/bottom-zone-${variant}-${view.width}x${view.height}-play.png`, fullPage: false });
+        }
         if (variant === '500' && view.width === 360) {
           await page.screenshot({ path: '/opt/cursor/artifacts/play-500-360x740.png', fullPage: false });
           await assertFanFits(page);
@@ -332,7 +338,7 @@ async function finishHand(
       await assertTableFacts(page);
       const legal = page.locator('[data-testid="hand-card"][aria-disabled="false"]').first();
       await clickCentre(page, legal, input, true);
-      await expect(page.getByTestId('confirm-play')).toBeVisible({ timeout: 1_500 });
+      await expect(legal).toHaveAttribute('data-selected', 'true');
       await clickCentre(page, page.getByTestId('confirm-play'), input, true);
       await expect(page.getByText('Your turn')).toBeHidden({ timeout: 2_000 });
       continue;
@@ -340,6 +346,27 @@ async function finishHand(
     await page.waitForTimeout(40);
   }
   throw new Error('hand did not finish');
+}
+
+async function assertHomeZone(page: Page, gap: number): Promise<void> {
+  const viewport = await page.locator('meta[name="viewport"]').getAttribute('content');
+  expect(viewport).toContain('viewport-fit=cover');
+  const problems = await page.evaluate((minGap) => {
+    const found: string[] = [];
+    const nodes = [
+      ...document.querySelectorAll('[data-testid="hand-card"]'),
+      ...document.querySelectorAll('[data-testid="confirm-play"]'),
+    ];
+    nodes.forEach((node) => {
+      const box = node.getBoundingClientRect();
+      if (box.width < 1 || box.height < 1) return;
+      const clearance = window.innerHeight - box.bottom;
+      const name = node.getAttribute('aria-label') || node.getAttribute('data-testid') || 'control';
+      if (clearance < minGap - 0.5) found.push(`${name} clearance ${clearance.toFixed(1)}`);
+    });
+    return found;
+  }, gap);
+  expect(problems, problems.join('\n')).toEqual([]);
 }
 
 function isPhone(view: { width: number; height: number }): boolean {
