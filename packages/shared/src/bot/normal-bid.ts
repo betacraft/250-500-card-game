@@ -11,8 +11,9 @@ export function chooseNormalDeclaration(hand: readonly Card[], gameType: GameTyp
 }
 
 /**
- * Bid the highest level where P(make) × gain − (1 − P(make)) × loss
- * clears the safety margin. The stake is the bidder's ±(bid + bonus).
+ * Bid the level where P(make) × gain − (1 − P(make)) × loss, plus the
+ * cost of leaving the auction to Easy, is best and still positive.
+ * The stake is the bidder's ±(bid + bonus).
  */
 export function chooseNormalBid(args: {
   gameType: GameType;

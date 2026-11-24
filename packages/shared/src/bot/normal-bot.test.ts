@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createRng } from '../cards/deck';
 import { declareTrumpAndPartners, legalPlaysFor, setBidder, startHand } from '../engine/hand';
 import { chooseNormalBid } from './normal-bid';
+import { chooseBidLevel } from './normal-search';
 import { dealHidden } from './normal-search';
 import { chooseNormalPlay } from './normal-play';
 import { dealRespectingVoids } from './normal-play-search';
@@ -120,6 +121,26 @@ describe('normal bot', () => {
     expect(dealt?.[1]).toHaveLength(2);
     expect((dealt?.[1] ?? []).every((serial) => Math.floor((serial % 48) / 12) !== 0)).toBe(true);
     expect(dealHidden([0, 1], [0, 2], [[], [0]], () => 0)).toBeNull();
+  });
+
+  it('bids the level with the best expectation, not the highest stretch', () => {
+    const points = [160, 160, 160, 160, 200, 200, 200, 250];
+    const choice = chooseBidLevel({ gameType: '250', highBid: null, points, bias: 0, subsidy: 0 });
+    expect(choice).toEqual({ action: 'bid', amount: 160, makeProbability: 1 });
+  });
+
+  it('passes a blank hand unless conceding the auction is costly', () => {
+    const points = [0, 0, 0, 0];
+    expect(chooseBidLevel({ gameType: '250', highBid: null, points, bias: 0, subsidy: 0 }).action).toBe('pass');
+    const contested = chooseBidLevel({ gameType: '250', highBid: null, points, bias: 0, subsidy: 10_000 });
+    expect(contested).toEqual({ action: 'bid', amount: 160, makeProbability: 0 });
+  });
+
+  it('does not bid at or under the current high', () => {
+    const points = [250, 250, 250, 250];
+    const choice = chooseBidLevel({ gameType: '250', highBid: 200, points, bias: 0, subsidy: 0 });
+    expect(choice.action).toBe('bid');
+    expect(choice.amount).toBeGreaterThan(200);
   });
 
   it('bids deterministically for the same seed', () => {

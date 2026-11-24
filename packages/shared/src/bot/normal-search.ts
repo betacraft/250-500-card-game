@@ -17,14 +17,15 @@ import { toPublicView } from './public-view';
 /** Full-hand samples used to estimate P(make). Stops early if the clock runs out. */
 export const BID_SAMPLES = 16;
 /**
- * The raw Monte Carlo make-rate runs high (about 0.08–0.12 above the
- * contracts that actually make). Subtract this before the expectation,
- * then still require the expectation to clear BID_SAFETY.
- * Tuned on seed 101, frozen before the held-out seed.
+ * The raw Monte Carlo make-rate runs a little high. Subtract this before
+ * the expectation. Tuned on seeds 101 and 2501, frozen before held-out 77113.
  */
-export const BID_BIAS: Record<GameType, number> = { '250': 0.12, '500': 0.20 };
-/** Bidder EV, after the bias correction, must clear this many points. */
-export const BID_SAFETY: Record<GameType, number> = { '250': 12, '500': 20 };
+export const BID_BIAS: Record<GameType, number> = { '250': 0.06, '500': 0.06 };
+/**
+ * A bid is taken when its bidder EV, plus this concession cost, is positive.
+ * Passing leaves the auction to Easy, which is worth about this many points.
+ */
+export const PASS_SUBSIDY: Record<GameType, number> = { '250': 18, '500': 24 };
 
 export interface BidEstimate {
   action: 'bid' | 'pass';
@@ -34,11 +35,12 @@ export interface BidEstimate {
 }
 
 /**
- * Highest bid whose bidder expectation is above the safety margin.
+ * Level that maximises the bidder's expectation, counting the cost of a pass.
  * Gain and loss are both the bidder's stake, ±(bid + bonus), so
- * EV = (2 P(make) − 1) × stake. Partner ±bid has the same sign, so it
- * does not flip the decision. Samples are deals of the unknown remainder
- * of the deck; the other seats' real hands are never read.
+ * EV = (2 P(make) − 1) × stake. Passing concedes the auction to Easy,
+ * so a bid is taken when EV + PASS_SUBSIDY is positive. The amount is the
+ * one with the best EV, not the highest level that still clears.
+ * Samples are deals of the unknown remainder of the deck.
  */
 export function estimateNormalBid(args: {
   gameType: GameType;
@@ -47,9 +49,8 @@ export function estimateNormalBid(args: {
   rng: () => number;
   samples?: number;
   deadline?: number;
-  safety?: number;
+  subsidy?: number;
 }): BidEstimate {
-  const rules = rulesFor(args.gameType);
   const trump = chooseTrump(args.hand);
   const called = chooseCalledCards(args.hand, trump, args.gameType);
   const points = sampleTeamPoints({
@@ -61,18 +62,43 @@ export function estimateNormalBid(args: {
     samples: args.samples ?? BID_SAMPLES,
     deadline: args.deadline,
   });
-  if (points.length === 0) return { action: 'pass', makeProbability: 0 };
-  const safety = args.safety ?? BID_SAFETY[args.gameType];
+  return chooseBidLevel({
+    gameType: args.gameType,
+    highBid: args.highBid,
+    points,
+    bias: BID_BIAS[args.gameType],
+    subsidy: args.subsidy ?? PASS_SUBSIDY[args.gameType],
+  });
+}
+
+/**
+ * Pick the bid whose bidder expectation, plus the cost of a pass, is best.
+ * A pass wins when every legal level is still negative after that cost.
+ * The amount is the best expectation, which is not always the highest level.
+ */
+export function chooseBidLevel(args: {
+  gameType: GameType;
+  highBid: number | null;
+  points: readonly number[];
+  bias?: number;
+  subsidy?: number;
+}): BidEstimate {
+  if (args.points.length === 0) return { action: 'pass', makeProbability: 0 };
+  const rules = rulesFor(args.gameType);
+  const bias = args.bias ?? BID_BIAS[args.gameType];
+  const subsidy = args.subsidy ?? PASS_SUBSIDY[args.gameType];
   let best: number | null = null;
+  let bestScore = 0;
   let bestP = 0;
   for (let amount = rules.MIN_BID; amount <= rules.MAX_BID; amount += rules.BID_INCREMENT) {
     if (args.highBid !== null && amount <= args.highBid) continue;
-    const made = points.reduce((count, total) => count + (total >= amount ? 1 : 0), 0);
-    const probability = Math.max(0, made / points.length - BID_BIAS[args.gameType]);
+    const made = args.points.reduce((count, total) => count + (total >= amount ? 1 : 0), 0);
+    const probability = Math.max(0, made / args.points.length - bias);
     const stake = amount + rules.BIDDER_BONUS;
-    const expectation = (2 * probability - 1) * stake;
-    if (expectation > safety) {
+    const score = (2 * probability - 1) * stake + subsidy;
+    if (score > bestScore) {
       best = amount;
+      bestScore = score;
       bestP = probability;
     }
   }

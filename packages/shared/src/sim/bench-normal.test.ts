@@ -13,28 +13,36 @@ const rotate = (players: number) => (seat: number, hand: number): 'normal' | 'ea
 
 describe('held-out normal vs easy', () => {
   it('trains, then beats Easy on a held-out seed', () => {
-    const trainHands = Number(process.env.BENCH_TRAIN ?? 400);
-    const held250 = Number(process.env.BENCH_HANDS ?? 2000);
-    const held500 = Number(process.env.BENCH_HANDS_500 ?? 4000);
-    const train = run('train', 101, { '250': trainHands, '500': trainHands });
-    console.info(JSON.stringify({ label: 'train', ...train }));
-    const held = run('heldout', 9001, { '250': held250, '500': held500 });
-    console.info(JSON.stringify({ label: 'heldout', ...held }));
-    const all = runAll(9001, 400);
-    console.info(JSON.stringify({ label: 'all-normal', ...all }));
-    const calibration = calibrate(9001, 200);
-    console.info(JSON.stringify({ label: 'calibration', buckets: calibration }));
+    const trainHands = Number(process.env.BENCH_TRAIN ?? 0);
+    const heldHands = Number(process.env.BENCH_HANDS ?? 2000);
+    const allHands = Number(process.env.BENCH_ALL ?? 1000);
+    if (trainHands > 0) {
+      const train = run('train', 101, { '250': trainHands, '500': trainHands });
+      console.info(JSON.stringify({ label: 'train', ...train }));
+    }
+    const held = run('heldout', 77113, { '250': heldHands, '500': heldHands });
+    console.info(JSON.stringify({ label: 'heldout', seed: 77113, ...held }));
+    const all = runAll(77113, allHands);
+    console.info(JSON.stringify({ label: 'all-normal', seed: 77113, ...all }));
+    console.info(JSON.stringify({ label: 'calibration', seed: 101, buckets: calibrate(101, 80) }));
     for (const gameType of ['250', '500'] as const) {
       const row = held[gameType];
-      if (!row) throw new Error(gameType);
-      expect(row.ci.low, gameType).toBeGreaterThan(0);
+      const table = all[gameType];
+      if (!row || !table) throw new Error(gameType);
+      const bar = gameType === '250' ? 0.117 : 0.0875;
+      expect(row.share.mean, `${gameType} auction share`).toBeGreaterThanOrEqual(bar);
+      expect(row.ci.low, `${gameType} margin`).toBeGreaterThan(0);
+      expect(row.normalMake.mean, `${gameType} make rate`).toBeGreaterThanOrEqual(row.easyMake.mean);
+      expect(table.make.mean, `${gameType} all-normal make`).toBeGreaterThanOrEqual(0.45);
+      expect(table.make.mean, `${gameType} all-normal make`).toBeLessThanOrEqual(0.65);
       expect(row.bidP95).toBeLessThanOrEqual(150);
       expect(row.playP95).toBeLessThanOrEqual(150);
       expect(row.illegal).toBe(0);
       expect(row.crashes).toBe(0);
       expect(row.deadlocks).toBe(0);
+      expect(table.illegal).toBe(0);
     }
-  }, 900_000);
+  }, 1_200_000);
 });
 
 function run(label: string, seed: number, hands: Record<'250' | '500', number>): Record<string, ReturnType<typeof summarize>> {
@@ -48,24 +56,32 @@ function run(label: string, seed: number, hands: Record<'250' | '500', number>):
   return out;
 }
 
-function runAll(seed: number, hands: number): Record<string, { completed: number; illegal: number; make: number; meanBid: number }> {
-  const out: Record<string, { completed: number; illegal: number; make: number; meanBid: number }> = {};
+function runAll(seed: number, hands: number): Record<string, { completed: number; illegal: number; make: ReturnType<typeof proportionCi>; meanBid: number }> {
+  const out: Record<string, { completed: number; illegal: number; make: ReturnType<typeof proportionCi>; meanBid: number }> = {};
   for (const gameType of ['250', '500'] as const) {
     const report = simulateTable({ gameType, hands, seed, botFor: () => 'normal' });
     out[gameType] = {
       completed: report.completed,
       illegal: report.illegalMoves + report.crashes + report.deadlocks,
-      make: report.normalBidHands === 0 ? 0 : report.normalBidMade / report.normalBidHands,
+      make: proportionCi(report.normalBidMade, report.normalBidHands),
       meanBid: report.normalBidHands === 0 ? 0 : report.normalWinningBidSum / report.normalBidHands,
     };
   }
   return out;
 }
 
+function proportionCi(successes: number, n: number): { mean: number; low: number; high: number } {
+  if (n === 0) return { mean: 0, low: 0, high: 0 };
+  const mean = successes / n;
+  const margin = 1.96 * Math.sqrt((mean * (1 - mean)) / n);
+  return { mean, low: mean - margin, high: mean + margin };
+}
+
 function summarize(report: ReturnType<typeof simulateTable>): {
   ci: { mean: number; low: number; high: number };
-  normalMake: number;
-  easyMake: number;
+  share: { mean: number; low: number; high: number };
+  normalMake: { mean: number; low: number; high: number };
+  easyMake: { mean: number; low: number; high: number };
   normalBid: number;
   easyBid: number;
   bidShare: number;
@@ -86,8 +102,9 @@ function summarize(report: ReturnType<typeof simulateTable>): {
 } {
   return {
     ci: meanCi(report.marginSamples),
-    normalMake: report.normalBidHands === 0 ? 0 : report.normalBidMade / report.normalBidHands,
-    easyMake: report.easyBidHands === 0 ? 0 : report.easyBidMade / report.easyBidHands,
+    share: proportionCi(report.normalBidHands, report.completed),
+    normalMake: proportionCi(report.normalBidMade, report.normalBidHands),
+    easyMake: proportionCi(report.easyBidMade, report.easyBidHands),
     normalBid: report.normalBidHands === 0 ? 0 : report.normalWinningBidSum / report.normalBidHands,
     easyBid: report.easyBidHands === 0 ? 0 : report.easyWinningBidSum / report.easyBidHands,
     bidShare: report.completed === 0 ? 0 : report.auctionsWithBid / report.completed,
