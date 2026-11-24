@@ -108,10 +108,10 @@ export function LocalPlayPage(): JSX.Element {
 
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#F5F1E8]">
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-[980px] flex-col px-3 pt-2">
+    <div className={`mx-auto flex h-full min-h-0 w-full max-w-[980px] flex-col px-3 ${short ? 'pt-1' : 'pt-2'}`}>
       <header className="flex shrink-0 items-center justify-between gap-2">
-        <h1 className="text-base font-medium">Play vs bots · {gameType}</h1>
-        <span className="flex items-center gap-3">
+        <h1 className="min-w-0 truncate text-sm font-medium">Play vs bots · {gameType}</h1>
+        <span className="flex shrink-0 items-center gap-2 whitespace-nowrap">
           <span className="text-sm text-stone-500">Bots: {difficulty === 'normal' ? 'Normal' : 'Easy'}</span>
           <NewGameButton onAbandon={leave} />
           <Link to="/" className="text-sm text-stone-600 underline">Home</Link>
