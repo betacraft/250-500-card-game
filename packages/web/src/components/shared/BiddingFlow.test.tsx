@@ -134,6 +134,30 @@ describe('BiddingFlow', () => {
     expect(screen.getByText(/Player 2 pass/)).toBeInTheDocument();
   });
 
+  it('keeps the stepper on one row when the window is short', async () => {
+    render(
+      <BiddingFlow
+        players={PLAYERS_6}
+        gameType="250"
+        firstBidderId="p1"
+        bidHistory={[]}
+        onBid={() => {}}
+        onPass={() => {}}
+        onAuctionClose={() => {}}
+        tight
+      />,
+    );
+    expect(screen.getByTestId('bid-stepper')).toBeInTheDocument();
+    expect(screen.queryByText(/current high/i)).toBeNull();
+    expect(screen.getByTestId('draft-amount')).toHaveTextContent('160');
+    await userEvent.click(screen.getByRole('button', { name: /add 5 to the bid/i }));
+    expect(screen.getByTestId('draft-amount')).toHaveTextContent('165');
+    await userEvent.click(screen.getByRole('button', { name: /decrease bid by 5/i }));
+    expect(screen.getByTestId('draft-amount')).toHaveTextContent('160');
+    await userEvent.click(screen.getByRole('button', { name: /decrease bid by 5/i }));
+    expect(screen.getByTestId('draft-amount')).toHaveTextContent('160');
+  });
+
   it('plus/minus buttons adjust the draft amount in increments of 5', async () => {
     render(
       <BiddingFlow

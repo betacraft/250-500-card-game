@@ -2,11 +2,12 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { assertBidAtRest } from './visible-hand';
 
 const views = [
-  { width: 1024, height: 572 },
-  { width: 800, height: 480 },
-  { width: 1280, height: 600 },
   { width: 667, height: 375 },
+  { width: 800, height: 480 },
+  { width: 1024, height: 572 },
+  { width: 1280, height: 600 },
   { width: 360, height: 640 },
+  { width: 1366, height: 768 },
 ] as const;
 
 test.describe('bid controls stay above the hand', () => {
@@ -33,20 +34,25 @@ test.describe('bid controls stay above the hand', () => {
             if (await declare.isVisible().catch(() => false)) break;
             const count = await bidCount(page);
             longest = Math.max(longest, count);
-            if (count >= 5) {
-              sawFive = true;
+            const touch = view.width === 667 && view.height === 375;
+            const opening = turn === 0;
+            if (opening || count >= 5) {
+              if (count >= 5) sawFive = true;
               await assertBidAtRest(page);
-              if (view.width === 1024 && view.height === 572) {
-                await page.screenshot({
-                  path: `/opt/cursor/artifacts/bidding-long-1024x572-${variant}.png`,
-                  fullPage: false,
-                });
+              await assertStepperClear(page, view.height);
+              await exerciseDraft(page, touch);
+              if (view.width === 667 && view.height === 375) {
+                await page.screenshot({ path: `/opt/cursor/artifacts/short-667x375-${variant}.png`, fullPage: false });
               }
-            } else {
-              await assertBidAtRest(page);
+              if (view.width === 800 && view.height === 480) {
+                await page.screenshot({ path: `/opt/cursor/artifacts/short-800x480-${variant}.png`, fullPage: false });
+              }
+              if (view.width === 1024 && view.height === 572 && count >= 5) {
+                await page.screenshot({ path: `/opt/cursor/artifacts/bidding-long-1024x572-${variant}.png`, fullPage: false });
+              }
             }
             if (count >= 8) break;
-            await clickCentre(page, bid);
+            await press(page, bid, touch);
           }
         }
         expect(sawFive, `longest auction on screen was ${longest}`).toBe(true);
@@ -55,6 +61,31 @@ test.describe('bid controls stay above the hand', () => {
       });
     }
   }
+
+  test('Deal the cards stays on screen at short heights', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'error') errors.push(message.text());
+    });
+    page.on('pageerror', (error) => errors.push(error.message));
+    for (const view of [
+      { width: 667, height: 375 },
+      { width: 800, height: 480 },
+      { width: 1024, height: 572 },
+    ] as const) {
+      await page.setViewportSize({ width: view.width, height: view.height });
+      await page.goto('/play');
+      const deal = page.getByTestId('start-vs-bots');
+      await expect(deal).toBeVisible();
+      await assertBoxInside(deal, view.height, null);
+      if (view.width === 667) await page.screenshot({ path: '/opt/cursor/artifacts/deal-667x375.png', fullPage: false });
+    }
+    await page.setViewportSize({ width: 667, height: 375 });
+    await page.goto('/play');
+    await press(page, page.getByTestId('start-vs-bots'), true);
+    await page.getByTestId('hand-fan').waitFor();
+    expect(errors, errors.join('\n')).toEqual([]);
+  });
 
   test('500 game over at 1024 does not cover the result', async ({ page }) => {
     test.setTimeout(180_000);
@@ -117,10 +148,110 @@ async function bidCount(page: Page): Promise<number> {
   return Number(await history.getAttribute('data-count'));
 }
 
-async function clickCentre(page: Page, locator: Locator): Promise<void> {
+async function press(page: Page, locator: Locator, touch: boolean): Promise<void> {
   const box = await locator.boundingBox();
   if (!box) throw new Error('missing click target');
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  if (touch) await page.touchscreen.tap(x, y);
+  else await page.mouse.click(x, y);
+}
+
+async function clickCentre(page: Page, locator: Locator): Promise<void> {
+  await press(page, locator, false);
+}
+
+const STEPPER = [
+  { name: 'Decrease bid by 5', exact: true },
+  { name: 'Increase bid by 5', exact: true },
+  { name: 'Add 5 to the bid', exact: true },
+  { name: 'Add 10 to the bid', exact: true },
+  { name: 'Add 20 to the bid', exact: true },
+  { name: 'Pass', exact: true },
+] as const;
+
+async function assertStepperClear(page: Page, viewportHeight: number): Promise<void> {
+  const dockTop = await page.getByTestId('hand-dock').evaluate((node) => node.getBoundingClientRect().top);
+  for (const item of STEPPER) {
+    await assertBoxInside(page.getByRole('button', { name: item.name, exact: item.exact }), viewportHeight, dockTop);
+  }
+  await assertBoxInside(page.getByRole('button', { name: /^Bid / }), viewportHeight, dockTop);
+  const stepper = page.getByTestId('bid-stepper');
+  await assertBoxInside(stepper, viewportHeight, dockTop);
+  const clipped = await stepper.evaluate((node) => {
+    const box = node.getBoundingClientRect();
+    let parent = node.parentElement;
+    while (parent) {
+      const style = getComputedStyle(parent);
+      const clips = style.overflowY === 'hidden' || style.overflowY === 'auto' || style.overflowY === 'scroll' || style.overflowY === 'clip';
+      if (clips) {
+        const frame = parent.getBoundingClientRect();
+        if (box.top < frame.top - 0.5 || box.bottom > frame.bottom + 0.5) return true;
+      }
+      parent = parent.parentElement;
+    }
+    return false;
+  });
+  expect(clipped, 'stepper border is clipped').toBe(false);
+}
+
+async function assertBoxInside(locator: Locator, viewportHeight: number, dockTop: number | null): Promise<void> {
+  const report = await locator.evaluate((node, limit) => {
+    const box = node.getBoundingClientRect();
+    const x = box.left + box.width / 2;
+    const y = box.top + box.height / 2;
+    const hit = document.elementFromPoint(x, y);
+    const problems: string[] = [];
+    if (box.width < 1 || box.height < 1) problems.push('no visible box');
+    if (box.top < -0.5 || box.left < -0.5 || box.right > window.innerWidth + 0.5 || box.bottom > limit + 0.5) problems.push(`outside ${box.top.toFixed(1)},${box.bottom.toFixed(1)}`);
+    if (hit !== node && !node.contains(hit)) problems.push(`hit ${hit?.getAttribute?.('data-testid') || hit?.tagName || 'none'}`);
+    return problems;
+  }, viewportHeight);
+  expect(report, report.join('; ')).toEqual([]);
+  if (dockTop === null) return;
+  const bottom = await locator.evaluate((node) => node.getBoundingClientRect().bottom);
+  expect(bottom).toBeLessThanOrEqual(dockTop + 0.5);
+}
+
+async function draftAmount(page: Page): Promise<number> {
+  return Number((await page.getByTestId('draft-amount').innerText()).trim());
+}
+
+async function exerciseDraft(page: Page, touch: boolean): Promise<void> {
+  const start = await draftAmount(page);
+  const bounds = await page.getByTestId('bid-stepper').evaluate((node) => ({
+    min: Number(node.getAttribute('data-min')),
+    max: Number(node.getAttribute('data-max')),
+  }));
+  const clamp = (amount: number): number => Math.max(bounds.min, Math.min(bounds.max, amount));
+  const expectStep = async (name: string, delta: number): Promise<void> => {
+    const before = await draftAmount(page);
+    await press(page, page.getByRole('button', { name, exact: true }), touch);
+    expect(await draftAmount(page)).toBe(clamp(before + delta));
+  };
+  await expectStep('Decrease bid by 5', -5);
+  await expectStep('Increase bid by 5', 5);
+  await expectStep('Add 5 to the bid', 5);
+  await expectStep('Add 10 to the bid', 10);
+  await expectStep('Add 20 to the bid', 20);
+  await expectStep('Decrease bid by 5', -5);
+  for (let guard = 0; guard < 80 && (await draftAmount(page)) !== start; guard += 1) {
+    const now = await draftAmount(page);
+    await press(page, page.getByRole('button', { name: now > start ? 'Decrease bid by 5' : 'Increase bid by 5', exact: true }), touch);
+  }
+  expect(await draftAmount(page)).toBe(start);
+  for (let guard = 0; guard < 40 && (await draftAmount(page)) < bounds.max; guard += 1) {
+    const before = await draftAmount(page);
+    await press(page, page.getByRole('button', { name: 'Add 20 to the bid', exact: true }), touch);
+    if ((await draftAmount(page)) === before) break;
+  }
+  expect(await draftAmount(page)).toBe(bounds.max);
+  await expectStep('Increase bid by 5', 5);
+  await expectStep('Add 5 to the bid', 5);
+  for (let guard = 0; guard < 80 && (await draftAmount(page)) > start; guard += 1) {
+    await press(page, page.getByRole('button', { name: 'Decrease bid by 5', exact: true }), touch);
+  }
+  expect(await draftAmount(page)).toBe(start);
 }
 
 function overlaps(

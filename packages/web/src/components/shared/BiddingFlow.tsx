@@ -40,6 +40,8 @@ interface BiddingFlowProps {
    * Older bids collapse so the recap cannot push those buttons under the dock.
    */
   contained?: boolean;
+  /** Short landscape: one row of stepper controls, no separate high-bid card. */
+  tight?: boolean;
 }
 
 /** Round-robin bidding flow for the current hand. */
@@ -55,6 +57,7 @@ export function BiddingFlow({
   onBlocked,
   onDraft,
   contained = false,
+  tight = false,
 }: BiddingFlowProps): JSX.Element {
   const rules = rulesFor(gameType);
   const playerIds = players.map((p) => p.id);
@@ -147,6 +150,41 @@ export function BiddingFlow({
       {playerIds.length - passed.size} players remaining in bidding · auction closes when only one is left
     </div>
   );
+  if (tight && currentPlayer) {
+    return (
+      <div className="flex h-full min-h-0 flex-col justify-end gap-1">
+        <BidRecap history={bidHistory} nameOf={(id) => playerById[id]?.name ?? id} />
+        <section data-testid="bid-stepper" data-min={rules.MIN_BID} data-max={rules.MAX_BID} className="shrink-0 rounded-xl border-2 border-felt bg-white p-2">
+          <div className="mb-1 flex items-baseline justify-between gap-2 text-sm leading-5">
+            <span className="min-w-0 truncate"><span className="font-medium text-felt">{currentPlayer.name}</span>&apos;s turn</span>
+            <span className="shrink-0 text-stone-600">{high ? `High ${high.amount}` : `Min ${rules.MIN_BID}`}</span>
+          </div>
+          <div className="flex items-center justify-center gap-1.5">
+            <StepButton label="Decrease bid by 5" disabled={draftAmount <= rules.MIN_BID} onClick={() => (draftAmount <= rules.MIN_BID ? onBlocked?.(`The lowest bid is ${rules.MIN_BID}`) : adjust(-rules.BID_INCREMENT))}>
+              <Minus size={18} />
+            </StepButton>
+            <div data-testid="draft-amount" className="min-w-[3.5rem] text-center text-2xl font-medium tabular-nums">{draftAmount}</div>
+            <StepButton label="Increase bid by 5" disabled={draftAmount >= rules.MAX_BID} onClick={() => (draftAmount >= rules.MAX_BID ? onBlocked?.(`The highest bid is ${rules.MAX_BID}`) : adjust(rules.BID_INCREMENT))}>
+              <Plus size={18} />
+            </StepButton>
+            {[5, 10, 20].map((step) => (
+              <button
+                key={step}
+                type="button"
+                aria-label={`Add ${step} to the bid`}
+                onClick={() => (draftAmount >= rules.MAX_BID ? onBlocked?.(`The highest bid is ${rules.MAX_BID}`) : adjust(step))}
+                aria-disabled={draftAmount >= rules.MAX_BID}
+                className="h-11 min-w-11 shrink-0 rounded-full border border-stone-300 px-2 text-sm font-medium text-stone-700 active:scale-95 aria-disabled:opacity-40"
+              >
+                +{step}
+              </button>
+            ))}
+          </div>
+        </section>
+        {actions}
+      </div>
+    );
+  }
   return (
     <div className={contained ? 'flex max-h-full min-h-0 flex-col overflow-hidden' : compact ? 'flex flex-col gap-2' : 'flex flex-col gap-4'}>
       <div className={contained ? 'flex min-h-0 flex-col gap-2 overflow-y-auto overscroll-contain' : 'contents'} style={contained ? { flex: '0 1 auto' } : undefined}>
@@ -165,7 +203,7 @@ export function BiddingFlow({
       {!contained && <BidRecap history={bidHistory} nameOf={(id) => playerById[id]?.name ?? id} />}
 
       {currentPlayer && (
-        <section className={`rounded-xl border-2 border-felt bg-white ${pad}`}>
+        <section data-testid="bid-stepper" data-min={rules.MIN_BID} data-max={rules.MAX_BID} className={`rounded-xl border-2 border-felt bg-white ${pad}`}>
           <div className={compact ? 'mb-2 flex items-center gap-2' : 'mb-3 flex items-center gap-2'}>
             <div className="h-2 w-2 animate-pulse rounded-full bg-felt"></div>
             <div className="text-sm font-medium text-stone-700">
@@ -183,7 +221,7 @@ export function BiddingFlow({
             >
               <Minus size={18} />
             </button>
-            <div className="min-w-[6rem] text-center text-3xl font-medium tabular-nums">{draftAmount}</div>
+            <div data-testid="draft-amount" className="min-w-[6rem] text-center text-3xl font-medium tabular-nums">{draftAmount}</div>
             <button
               type="button"
               onClick={() => (draftAmount >= rules.MAX_BID ? onBlocked?.(`The highest bid is ${rules.MAX_BID}`) : adjust(rules.BID_INCREMENT))}
@@ -229,6 +267,20 @@ export function BiddingFlow({
         </div>
       )}
     </div>
+  );
+}
+
+function StepButton({ label, disabled, onClick, children }: { label: string; disabled: boolean; onClick: () => void; children: JSX.Element }): JSX.Element {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-disabled={disabled}
+      onClick={onClick}
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-stone-100 text-stone-700 active:scale-95 active:bg-stone-200"
+    >
+      {children}
+    </button>
   );
 }
 
