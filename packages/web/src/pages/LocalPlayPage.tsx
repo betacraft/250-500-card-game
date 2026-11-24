@@ -118,7 +118,8 @@ export function LocalPlayPage(): JSX.Element {
           selfId={HUMAN_ID}
         />
       </div>
-      <div data-testid="play-scroll" className="min-h-0 flex-1 overflow-y-auto py-2">
+      <div data-testid="play-scroll" className="flex min-h-0 flex-1 flex-col overflow-hidden py-2">
+      <div className="shrink-0">
       <TableStatus hand={hand} names={names} />
       <p data-testid="disabled-reason" role="status" className="pointer-events-none h-5 overflow-hidden text-sm font-medium leading-5 text-red-700">{blocked ?? ''}</p>
       {phase !== 'bidding' && !(humanDeclaring && (short || !wide)) && (
@@ -132,8 +133,10 @@ export function LocalPlayPage(): JSX.Element {
         />
       )}
       {notice && <p data-testid="private-partner" className="text-sm font-medium text-felt">{notice}</p>}
+      </div>
+      <div className="min-h-0 flex-1 overflow-hidden">
       {phase === 'bidding' && turn === HUMAN_ID && !settledTrick && (
-        <div data-testid="bid-pass">
+        <div data-testid="bid-pass" className="h-full">
           <BiddingFlow
             players={players}
             gameType={gameType}
@@ -143,11 +146,14 @@ export function LocalPlayPage(): JSX.Element {
             onPass={() => pass()}
             onAuctionClose={() => stepBot()}
             compact={height <= 900}
+            contained
             onBlocked={setBlocked}
             onDraft={() => setBlocked(null)}
           />
         </div>
       )}
+      {!(phase === 'bidding' && turn === HUMAN_ID && !settledTrick) && (
+      <div className="h-full overflow-y-auto">
       {phase === 'bidding' && turn !== HUMAN_ID && <p className="text-sm text-stone-600">Bots are bidding…</p>}
       {phase === 'declaring' && hand.bidder === HUMAN_ID && (
         <DeclareForm
@@ -183,7 +189,7 @@ export function LocalPlayPage(): JSX.Element {
         </p>
       )}
       {phase === 'scored' && summary && !settledTrick && (
-        <section data-testid="hand-complete" className="rounded-xl bg-white p-4">
+        <section data-testid="hand-complete" className={`rounded-xl bg-white p-4 ${gameOver ? 'max-h-full overflow-y-auto' : ''}`}>
           {gameOver && <h2 data-testid="game-over" className="text-lg font-medium">Game over</h2>}
           <h2 className="text-lg font-medium">{summary.bidMade ? 'Bid made' : 'Bid failed'}</h2>
           <p data-testid="score-explainer" className="mt-1 text-sm text-stone-700">{scoreExplainer(gameType)}</p>
@@ -208,6 +214,9 @@ export function LocalPlayPage(): JSX.Element {
           )}
         </section>
       )}
+      </div>
+      )}
+      </div>
       </div>
       {docked && (
         <div data-testid="hand-dock" className="hand-dock shrink-0">
