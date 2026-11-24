@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { assertBidAtRest } from './visible-hand';
+import { assertBidAtRest, saveShot } from './visible-hand';
 
 const views = [
   { width: 667, height: 375 },
@@ -41,20 +41,20 @@ test.describe('bid controls stay above the hand', () => {
                 sawFive = true;
                 await assertPainted(page.getByTestId('bid-history'));
                 if (view.width === 667 && view.height === 375) {
-                  await page.screenshot({ path: `/opt/cursor/artifacts/recap-667x375-${variant}.png`, fullPage: false });
+                  await saveShot(page, `/opt/cursor/artifacts/recap-667x375-${variant}.png`, false);
                 }
               }
               await assertBidAtRest(page);
               await assertStepperClear(page, view.height);
               await exerciseDraft(page, touch);
               if (view.width === 667 && view.height === 375) {
-                await page.screenshot({ path: `/opt/cursor/artifacts/short-667x375-${variant}.png`, fullPage: false });
+                await saveShot(page, `/opt/cursor/artifacts/short-667x375-${variant}.png`, false);
               }
               if (view.width === 800 && view.height === 480) {
-                await page.screenshot({ path: `/opt/cursor/artifacts/short-800x480-${variant}.png`, fullPage: false });
+                await saveShot(page, `/opt/cursor/artifacts/short-800x480-${variant}.png`, false);
               }
               if (view.width === 1024 && view.height === 572 && count >= 5) {
-                await page.screenshot({ path: `/opt/cursor/artifacts/bidding-long-1024x572-${variant}.png`, fullPage: false });
+                await saveShot(page, `/opt/cursor/artifacts/bidding-long-1024x572-${variant}.png`, false);
               }
             }
             if (count >= 8) break;
@@ -84,7 +84,7 @@ test.describe('bid controls stay above the hand', () => {
       const deal = page.getByTestId('start-vs-bots');
       await expect(deal).toBeVisible();
       await assertBoxInside(deal, view.height, null);
-      if (view.width === 667) await page.screenshot({ path: '/opt/cursor/artifacts/deal-667x375.png', fullPage: false });
+      if (view.width === 667) await saveShot(page, '/opt/cursor/artifacts/deal-667x375.png', false);
     }
     await page.setViewportSize({ width: 667, height: 375 });
     await page.goto('/play');
@@ -121,13 +121,13 @@ test.describe('bid controls stay above the hand', () => {
       }
       await expect(page.getByTestId('game-over')).toBeVisible();
       await expect(page.getByTestId('your-result')).toBeVisible();
-      await page.screenshot({ path: `/opt/cursor/artifacts/${item.shot}.png`, fullPage: false });
+      await saveShot(page, `/opt/cursor/artifacts/${item.shot}.png`, false);
       const card = page.getByTestId('hand-complete');
       const before = await card.evaluate((node) => node.scrollTop);
       await scrollResult(page, card, item.touch);
       const after = await card.evaluate((node) => node.scrollTop);
       expect(after).toBeGreaterThan(before + 20);
-      await page.screenshot({ path: `/opt/cursor/artifacts/${item.shot}-scrolled.png`, fullPage: false });
+      await saveShot(page, `/opt/cursor/artifacts/${item.shot}-scrolled.png`, false);
       const bidder = page.locator('[data-testid="score-delta"][data-role="bidder"]');
       await assertPaintedNow(bidder);
       const partners = page.locator('[data-testid="score-delta"][data-role="partner"]');
@@ -166,7 +166,7 @@ test.describe('bid controls stay above the hand', () => {
     const again = page.getByTestId('play-again');
     const card = page.getByTestId('hand-complete');
     await expect(again).toBeVisible();
-    await page.screenshot({ path: '/opt/cursor/artifacts/game-over-1024-500.png', fullPage: false });
+    await saveShot(page, '/opt/cursor/artifacts/game-over-1024-500.png', false);
     const againBox = await again.boundingBox();
     const cardBox = await card.boundingBox();
     if (!againBox || !cardBox) throw new Error('missing game-over boxes');
