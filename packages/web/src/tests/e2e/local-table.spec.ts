@@ -167,19 +167,19 @@ test.describe('local table', () => {
     await expectDeclarationHand(page, 1366, 768, '/opt/cursor/artifacts/declare-hand-1366.png');
   });
 
-  test('worst-case scores stay on one row', async ({ page }) => {
+  test('score chips stay readable at 12px', async ({ page }) => {
     const cases = [
-      { width: 360, height: 740, variant: '500' as const, score: -1500, players: 8 },
-      { width: 390, height: 844, variant: '500' as const, score: -1500, players: 8 },
-      { width: 360, height: 740, variant: '250' as const, score: -1000, players: 6 },
-      { width: 390, height: 844, variant: '250' as const, score: -1000, players: 6 },
+      { width: 360, height: 740, variant: '500' as const, score: -1500, players: 8, shot: 'worst-scores-360x740' },
+      { width: 390, height: 844, variant: '500' as const, score: -1500, players: 8, shot: 'worst-scores-390x844' },
+      { width: 360, height: 740, variant: '250' as const, score: -1000, players: 6, shot: 'worst-scores-250-360x740' },
+      { width: 390, height: 844, variant: '250' as const, score: -1000, players: 6, shot: 'worst-scores-250-390x844' },
+      { width: 360, height: 740, variant: '500' as const, score: -835, players: 8, shot: 'realistic-scores-360x740' },
+      { width: 390, height: 844, variant: '500' as const, score: -835, players: 8, shot: 'realistic-scores-390x844' },
     ];
     for (const view of cases) {
       await showWorstScores(page, view);
-      await assertWorstChips(page, view.players, view.score);
-      if (view.variant === '500') {
-        await page.screenshot({ path: `/opt/cursor/artifacts/worst-scores-${view.width}x${view.height}.png`, fullPage: false });
-      }
+      await assertReadableChips(page, view.players, view.score);
+      await page.screenshot({ path: `/opt/cursor/artifacts/${view.shot}.png`, fullPage: false });
     }
   });
 
@@ -251,10 +251,11 @@ async function showWorstScores(
   await expect(page.getByTestId('score-chip-score').first()).toHaveText(String(view.score));
 }
 
-async function assertWorstChips(page: import('@playwright/test').Page, players: number, score: number): Promise<void> {
+async function assertReadableChips(page: import('@playwright/test').Page, players: number, score: number): Promise<void> {
   await expect(page.getByTestId('turn-marker')).toHaveCount(1);
   await expect(page.getByTestId('bidder-marker')).toHaveCount(1);
-  const report = await page.evaluate(() => {
+  const report = await page.evaluate((count) => {
+    const strip = document.querySelector('[data-testid="score-strip"]');
     const chips = [...document.querySelectorAll('[data-testid="score-chip"]')];
     const problems: string[] = [];
     const clips = (node: Element, box: DOMRect): boolean => {
@@ -270,24 +271,52 @@ async function assertWorstChips(page: import('@playwright/test').Page, players: 
       }
       return false;
     };
-    const tops = chips.map((chip) => chip.getBoundingClientRect().top);
-    if (tops.length > 0 && Math.max(...tops) - Math.min(...tops) >= 1) problems.push('chips wrapped');
+    const boxes = chips.map((chip) => chip.getBoundingClientRect());
+    const heights = boxes.map((box) => box.height);
+    if (heights.length > 0 && Math.max(...heights) - Math.min(...heights) > 1) problems.push('chip heights differ');
+    const rows = new Map<number, number>();
+    boxes.forEach((box) => {
+      const top = Math.round(box.top);
+      rows.set(top, (rows.get(top) ?? 0) + 1);
+    });
+    const rowCount = rows.size;
+    if (rowCount > 2) problems.push(`${rowCount} rows`);
+    if (rowCount === 2) {
+      const sizes = [...rows.values()];
+      if (sizes[0] !== sizes[1] || sizes[0] !== count / 2) problems.push(`unbalanced rows ${sizes.join('+')}`);
+    }
+    const own = chips[0];
+    if (own && !own.getAttribute('aria-label')?.startsWith('Ada')) problems.push('own chip is not first');
     chips.forEach((chip, index) => {
       if (!(chip instanceof HTMLElement)) return;
-      const box = chip.getBoundingClientRect();
+      const box = boxes[index];
+      if (!box) return;
       if (box.left < 8 || box.right > window.innerWidth - 8) problems.push(`chip ${index} margin ${box.left.toFixed(1)}-${box.right.toFixed(1)}`);
       if (box.top < 0 || box.bottom > window.innerHeight) problems.push(`chip ${index} off the screen`);
       if (chip.scrollWidth > chip.clientWidth + 0.5 || chip.scrollHeight > chip.clientHeight + 0.5) problems.push(`chip ${index} clips itself`);
       if (clips(chip, box)) problems.push(`chip ${index} clipped by a parent`);
       const text = chip.querySelector('[data-testid="score-chip-score"]');
-      if (text instanceof HTMLElement && (text.scrollWidth > text.clientWidth + 0.5 || getComputedStyle(text).textOverflow === 'ellipsis')) {
-        problems.push(`chip ${index} score clipped`);
+      if (!(text instanceof HTMLElement)) {
+        problems.push(`chip ${index} has no score`);
+        return;
+      }
+      const size = Number.parseFloat(getComputedStyle(text).fontSize);
+      if (size < 12) problems.push(`chip ${index} score is ${size}px`);
+      const ink = text.getBoundingClientRect();
+      if (ink.left < box.left + 4 || ink.right > box.right - 4 || ink.top < box.top + 4 || ink.bottom > box.bottom - 4) {
+        problems.push(`chip ${index} score padding`);
       }
     });
-    return { count: chips.length, problems, scores: chips.map((chip) => chip.querySelector('[data-testid="score-chip-score"]')?.textContent ?? '') };
-  });
+    return {
+      count: chips.length,
+      rows: strip?.getAttribute('data-rows') ?? '',
+      problems,
+      scores: chips.map((chip) => chip.querySelector('[data-testid="score-chip-score"]')?.textContent ?? ''),
+    };
+  }, players);
   expect(report.count).toBe(players);
   expect(report.scores.every((value) => value === String(score)), report.scores.join(',')).toBe(true);
   expect(report.problems, report.problems.join('\n')).toEqual([]);
+  if (players === 8 && score === -1500) expect(report.rows, 'eight scores of -1500 fit only on two rows').toBe('2');
 }
 

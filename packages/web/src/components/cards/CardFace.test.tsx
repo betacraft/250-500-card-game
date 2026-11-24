@@ -41,6 +41,24 @@ describe('card faces', () => {
     expect(screen.getAllByTestId('thirty-marker')).toHaveLength(2);
   });
 
+  it('lifts a selected face without covering the next card', () => {
+    const cards = ['a', 'b', 'c'].map((id) => ({ suit: 'hearts' as const, rank: 'K' as const, id }));
+    render(<HandFan cards={cards} canPlay onPlay={() => undefined} />);
+    const buttons = screen.getAllByTestId('hand-card');
+    const first = buttons[0];
+    const second = buttons[1];
+    if (!first || !second) throw new Error('missing cards');
+    fireEvent.pointerDown(first);
+    expect(first.getAttribute('data-selected')).toBe('true');
+    expect(first.style.transform).not.toMatch(/translateY/);
+    expect(first.style.zIndex).toBe('1');
+    expect(second.style.zIndex).toBe('2');
+    const lift = first.querySelector('[data-testid="card-lift"]');
+    expect(lift).toBeTruthy();
+    expect((lift as HTMLElement).style.transform).toMatch(/translateY/);
+    expect((lift as HTMLElement).style.pointerEvents).toBe('none');
+  });
+
   it('plays the card a tap just selected', () => {
     const onPlay = vi.fn();
     const onBlocked = vi.fn();
@@ -48,7 +66,7 @@ describe('card faces', () => {
     render(<HandFan cards={[card]} canPlay onPlay={onPlay} onBlocked={onBlocked} />);
     fireEvent.pointerDown(screen.getByTestId('hand-card'));
     fireEvent.pointerDown(screen.getByTestId('confirm-play'));
-    expect(onBlocked.mock.calls.map((call) => call[0])).not.toContain('Choose a card first');
+    expect(onBlocked.mock.calls.map((call) => call[0])).not.toContain('Tap a card, then Play');
     expect(onPlay).toHaveBeenCalledWith(card);
   });
 });
