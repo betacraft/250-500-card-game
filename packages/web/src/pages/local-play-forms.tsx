@@ -35,7 +35,7 @@ export function Setup({ onStart }: { onStart: (gameType: GameType, name: string,
   const difficulty = useSettingsStore((s) => s.botDifficulty);
   const setDifficulty = useSettingsStore((s) => s.setBotDifficulty);
   return (
-    <main className="mx-auto flex min-h-0 w-full max-w-[980px] flex-1 flex-col gap-2 overflow-hidden px-4 py-3">
+    <main className="mx-auto flex min-h-0 w-full max-w-[980px] flex-1 flex-col gap-1.5 overflow-hidden px-4 py-2">
       <Link to="/" className="shrink-0 text-sm text-stone-600 underline">Home</Link>
       <h1 className="shrink-0 text-xl font-medium">Play vs bots</h1>
       <p className="shrink-0 text-sm leading-snug text-stone-600">Free to play against 5 bots (250) or 7 bots (500). No coins, no stakes, no buy-in.</p>
@@ -64,7 +64,7 @@ export function Setup({ onStart }: { onStart: (gameType: GameType, name: string,
       </div>
       <label className="shrink-0 text-sm font-medium" htmlFor="local-name">Your name</label>
       <input id="local-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="You" className="h-11 shrink-0 rounded-lg border border-stone-300 px-3" maxLength={40} />
-      <button type="button" data-testid="start-vs-bots" onClick={() => onStart(gameType, name, difficulty)} className="mt-auto h-12 shrink-0 rounded-xl bg-felt px-4 text-base font-medium text-white">
+      <button type="button" data-testid="start-vs-bots" onClick={() => onStart(gameType, name, difficulty)} className="mt-auto h-11 shrink-0 rounded-xl bg-felt px-4 text-base font-medium text-white">
         Deal the cards
       </button>
     </main>
