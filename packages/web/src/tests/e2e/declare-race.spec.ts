@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { saveShot } from './visible-hand';
 
 const cases = [
   { variant: '250' as const, width: 1366, height: 768, need: 2 },
@@ -62,7 +63,7 @@ test.describe('declaration confirm uses the committed calls', () => {
       await expect(page.getByTestId('called-cards').locator('svg')).toHaveCount(item.need);
       await expect(page.getByText(/Called 9d 10d/)).toBeVisible();
       if (item.variant === '250' && item.width === 1366) {
-        await page.screenshot({ path: '/opt/cursor/artifacts/declare-fast-250-1366.png', fullPage: false });
+        await saveShot(page, '/opt/cursor/artifacts/declare-fast-250-1366.png', false);
       }
       expect(errors, errors.join('\n')).toEqual([]);
     });
