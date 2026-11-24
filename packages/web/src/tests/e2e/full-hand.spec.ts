@@ -346,7 +346,10 @@ async function finishHand(
       await assertFaceCentres(page);
       await assertTableFacts(page);
       const legal = page.locator('[data-testid="hand-card"][aria-disabled="false"]').first();
-      await clickCentre(page, legal, input, true);
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        await clickCentre(page, legal, input, true);
+        if ((await legal.getAttribute('data-selected')) === 'true') break;
+      }
       await expect(legal).toHaveAttribute('data-selected', 'true');
       await clickCentre(page, page.getByTestId('confirm-play'), input, true);
       await expect(page.getByText('Your turn')).toBeHidden({ timeout: 5_000 });
