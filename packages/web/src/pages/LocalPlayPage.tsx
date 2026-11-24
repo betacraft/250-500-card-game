@@ -94,7 +94,7 @@ export function LocalPlayPage(): JSX.Element {
       calledIds={new Set(hand.calledCards.map((card) => cardId(card)))}
       reasons={reasons}
       compact={short || !wide}
-      maxHeight={height <= 500 ? 88 : wide && !short ? Math.floor(height * 0.3) : null}
+      maxHeight={height <= 500 ? 72 : wide && !short ? Math.floor(height * 0.3) : null}
       onBlocked={(reason) => setBlocked(reason ? reason : null)}
     />
   );
@@ -122,9 +122,9 @@ export function LocalPlayPage(): JSX.Element {
       </div>
       <div data-testid="play-scroll" className="flex min-h-0 flex-1 flex-col overflow-hidden py-2">
       <div className="shrink-0">
-      <TableStatus hand={hand} names={names} />
-      <p data-testid="disabled-reason" role="status" className="pointer-events-none h-5 overflow-hidden text-sm font-medium leading-5 text-red-700">{blocked ?? ''}</p>
-      {phase !== 'bidding' && !(humanDeclaring && (short || !wide)) && (
+      {!(gameOver && height <= 500) && <TableStatus hand={hand} names={names} />}
+      <p data-testid="disabled-reason" role="status" className={`pointer-events-none overflow-hidden text-sm font-medium leading-5 text-red-700 ${blocked ? 'h-5' : 'h-0'}`}>{blocked ?? ''}</p>
+      {phase !== 'bidding' && !(humanDeclaring && (short || !wide)) && !(gameOver && height <= 500) && (
         <AuctionRecap
           history={bidHistory}
           names={names}
@@ -156,7 +156,7 @@ export function LocalPlayPage(): JSX.Element {
         </div>
       )}
       {!(phase === 'bidding' && turn === HUMAN_ID && !settledTrick) && (
-      <div className="h-full overflow-y-auto">
+      <div className={gameOver && height <= 500 ? 'h-full overflow-hidden' : 'h-full overflow-y-auto'}>
       {phase === 'bidding' && turn !== HUMAN_ID && <p className="text-sm text-stone-600">Bots are bidding…</p>}
       {phase === 'declaring' && hand.bidder === HUMAN_ID && (
         <DeclareForm
@@ -192,7 +192,7 @@ export function LocalPlayPage(): JSX.Element {
         </p>
       )}
       {phase === 'scored' && summary && !settledTrick && (
-        <section data-testid="hand-complete" className={`rounded-xl bg-white p-4 ${gameOver ? 'max-h-full overflow-y-auto' : ''}`}>
+        <section data-testid="hand-complete" className={`rounded-xl bg-white p-3 ${gameOver && height <= 500 ? 'h-full min-h-0 touch-pan-y overflow-y-auto overscroll-contain' : gameOver ? 'max-h-full overflow-y-auto' : ''}`}>
           {gameOver && <h2 data-testid="game-over" className="text-lg font-medium">Game over</h2>}
           <h2 className="text-lg font-medium">{summary.bidMade ? 'Bid made' : 'Bid failed'}</h2>
           <p data-testid="score-explainer" className="mt-1 text-sm text-stone-700">{scoreExplainer(gameType)}</p>
@@ -203,7 +203,7 @@ export function LocalPlayPage(): JSX.Element {
             {seatOrder.map((id) => {
               const delta = summary.scoreDeltas[id] ?? 0;
               return (
-                <li key={id} className="flex justify-between">
+                <li key={id} data-testid="score-delta" className="flex justify-between py-0.5">
                   <span>{names[id] ?? id}{id === summary.bidder ? ' (bidder)' : summary.partners.includes(id) ? ' (partner)' : ''}</span>
                   <span className="tabular-nums">{delta > 0 ? `+${delta}` : delta}</span>
                 </li>

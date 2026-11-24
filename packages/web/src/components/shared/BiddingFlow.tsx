@@ -131,7 +131,7 @@ export function BiddingFlow({
       <button
         type="button"
         onClick={handlePass}
-        className="min-h-11 flex-1 rounded-xl border border-stone-300 p-3 text-base font-medium text-stone-700 active:scale-95 active:bg-stone-50"
+        className={`min-h-11 flex-1 rounded-xl border border-stone-300 text-base font-medium text-stone-700 active:scale-95 active:bg-stone-50 ${tight ? 'py-2' : 'p-3'}`}
       >
         Pass
       </button>
@@ -139,7 +139,7 @@ export function BiddingFlow({
         type="button"
         onClick={() => (validation.ok ? handleBid() : onBlocked?.(validation.message ?? 'That bid is not allowed'))}
         aria-disabled={!validation.ok}
-        className="min-h-11 flex-1 rounded-xl bg-felt p-3 text-base font-medium text-white active:scale-95 active:bg-felt-dark aria-disabled:bg-stone-300 aria-disabled:text-stone-500"
+        className={`min-h-11 flex-1 rounded-xl bg-felt text-base font-medium text-white active:scale-95 active:bg-felt-dark aria-disabled:bg-stone-300 aria-disabled:text-stone-500 ${tight ? 'py-2' : 'p-3'}`}
       >
         Bid {draftAmount}
       </button>
@@ -153,8 +153,8 @@ export function BiddingFlow({
   if (tight && currentPlayer) {
     return (
       <div className="flex h-full min-h-0 flex-col justify-end gap-1">
-        <BidRecap history={bidHistory} nameOf={(id) => playerById[id]?.name ?? id} />
-        <section data-testid="bid-stepper" data-min={rules.MIN_BID} data-max={rules.MAX_BID} className="shrink-0 rounded-xl border-2 border-felt bg-white p-2">
+        <section data-testid="bid-stepper" data-min={rules.MIN_BID} data-max={rules.MAX_BID} className="shrink-0 rounded-xl border-2 border-felt bg-white px-2 py-1.5">
+          <BidRecap history={bidHistory} nameOf={(id) => playerById[id]?.name ?? id} flush />
           <div className="mb-1 flex items-baseline justify-between gap-2 text-sm leading-5">
             <span className="min-w-0 truncate"><span className="font-medium text-felt">{currentPlayer.name}</span>&apos;s turn</span>
             <span className="shrink-0 text-stone-600">{high ? `High ${high.amount}` : `Min ${rules.MIN_BID}`}</span>
@@ -285,7 +285,7 @@ function StepButton({ label, disabled, onClick, children }: { label: string; dis
 }
 
 /** Latest bids stay on one short row. Older ones collapse so the row cannot grow under the hand. */
-function BidRecap({ history, nameOf }: { history: readonly BidEntry[]; nameOf: (id: string) => string }): JSX.Element | null {
+function BidRecap({ history, nameOf, flush = false }: { history: readonly BidEntry[]; nameOf: (id: string) => string; flush?: boolean }): JSX.Element | null {
   if (history.length === 0) return null;
   const keep = 3;
   const format = (entry: BidEntry): string => {
@@ -295,7 +295,7 @@ function BidRecap({ history, nameOf }: { history: readonly BidEntry[]; nameOf: (
   const earlier = Math.max(0, history.length - keep);
   const text = history.slice(-keep).map(format).join(', ');
   return (
-    <p data-testid="bid-history" data-count={history.length} className="mb-2 shrink-0 truncate text-sm leading-5 text-stone-600">
+    <p data-testid="bid-history" data-count={history.length} className={`shrink-0 truncate text-sm leading-5 text-stone-600 ${flush ? 'mb-1' : 'mb-2'}`}>
       {earlier > 0 ? `${earlier} earlier bids · ` : ''}
       {text}
     </p>

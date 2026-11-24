@@ -37,7 +37,13 @@ test.describe('bid controls stay above the hand', () => {
             const touch = view.width === 667 && view.height === 375;
             const opening = turn === 0;
             if (opening || count >= 5) {
-              if (count >= 5) sawFive = true;
+              if (count >= 5) {
+                sawFive = true;
+                await assertPainted(page.getByTestId('bid-history'));
+                if (view.width === 667 && view.height === 375) {
+                  await page.screenshot({ path: `/opt/cursor/artifacts/recap-667x375-${variant}.png`, fullPage: false });
+                }
+              }
               await assertBidAtRest(page);
               await assertStepperClear(page, view.height);
               await exerciseDraft(page, touch);
@@ -87,6 +93,53 @@ test.describe('bid controls stay above the hand', () => {
     expect(errors, errors.join('\n')).toEqual([]);
   });
 
+  test('short game over keeps every score row readable', async ({ page }) => {
+    test.setTimeout(240_000);
+    const errors: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'error') errors.push(message.text());
+    });
+    page.on('pageerror', (error) => errors.push(error.message));
+    const cases = [
+      { variant: '250' as const, width: 667, height: 375, touch: true, shot: 'gameover-667x375-250' },
+      { variant: '500' as const, width: 667, height: 375, touch: true, shot: 'gameover-667x375-500' },
+      { variant: '250' as const, width: 800, height: 480, touch: false, shot: 'gameover-800x480-250' },
+      { variant: '500' as const, width: 800, height: 480, touch: false, shot: 'gameover-800x480-500' },
+    ];
+    for (const item of cases) {
+      await page.setViewportSize({ width: item.width, height: item.height });
+      await page.goto(`/play?target=1`);
+      await page.getByRole('button', { name: new RegExp(`^${item.variant}`) }).click();
+      await page.getByLabel('Your name').click();
+      await page.keyboard.type('Ada');
+      await page.getByTestId('start-vs-bots').click();
+      await page.getByTestId('hand-fan').waitFor();
+      for (let hand = 0; hand < 12; hand += 1) {
+        await passAuction(page);
+        await finishHand(page, item.variant === '250' ? 2 : 3);
+        if (await page.getByTestId('game-over').isVisible().catch(() => false)) break;
+        await page.getByRole('button', { name: 'Next hand' }).click();
+      }
+      await expect(page.getByTestId('game-over')).toBeVisible();
+      await page.screenshot({ path: `/opt/cursor/artifacts/${item.shot}.png`, fullPage: false });
+      const rows = page.getByTestId('score-delta');
+      const count = await rows.count();
+      expect(count).toBe(item.variant === '250' ? 6 : 8);
+      for (let index = 0; index < count; index += 1) {
+        await rows.nth(index).scrollIntoViewIfNeeded();
+        await assertPainted(rows.nth(index));
+      }
+      await page.getByTestId('score-explainer').scrollIntoViewIfNeeded();
+      await assertPainted(page.getByTestId('score-explainer'));
+      await page.screenshot({ path: `/opt/cursor/artifacts/${item.shot}-scrolled.png`, fullPage: false });
+      const again = page.getByTestId('play-again');
+      await assertPainted(again);
+      await press(page, again, item.touch);
+      await expect(page.getByTestId('hand-fan')).toBeVisible();
+    }
+    expect(errors, errors.join('\n')).toEqual([]);
+  });
+
   test('500 game over at 1024 does not cover the result', async ({ page }) => {
     test.setTimeout(180_000);
     const errors: string[] = [];
@@ -103,7 +156,7 @@ test.describe('bid controls stay above the hand', () => {
     await page.getByTestId('hand-fan').waitFor();
     for (let hand = 0; hand < 12; hand += 1) {
       await passAuction(page);
-      await finishHand(page);
+        await finishHand(page, 3);
       if (await page.getByTestId('game-over').isVisible().catch(() => false)) break;
       await page.getByRole('button', { name: 'Next hand' }).click();
     }
@@ -195,6 +248,38 @@ async function assertStepperClear(page: Page, viewportHeight: number): Promise<v
   expect(clipped, 'stepper border is clipped').toBe(false);
 }
 
+async function assertPainted(locator: Locator): Promise<void> {
+  await locator.scrollIntoViewIfNeeded();
+  const problems = await locator.evaluate((node) => {
+    const box = node.getBoundingClientRect();
+    const x = box.left + box.width / 2;
+    const y = box.top + box.height / 2;
+    const hit = document.elementFromPoint(x, y);
+    const found: string[] = [];
+    if (box.width < 1 || box.height < 1) found.push('no painted box');
+    if (box.top < -0.5 || box.left < -0.5 || box.bottom > window.innerHeight + 0.5 || box.right > window.innerWidth + 0.5) {
+      found.push(`outside ${box.top.toFixed(1)},${box.bottom.toFixed(1)}`);
+    }
+    if (hit !== node && !(node instanceof HTMLElement && node.contains(hit))) found.push(`hit ${hit?.getAttribute?.('data-testid') || hit?.tagName || 'none'}`);
+    let parent = node.parentElement;
+    while (parent) {
+      const style = getComputedStyle(parent);
+      const clipsY = style.overflowY === 'hidden' || style.overflowY === 'auto' || style.overflowY === 'scroll' || style.overflowY === 'clip';
+      const clipsX = style.overflowX === 'hidden' || style.overflowX === 'auto' || style.overflowX === 'scroll' || style.overflowX === 'clip';
+      if (clipsX || clipsY) {
+        const frame = parent.getBoundingClientRect();
+        if (box.top < frame.top - 0.5 || box.bottom > frame.bottom + 0.5 || box.left < frame.left - 0.5 || box.right > frame.right + 0.5) {
+          found.push('clipped by an ancestor');
+          break;
+        }
+      }
+      parent = parent.parentElement;
+    }
+    return found;
+  });
+  expect(problems, problems.join('; ')).toEqual([]);
+}
+
 async function assertBoxInside(locator: Locator, viewportHeight: number, dockTop: number | null): Promise<void> {
   const report = await locator.evaluate((node, limit) => {
     const box = node.getBoundingClientRect();
@@ -270,15 +355,15 @@ async function passAuction(page: Page): Promise<void> {
   }
 }
 
-async function finishHand(page: Page): Promise<void> {
+async function finishHand(page: Page, calls: number): Promise<void> {
   for (let guard = 0; guard < 500; guard += 1) {
     if (await page.getByTestId('hand-complete').isVisible().catch(() => false)) return;
     if (await page.getByTestId('declare-form').isVisible().catch(() => false)) {
       await page.getByRole('button', { name: 'Trump: Hearts' }).click();
       const grid = page.getByTestId('rank-grid');
-      await grid.getByRole('button', { name: /3 of clubs/ }).click();
-      await grid.getByRole('button', { name: /4 of clubs/ }).click();
-      await grid.getByRole('button', { name: /5 of clubs/ }).click();
+      for (const rank of ['3', '4', '5'].slice(0, calls)) {
+        await grid.getByRole('button', { name: new RegExp(`${rank} of clubs`) }).click();
+      }
       await page.getByRole('button', { name: 'Confirm declaration' }).click();
       continue;
     }
