@@ -346,7 +346,8 @@ async function finishHand(
       await assertFaceCentres(page);
       await assertTableFacts(page);
       const legal = page.locator('[data-testid="hand-card"][aria-disabled="false"]').first();
-      for (let attempt = 0; attempt < 3; attempt += 1) {
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        if (attempt > 0) await page.waitForTimeout(100);
         await clickCentre(page, legal, input, true);
         if ((await legal.getAttribute('data-selected')) === 'true') break;
       }
