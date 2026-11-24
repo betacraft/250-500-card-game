@@ -123,7 +123,7 @@ export function LocalPlayPage(): JSX.Element {
       <div data-testid="play-scroll" className="flex min-h-0 flex-1 flex-col overflow-hidden py-2">
       <div className="shrink-0">
       {!(gameOver && height <= 500) && <TableStatus hand={hand} names={names} />}
-      <p data-testid="disabled-reason" role="status" className={`pointer-events-none overflow-hidden text-sm font-medium leading-5 text-red-700 ${blocked ? 'h-5' : 'h-0'}`}>{blocked ?? ''}</p>
+      <p data-testid="disabled-reason" role="status" className="pointer-events-none h-5 overflow-hidden text-sm font-medium leading-5 text-red-700">{blocked ?? ''}</p>
       {phase !== 'bidding' && !(humanDeclaring && (short || !wide)) && !(gameOver && height <= 500) && (
         <AuctionRecap
           history={bidHistory}
