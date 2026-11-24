@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { legalPlaysFor, nextBidder, rulesFor } from '@250-500/shared';
 import { ExportAnalyticsButton } from './ExportAnalyticsButton';
-import { isAnalyticsEnabled } from './flag';
+import { analyticsDefaultOn, isAnalyticsEnabled, resolveAnalytics } from './flag';
 import { installAnalytics, resetAnalyticsForTests } from './index';
 import { setLocalTargetForTests } from './local-target';
 import { registerSink, track } from './track';
@@ -50,13 +50,38 @@ describe('analytics flag', () => {
     expect(document.cookie).toBe('');
   });
 
-  it('turns on from the query or localStorage', () => {
+  it('turns on from the query or localStorage and keeps the choice', () => {
+    expect(analyticsDefaultOn()).toBe(false);
     window.history.pushState({}, '', '/?analytics=1');
     expect(isAnalyticsEnabled()).toBe(true);
+    expect(localStorage.getItem('analytics_enabled')).toBe('1');
+    window.history.pushState({}, '', '/play');
+    expect(isAnalyticsEnabled()).toBe(true);
+    window.history.pushState({}, '', '/?analytics=0');
+    expect(isAnalyticsEnabled()).toBe(false);
+    expect(localStorage.getItem('analytics_enabled')).toBeNull();
     window.history.pushState({}, '', '/');
     expect(isAnalyticsEnabled()).toBe(false);
+  });
+
+  it('covers both build defaults', () => {
+    expect(resolveAnalytics('', null, false)).toEqual({ enabled: false, stored: null });
+    expect(resolveAnalytics('?analytics=1', null, false)).toEqual({ enabled: true, stored: '1' });
+    expect(resolveAnalytics('', '1', false)).toEqual({ enabled: true, stored: '1' });
+    expect(resolveAnalytics('?analytics=0', '1', false)).toEqual({ enabled: false, stored: null });
+    expect(resolveAnalytics('', null, true)).toEqual({ enabled: true, stored: null });
+    expect(resolveAnalytics('?analytics=0', null, true)).toEqual({ enabled: false, stored: '0' });
+    expect(resolveAnalytics('', '0', true)).toEqual({ enabled: false, stored: '0' });
+    expect(resolveAnalytics('?analytics=1', '0', true)).toEqual({ enabled: true, stored: '1' });
+  });
+
+  it('exports a stored log when this page has no query param', () => {
     localStorage.setItem('analytics_enabled', '1');
-    expect(isAnalyticsEnabled()).toBe(true);
+    localStorage.setItem('analytics_events', JSON.stringify([{ name: 'kept', ts: 1, session_id: 's', anon_player_id: 'a', game: null, mode: null, difficulty: null, build: 'dev', viewport: 'phone', props: {} }]));
+    window.history.pushState({}, '', '/play');
+    installAnalytics();
+    const parsed = JSON.parse(window.__analytics?.export() ?? '{}') as { events: Array<{ name: string }> };
+    expect(parsed.events.some((event) => event.name === 'kept')).toBe(true);
   });
 
   it('records a session, a return visit, and common fields', () => {
@@ -173,6 +198,7 @@ describe('table events', () => {
     }
     const summary = useLocalPlayStore.getState().summary;
     if (!summary) throw new Error('hand did not finish');
+    expect(one('game_start').props.replay).toBe(false);
     expect(one('game_start').game).toBe('250');
     expect(one('game_start').mode).toBe('local');
     expect(one('game_start').difficulty).toBe('easy');
@@ -253,6 +279,40 @@ describe('table events', () => {
     expect(names().filter((name) => name === 'game_complete')).toHaveLength(1);
     expect(names()).not.toContain('game_abandoned');
     setLocalTargetForTests(null);
+  });
+
+  it('sums visible time and ends the session on pagehide', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+    try {
+      enable();
+      vi.advanceTimersByTime(10_000);
+      Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+      vi.advanceTimersByTime(5_000);
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+      vi.advanceTimersByTime(7_000);
+      expect(names()).not.toContain('session_end');
+      window.dispatchEvent(new Event('pagehide'));
+      expect(one('session_end').props).toEqual({ session_length_ms: 17_000, hidden_count: 1 });
+      expect(names().filter((name) => name === 'session_end')).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('Play again starts the same game without new_game', () => {
+    enable();
+    useLocalPlayStore.setState({ phase: 'scored', gameOver: true, gameType: '500', humanName: 'Ada', handsPlayed: 2, targetScore: 1000 });
+    useLocalPlayStore.getState().playAgain();
+    expect(useLocalPlayStore.getState().phase).toBe('bidding');
+    expect(useLocalPlayStore.getState().gameOver).toBe(false);
+    expect(useLocalPlayStore.getState().gameType).toBe('500');
+    expect(one('game_start').props.replay).toBe(true);
+    expect(names()).not.toContain('new_game');
+    expect(names()).not.toContain('game_abandoned');
   });
 
   it('records home as an abandon', () => {
