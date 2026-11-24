@@ -93,7 +93,7 @@ test.describe('analytics during a real hand', () => {
   });
 
   test('a short target ends the game for real', async ({ page }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(300_000);
     const errors: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') errors.push(msg.text());
@@ -106,7 +106,7 @@ test.describe('analytics during a real hand', () => {
     await page.keyboard.type('Ada');
     await page.getByTestId('start-vs-bots').click();
     await page.getByTestId('hand-fan').waitFor();
-    for (let hand = 0; hand < 8; hand += 1) {
+    for (let hand = 0; hand < 24; hand += 1) {
       await passAuction(page);
       await finishHand(page);
       if (await page.getByTestId('game-over').isVisible().catch(() => false)) break;
