@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { noteDifficulty, noteSettingsChanged } from '../analytics/table-events';
 
 export type BotDifficulty = 'easy' | 'normal';
 
@@ -20,9 +21,19 @@ export const useSettingsStore = create<SettingsState>()(
       alwaysConfirmCardPlay: true,
       reducedMotion: 'auto',
       botDifficulty: 'easy',
-      setAlwaysConfirmCardPlay: (value) => set({ alwaysConfirmCardPlay: value }),
-      setReducedMotion: (value) => set({ reducedMotion: value }),
-      setBotDifficulty: (value) => set({ botDifficulty: value }),
+      setAlwaysConfirmCardPlay: (value) => {
+        set({ alwaysConfirmCardPlay: value });
+        noteSettingsChanged('alwaysConfirmCardPlay', String(value));
+      },
+      setReducedMotion: (value) => {
+        set({ reducedMotion: value });
+        noteSettingsChanged('reducedMotion', value);
+      },
+      setBotDifficulty: (value) => {
+        set({ botDifficulty: value });
+        noteSettingsChanged('botDifficulty', value);
+        noteDifficulty(value);
+      },
     }),
     { name: 'settings-v1' },
   ),
