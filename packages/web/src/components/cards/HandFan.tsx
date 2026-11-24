@@ -118,13 +118,12 @@ export function HandFan({
               left: metrics.left(index),
               bottom: metrics.bottom(index),
               width: faceW,
-              height: metrics.cardH,
+              height: faceW * 1.4,
               zIndex: isSelected ? 30 : index + 1,
               transform: `rotate(${angle}deg) translateY(${isSelected ? -18 : 0}px)`,
               transformOrigin: 'bottom center',
             }}
           >
-            <span className="absolute bottom-0 left-0">
             <CardFace
               card={card}
               width={faceW}
@@ -135,7 +134,6 @@ export function HandFan({
               called={calledIds?.has(cardId(card)) ?? false}
               thirty={thirtySuits?.has(card.suit) === true && card.rank === '3'}
             />
-            </span>
           </button>
         );
       })}

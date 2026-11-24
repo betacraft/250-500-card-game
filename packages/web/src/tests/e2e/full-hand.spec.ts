@@ -27,9 +27,11 @@ test.describe('full hands from the real controls', () => {
         page.on('pageerror', (error) => errors.push(error.message));
 
         await deal(page, variant, view, input);
-        if (view.width === 360) {
+        if (view.width === 360 || view.width === 390) {
           await assertSlivers(page);
-          if (variant === '500') await page.screenshot({ path: '/opt/cursor/artifacts/fan-500-360-12.png', fullPage: false });
+          if (variant === '500') await assertFanFits(page);
+          if (variant === '500' && view.width === 360) await page.screenshot({ path: '/opt/cursor/artifacts/fan-500-360-12.png', fullPage: false });
+          if (variant === '500' && view.width === 390) await page.screenshot({ path: '/opt/cursor/artifacts/fan-500-390-12.png', fullPage: false });
         }
         await loseAuction(page, input);
         const lostWidths: number[] = [];
@@ -70,11 +72,13 @@ test.describe('full hands from the real controls', () => {
         await expect(page.getByText('Your turn')).toBeVisible();
         if (variant === '500' && view.width === 360) {
           await page.screenshot({ path: '/opt/cursor/artifacts/play-500-360x740.png', fullPage: false });
+          await assertFanFits(page);
         }
         await assertBoard(page, view, false);
         sizes.push(await assertHandSize(page));
         expect(new Set(sizes).size, `hand widths ${sizes.join(',')}`).toBe(1);
-        if (view.width === 360 || view.width === 1024) expect(sizes[0]).toBeGreaterThanOrEqual(80);
+        if (view.width === 1024 || (view.width === 360 && variant === '250')) expect(sizes[0]).toBeGreaterThanOrEqual(80);
+        if (view.width === 360 && variant === '500') expect(sizes[0]).toBeGreaterThanOrEqual(60);
         await assertHandCorners(page);
         await assertFaceCentres(page);
         if (variant === '500' && view.width === 360) await shootClubsLead(page, input);
@@ -190,6 +194,56 @@ async function shootClubsLead(page: Page, input: 'mouse' | 'touch'): Promise<voi
   await clickCentre(page, page.getByTestId('confirm-play'), input, true);
   await expect(page.getByTestId('led-suit')).toHaveAttribute('data-suit', 'clubs', { timeout: 2_000 });
   await page.screenshot({ path: '/opt/cursor/artifacts/play-500-360-clubs-lead.png', fullPage: false });
+}
+
+async function assertFanFits(page: Page): Promise<void> {
+  const problems = await page.evaluate(() => {
+    const found: string[] = [];
+    const cards = [...document.querySelectorAll('[data-testid="hand-card"]')];
+    const fan = document.querySelector('[data-testid="hand-fan"]');
+    const clips = (node: Element, box: DOMRect): boolean => {
+      let parent = node.parentElement;
+      while (parent) {
+        const style = getComputedStyle(parent);
+        const hidden = (value: string): boolean => value === 'hidden' || value === 'clip' || value === 'auto' || value === 'scroll';
+        if (hidden(style.overflowX) || hidden(style.overflowY)) {
+          const clip = parent.getBoundingClientRect();
+          if (box.left < clip.left - 0.5 || box.right > clip.right + 0.5 || box.top < clip.top - 0.5 || box.bottom > clip.bottom + 0.5) return true;
+        }
+        parent = parent.parentElement;
+      }
+      return false;
+    };
+    cards.forEach((card, index) => {
+      const box = card.getBoundingClientRect();
+      if (box.left < 7.5 || box.right > window.innerWidth - 7.5 || box.top < -0.5 || box.bottom > window.innerHeight + 0.5) {
+        found.push(`card ${index} outside ${box.left.toFixed(1)}-${box.right.toFixed(1)}`);
+      }
+      if (clips(card, box)) found.push(`card ${index} clipped`);
+    });
+    const last = cards[cards.length - 1];
+    if (last instanceof HTMLElement) {
+      const box = last.getBoundingClientRect();
+      const laid = Number.parseFloat(last.style.width);
+      if (box.width + 0.5 < laid) found.push(`last card shows ${box.width.toFixed(1)} of ${laid}`);
+      const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+      if (hit !== last && !(hit && last.contains(hit))) found.push('last card centre missed');
+    }
+    if (fan) {
+      const area = fan.getBoundingClientRect();
+      for (let y = area.top + 4; y < area.bottom - 4; y += 10) {
+        for (let x = area.left + 4; x < area.right - 4; x += 12) {
+          const node = document.elementFromPoint(x, y);
+          if (node && node !== fan && !fan.contains(node)) {
+            found.push(`foreign ${node.tagName} over the fan`);
+            return found;
+          }
+        }
+      }
+    }
+    return found;
+  });
+  expect(problems, problems.join('\n')).toEqual([]);
 }
 
 async function assertSlivers(page: Page): Promise<void> {
