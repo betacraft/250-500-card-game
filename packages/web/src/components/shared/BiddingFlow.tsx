@@ -35,6 +35,11 @@ interface BiddingFlowProps {
   onBlocked?: (reason: string) => void;
   /** The draft amount changed, so an old warning no longer applies. */
   onDraft?: () => void;
+  /**
+   * Keep Pass and Bid inside the space above a pinned hand.
+   * Older bids collapse so the recap cannot push those buttons under the dock.
+   */
+  contained?: boolean;
 }
 
 /** Round-robin bidding flow for the current hand. */
@@ -49,6 +54,7 @@ export function BiddingFlow({
   compact = false,
   onBlocked,
   onDraft,
+  contained = false,
 }: BiddingFlowProps): JSX.Element {
   const rules = rulesFor(gameType);
   const playerIds = players.map((p) => p.id);
@@ -117,8 +123,33 @@ export function BiddingFlow({
   }
 
   const pad = compact ? 'p-2' : 'p-4';
+  const actions = (
+    <div data-testid="bid-actions" className="flex gap-2">
+      <button
+        type="button"
+        onClick={handlePass}
+        className="min-h-11 flex-1 rounded-xl border border-stone-300 p-3 text-base font-medium text-stone-700 active:scale-95 active:bg-stone-50"
+      >
+        Pass
+      </button>
+      <button
+        type="button"
+        onClick={() => (validation.ok ? handleBid() : onBlocked?.(validation.message ?? 'That bid is not allowed'))}
+        aria-disabled={!validation.ok}
+        className="min-h-11 flex-1 rounded-xl bg-felt p-3 text-base font-medium text-white active:scale-95 active:bg-felt-dark aria-disabled:bg-stone-300 aria-disabled:text-stone-500"
+      >
+        Bid {draftAmount}
+      </button>
+    </div>
+  );
+  const remaining = (
+    <div className="text-center text-sm text-stone-500">
+      {playerIds.length - passed.size} players remaining in bidding · auction closes when only one is left
+    </div>
+  );
   return (
-    <div className={compact ? 'flex flex-col gap-2' : 'flex flex-col gap-4'}>
+    <div className={contained ? 'flex max-h-full min-h-0 flex-col overflow-hidden' : compact ? 'flex flex-col gap-2' : 'flex flex-col gap-4'}>
+      <div className={contained ? 'flex min-h-0 flex-col gap-2 overflow-y-auto overscroll-contain' : 'contents'} style={contained ? { flex: '0 1 auto' } : undefined}>
       <section className={`rounded-xl bg-white ${pad}`}>
         <div className="text-sm font-medium uppercase tracking-wider text-stone-500">Current high</div>
         {high ? (
@@ -131,14 +162,7 @@ export function BiddingFlow({
         )}
       </section>
 
-      {bidHistory.length > 0 && (
-        <p className="truncate text-sm text-stone-600">
-          {bidHistory.map((entry) => {
-            const name = playerById[entry.playerId]?.name ?? entry.playerId;
-            return entry.action === 'bid' ? `${name} ${entry.amount ?? ''}` : `${name} pass`;
-          }).join(', ')}
-        </p>
-      )}
+      {!contained && <BidRecap history={bidHistory} nameOf={(id) => playerById[id]?.name ?? id} />}
 
       {currentPlayer && (
         <section className={`rounded-xl border-2 border-felt bg-white ${pad}`}>
@@ -192,29 +216,36 @@ export function BiddingFlow({
             ))}
           </div>
 
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handlePass}
-              className="flex-1 rounded-xl border border-stone-300 p-3 text-base font-medium text-stone-700 active:scale-95 active:bg-stone-50"
-            >
-              Pass
-            </button>
-            <button
-              type="button"
-              onClick={() => (validation.ok ? handleBid() : onBlocked?.(validation.message ?? 'That bid is not allowed'))}
-              aria-disabled={!validation.ok}
-              className="flex-1 rounded-xl bg-felt p-3 text-base font-medium text-white active:scale-95 active:bg-felt-dark aria-disabled:bg-stone-300 aria-disabled:text-stone-500"
-            >
-              Bid {draftAmount}
-            </button>
-          </div>
+          {!contained && actions}
         </section>
       )}
-
-      <div className="text-center text-sm text-stone-500">
-        {playerIds.length - passed.size} players remaining in bidding · auction closes when only one is left
+      {!contained && remaining}
       </div>
+      {contained && (
+        <div className="shrink-0 bg-[#F5F1E8] pt-2">
+          <BidRecap history={bidHistory} nameOf={(id) => playerById[id]?.name ?? id} />
+          {actions}
+          <div className="pt-1">{remaining}</div>
+        </div>
+      )}
     </div>
+  );
+}
+
+/** Latest bids stay on one short row. Older ones collapse so the row cannot grow under the hand. */
+function BidRecap({ history, nameOf }: { history: readonly BidEntry[]; nameOf: (id: string) => string }): JSX.Element | null {
+  if (history.length === 0) return null;
+  const keep = 3;
+  const format = (entry: BidEntry): string => {
+    const name = nameOf(entry.playerId);
+    return entry.action === 'bid' ? `${name} ${entry.amount ?? ''}`.trim() : `${name} pass`;
+  };
+  const earlier = Math.max(0, history.length - keep);
+  const text = history.slice(-keep).map(format).join(', ');
+  return (
+    <p data-testid="bid-history" data-count={history.length} className="mb-2 shrink-0 truncate text-sm leading-5 text-stone-600">
+      {earlier > 0 ? `${earlier} earlier bids · ` : ''}
+      {text}
+    </p>
   );
 }

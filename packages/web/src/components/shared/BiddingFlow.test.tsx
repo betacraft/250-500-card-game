@@ -85,6 +85,35 @@ describe('BiddingFlow', () => {
     expect(screen.getByText(/won the bid at 175/i)).toBeInTheDocument();
   });
 
+  it('collapses a long auction into the latest bids', () => {
+    const history = [
+      { playerId: 'p1', action: 'bid' as const, amount: 160 },
+      { playerId: 'p2', action: 'pass' as const },
+      { playerId: 'p3', action: 'bid' as const, amount: 165 },
+      { playerId: 'p4', action: 'pass' as const },
+      { playerId: 'p5', action: 'bid' as const, amount: 170 },
+      { playerId: 'p6', action: 'pass' as const },
+      { playerId: 'p1', action: 'bid' as const, amount: 175 },
+      { playerId: 'p2', action: 'bid' as const, amount: 180 },
+    ];
+    render(
+      <BiddingFlow
+        players={PLAYERS_6}
+        gameType="250"
+        firstBidderId="p1"
+        bidHistory={history}
+        onBid={() => {}}
+        onPass={() => {}}
+        onAuctionClose={() => {}}
+      />,
+    );
+    const recap = screen.getByTestId('bid-history');
+    expect(recap).toHaveAttribute('data-count', '8');
+    expect(recap).toHaveTextContent('5 earlier bids');
+    expect(recap).toHaveTextContent('Player 2 180');
+    expect(recap).not.toHaveTextContent('160');
+  });
+
   it('shows bid history as it accumulates', () => {
     const history = [
       { playerId: 'p1', action: 'bid' as const, amount: 165 },
