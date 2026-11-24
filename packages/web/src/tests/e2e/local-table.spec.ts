@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { assertHandCorners } from './visible-hand';
+import { assertHandCorners, saveShot } from './visible-hand';
 
 async function clickLegalFace(page: import('@playwright/test').Page): Promise<boolean> {
   const point = await page.evaluate(() => {
@@ -49,14 +49,14 @@ async function playOneHand(
   await expect(page.getByTestId('hand-fan')).toBeVisible();
   await expect(page.getByTestId('hand-card')).toHaveCount(variant === '250' ? 8 : 12);
   const label = test.info().title.replace(/\s+/g, '-').toLowerCase();
-  await page.screenshot({ path: `/opt/cursor/artifacts/bidding-hand-${label}.png`, fullPage: true });
+  await saveShot(page, `/opt/cursor/artifacts/bidding-hand-${label}.png`, true);
   const scrolls = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2);
   expect(scrolls).toBe(false);
   let paused = false;
   let hiddenShot = false;
   for (let step = 0; step < 500; step += 1) {
     if (variant === '250' && !hiddenShot && (await page.getByText('Partners: none yet').isVisible().catch(() => false))) {
-      await page.screenshot({ path: `/opt/cursor/artifacts/hidden-partners-${label}.png`, fullPage: true });
+      await saveShot(page, `/opt/cursor/artifacts/hidden-partners-${label}.png`, true);
       hiddenShot = true;
     }
     if (await holdTrickPause(page, label, paused)) {
@@ -80,7 +80,7 @@ async function playOneHand(
   if (label === '250-mobile') {
     await page.getByTestId('hand-complete').screenshot({ path: '/opt/cursor/artifacts/result-explainer-390.png' });
   }
-  await page.screenshot({ path: `/opt/cursor/artifacts/local-table-${label}.png`, fullPage: true });
+  await saveShot(page, `/opt/cursor/artifacts/local-table-${label}.png`, true);
   expect(errors, errors.join('\n')).toEqual([]);
 }
 
@@ -93,10 +93,91 @@ async function holdTrickPause(page: import('@playwright/test').Page, label: stri
       return box.left < -1 || box.right > window.innerWidth + 1;
     });
     expect(spills).toBe(false);
-    await page.screenshot({ path: `/opt/cursor/artifacts/trick-pause-${label}.png`, fullPage: true });
+    await saveShot(page, `/opt/cursor/artifacts/trick-pause-${label}.png`, true);
   }
   await expect(pause).toBeHidden({ timeout: 5_000 });
   return true;
+}
+
+async function showWorstScores(
+  page: import('@playwright/test').Page,
+  view: { width: number; height: number; variant: '250' | '500'; score: number },
+): Promise<void> {
+  await page.setViewportSize({ width: view.width, height: view.height });
+  await page.goto('/play');
+  await page.getByRole('button', { name: new RegExp(`^${view.variant}`) }).click();
+  await page.getByLabel('Your name').fill('Ada');
+  await page.getByTestId('start-vs-bots').click();
+  await page.getByTestId('score-chip').first().waitFor();
+  await page.evaluate((score) => {
+    const host = window as unknown as {
+      __localPlay: {
+        getState: () => { seatOrder: string[]; hand: { bidder: string | null } };
+        setState: (partial: unknown) => void;
+      };
+      __chipCue?: { turnId: string; bidderId: string };
+    };
+    const state = host.__localPlay.getState();
+    const bidderId = state.seatOrder[state.seatOrder.length - 1] ?? 'p1';
+    const scores = Object.fromEntries(state.seatOrder.map((id) => [id, score]));
+    host.__chipCue = { turnId: bidderId, bidderId };
+    host.__localPlay.setState({
+      runningScores: scores,
+      phase: 'scored',
+      settledTrick: null,
+      summary: {
+        bidMade: false,
+        pointsCollected: 0,
+        partners: [],
+        bidAmount: state.seatOrder.length === 8 ? 300 : 160,
+        bidder: bidderId,
+        scoreDeltas: scores,
+      },
+      hand: { ...state.hand, bidder: bidderId, toPlayerId: bidderId },
+    });
+  }, view.score);
+  await expect(page.getByTestId('hand-complete')).toBeVisible();
+  await expect(page.getByTestId('score-chip-score').first()).toHaveText(String(view.score));
+}
+
+async function assertWorstChips(page: import('@playwright/test').Page, players: number, score: number): Promise<void> {
+  await expect(page.getByTestId('turn-marker')).toHaveCount(1);
+  await expect(page.getByTestId('bidder-marker')).toHaveCount(1);
+  const report = await page.evaluate(() => {
+    const chips = [...document.querySelectorAll('[data-testid="score-chip"]')];
+    const problems: string[] = [];
+    const clips = (node: Element, box: DOMRect): boolean => {
+      let parent = node.parentElement;
+      while (parent) {
+        const style = getComputedStyle(parent);
+        const hidden = (value: string): boolean => value === 'hidden' || value === 'clip' || value === 'auto' || value === 'scroll';
+        if (hidden(style.overflowX) || hidden(style.overflowY)) {
+          const frame = parent.getBoundingClientRect();
+          if (box.left < frame.left - 0.5 || box.right > frame.right + 0.5 || box.top < frame.top - 0.5 || box.bottom > frame.bottom + 0.5) return true;
+        }
+        parent = parent.parentElement;
+      }
+      return false;
+    };
+    const tops = chips.map((chip) => chip.getBoundingClientRect().top);
+    if (tops.length > 0 && Math.max(...tops) - Math.min(...tops) >= 1) problems.push('chips wrapped');
+    chips.forEach((chip, index) => {
+      if (!(chip instanceof HTMLElement)) return;
+      const box = chip.getBoundingClientRect();
+      if (box.left < 8 || box.right > window.innerWidth - 8) problems.push(`chip ${index} margin ${box.left.toFixed(1)}-${box.right.toFixed(1)}`);
+      if (box.top < 0 || box.bottom > window.innerHeight) problems.push(`chip ${index} off the screen`);
+      if (chip.scrollWidth > chip.clientWidth + 0.5 || chip.scrollHeight > chip.clientHeight + 0.5) problems.push(`chip ${index} clips itself`);
+      if (clips(chip, box)) problems.push(`chip ${index} clipped by a parent`);
+      const text = chip.querySelector('[data-testid="score-chip-score"]');
+      if (text instanceof HTMLElement && (text.scrollWidth > text.clientWidth + 0.5 || getComputedStyle(text).textOverflow === 'ellipsis')) {
+        problems.push(`chip ${index} score clipped`);
+      }
+    });
+    return { count: chips.length, problems, scores: chips.map((chip) => chip.querySelector('[data-testid="score-chip-score"]')?.textContent ?? '') };
+  });
+  expect(report.count).toBe(players);
+  expect(report.scores.every((value) => value === String(score)), report.scores.join(',')).toBe(true);
+  expect(report.problems, report.problems.join('\n')).toEqual([]);
 }
 
 async function shootSelector(page: import('@playwright/test').Page, width: number, height: number): Promise<void> {
@@ -104,7 +185,7 @@ async function shootSelector(page: import('@playwright/test').Page, width: numbe
   await page.goto('/play');
   await page.getByRole('button', { name: /^250/ }).click();
   await expect(page.getByTestId('difficulty-easy')).toHaveAttribute('aria-pressed', 'true');
-  await page.screenshot({ path: `/opt/cursor/artifacts/difficulty-${width}x${height}.png`, fullPage: false });
+  await saveShot(page, `/opt/cursor/artifacts/difficulty-${width}x${height}.png`, false);
 }
 
 async function expectDeclarationHand(
@@ -143,7 +224,7 @@ async function expectDeclarationHand(
   await expect(page.locator('[data-held="true"]')).toHaveCount(8);
   await expect(page.getByTestId('score-explainer')).toContainText('bid + 100');
   if (height > 760 && width >= 720) await expect(page.getByTestId('auction-recap')).toBeVisible();
-  await page.screenshot({ path: shot, fullPage: false });
+  await saveShot(page, shot, false);
   expect(errors, errors.join('\n')).toEqual([]);
 }
 
@@ -200,6 +281,22 @@ test.describe('local table', () => {
     await playOneHand(page, '500', 'Normal');
   });
 
+  test('worst-case scores stay on one row', async ({ page }) => {
+    const cases = [
+      { width: 360, height: 740, variant: '500' as const, score: -1500, players: 8 },
+      { width: 390, height: 844, variant: '500' as const, score: -1500, players: 8 },
+      { width: 360, height: 740, variant: '250' as const, score: -1000, players: 6 },
+      { width: 390, height: 844, variant: '250' as const, score: -1000, players: 6 },
+    ];
+    for (const view of cases) {
+      await showWorstScores(page, view);
+      await assertWorstChips(page, view.players, view.score);
+      if (view.variant === '500') {
+        await saveShot(page, `/opt/cursor/artifacts/worst-scores-${view.width}x${view.height}.png`, false);
+      }
+    }
+  });
+
   test('declare button is on screen at 390', async ({ page }) => {
     const errors: string[] = [];
     page.on('console', (msg) => {
@@ -223,7 +320,7 @@ test.describe('local table', () => {
     expect(box).not.toBeNull();
     expect((box?.y ?? 999) + (box?.height ?? 0)).toBeLessThanOrEqual(844);
     expect(box?.y ?? -1).toBeGreaterThanOrEqual(0);
-    await page.screenshot({ path: '/opt/cursor/artifacts/declare-footer-390.png', fullPage: false });
+    await saveShot(page, '/opt/cursor/artifacts/declare-footer-390.png', false);
     expect(errors).toEqual([]);
   });
 });

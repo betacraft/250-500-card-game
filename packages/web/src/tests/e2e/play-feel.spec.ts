@@ -1,3 +1,4 @@
+import { saveShot } from './visible-hand';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 test.describe.configure({ timeout: 300_000 });
@@ -9,7 +10,7 @@ test('a variant tap within 50ms of the picker selects it', async ({ page }) => {
   await mouseCentre(page, page.getByTestId('abandon-yes'));
   const picker = page.getByTestId('variant-picker');
   await picker.waitFor({ state: 'visible' });
-  await page.screenshot({ path: '/opt/cursor/artifacts/variant-picker-1024.png', fullPage: false });
+  await saveShot(page, '/opt/cursor/artifacts/variant-picker-1024.png', false);
   const fiveHundred = page.locator('[data-variant="500"]');
   const box = await fiveHundred.boundingBox();
   if (!box) throw new Error('variant picker has no box');

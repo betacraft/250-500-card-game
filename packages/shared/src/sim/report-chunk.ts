@@ -38,7 +38,7 @@ export function combineChunks(parts: { report: TableReport; latencies: number[] 
 } {
   const base = parts[0]?.report;
   if (!base) throw new Error('no chunks');
-  const report: TableReport = { ...base, hands: 0, completed: 0, illegalMoves: 0, crashes: 0, deadlocks: 0, pointMismatches: 0, scoreMismatches: 0, cardMismatches: 0, auctionsWithBid: 0, winningBidSum: 0, madeHands: 0, normalBidHands: 0, normalBidMade: 0, normalWinningBidSum: 0, easyBidHands: 0, easyBidMade: 0, easyWinningBidSum: 0, normalScoreSum: 0, easyScoreSum: 0, normalSeatSamples: 0, easySeatSamples: 0, moveSamples: 0, searchSamples: 0 };
+  const report: TableReport = { ...base, hands: 0, completed: 0, illegalMoves: 0, crashes: 0, deadlocks: 0, pointMismatches: 0, scoreMismatches: 0, cardMismatches: 0, auctionsWithBid: 0, winningBidSum: 0, madeHands: 0, normalBidHands: 0, normalBidMade: 0, normalWinningBidSum: 0, easyBidHands: 0, easyBidMade: 0, easyWinningBidSum: 0, normalScoreSum: 0, easyScoreSum: 0, normalSeatSamples: 0, easySeatSamples: 0, normalAuctionTurns: 0, normalRealBids: 0, easyAuctionTurns: 0, easyRealBids: 0, moveSamples: 0, searchSamples: 0 };
   const latencies: number[] = [];
   for (const part of parts) {
     report.hands += part.report.hands;
@@ -62,6 +62,10 @@ export function combineChunks(parts: { report: TableReport; latencies: number[] 
     report.easyScoreSum += part.report.easyScoreSum;
     report.normalSeatSamples += part.report.normalSeatSamples;
     report.easySeatSamples += part.report.easySeatSamples;
+    report.normalAuctionTurns += part.report.normalAuctionTurns;
+    report.normalRealBids += part.report.normalRealBids;
+    report.easyAuctionTurns += part.report.easyAuctionTurns;
+    report.easyRealBids += part.report.easyRealBids;
     latencies.push(...part.latencies);
   }
   const sorted = latencies.slice().sort((a, b) => a - b);

@@ -71,6 +71,10 @@ function summarize(report: ReturnType<typeof simulateTable>): {
   bidShare: number;
   normalAuctions: number;
   easyAuctions: number;
+  normalBidRate: number;
+  easyBidRate: number;
+  normalAsks: number;
+  easyAsks: number;
   bidP50: number;
   bidP95: number;
   playP50: number;
@@ -89,6 +93,10 @@ function summarize(report: ReturnType<typeof simulateTable>): {
     bidShare: report.completed === 0 ? 0 : report.auctionsWithBid / report.completed,
     normalAuctions: report.normalBidHands,
     easyAuctions: report.easyBidHands,
+    normalBidRate: report.normalAuctionTurns === 0 ? 0 : report.normalRealBids / report.normalAuctionTurns,
+    easyBidRate: report.easyAuctionTurns === 0 ? 0 : report.easyRealBids / report.easyAuctionTurns,
+    normalAsks: report.normalAuctionTurns,
+    easyAsks: report.easyAuctionTurns,
     bidP50: report.bidP50Ms,
     bidP95: report.bidP95Ms,
     playP50: report.latencyP50Ms,

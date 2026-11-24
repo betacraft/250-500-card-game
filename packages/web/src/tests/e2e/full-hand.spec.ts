@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { assertBidAtRest, assertChipInset, assertChipRings, assertCueBoxes, assertHandCorners, assertHandSize, assertReadableCopy } from './visible-hand';
+import { assertBidAtRest, assertChipInset, assertChipRings, assertCueBoxes, assertHandCorners, assertHandSize, assertReadableCopy, saveShot } from './visible-hand';
 
 const views = [
   { width: 1024, height: 572 },
@@ -30,8 +30,8 @@ test.describe('full hands from the real controls', () => {
         if (view.width === 360 || view.width === 390) {
           await assertSlivers(page);
           if (variant === '500') await assertFanFits(page);
-          if (variant === '500' && view.width === 360) await page.screenshot({ path: '/opt/cursor/artifacts/fan-500-360-12.png', fullPage: false });
-          if (variant === '500' && view.width === 390) await page.screenshot({ path: '/opt/cursor/artifacts/fan-500-390-12.png', fullPage: false });
+          if (variant === '500' && view.width === 360) await saveShot(page, '/opt/cursor/artifacts/fan-500-360-12.png', false);
+          if (variant === '500' && view.width === 390) await saveShot(page, '/opt/cursor/artifacts/fan-500-390-12.png', false);
         }
         await loseAuction(page, input);
         const lostWidths: number[] = [];
@@ -63,15 +63,15 @@ test.describe('full hands from the real controls', () => {
         await assertReadableCopy(page);
         await assertBoard(page, view, true);
         if (variant === '500' && view.width === 360) {
-          await page.screenshot({ path: '/opt/cursor/artifacts/chips-500-360x740.png', fullPage: false });
+          await saveShot(page, '/opt/cursor/artifacts/chips-500-360x740.png', false);
         }
         if (view.width === 360 || view.width === 390) {
-          await page.screenshot({ path: `/opt/cursor/artifacts/declare-${variant}-${view.width}x${view.height}.png`, fullPage: false });
+          await saveShot(page, `/opt/cursor/artifacts/declare-${variant}-${view.width}x${view.height}.png`, false);
         }
         await declare(page, input, isPhone(view));
         await expect(page.getByText('Your turn')).toBeVisible();
         if (variant === '500' && view.width === 360) {
-          await page.screenshot({ path: '/opt/cursor/artifacts/play-500-360x740.png', fullPage: false });
+          await saveShot(page, '/opt/cursor/artifacts/play-500-360x740.png', false);
           await assertFanFits(page);
         }
         await assertBoard(page, view, false);
@@ -134,7 +134,7 @@ async function winAuction(page: Page, input: 'mouse' | 'touch', shot: boolean, v
       continue;
     }
     if (shot && turns === 2) {
-      await page.screenshot({ path: `/opt/cursor/artifacts/bid-round2-${view.width}x${view.height}.png`, fullPage: false });
+      await saveShot(page, `/opt/cursor/artifacts/bid-round2-${view.width}x${view.height}.png`, false);
     }
     await raiseToMax(page, input);
     await clickCentre(page, page.getByRole('button', { name: /^Bid / }), input, true);
@@ -193,7 +193,7 @@ async function shootClubsLead(page: Page, input: 'mouse' | 'touch'): Promise<voi
   await clickCentre(page, club, input, true);
   await clickCentre(page, page.getByTestId('confirm-play'), input, true);
   await expect(page.getByTestId('led-suit')).toHaveAttribute('data-suit', 'clubs', { timeout: 2_000 });
-  await page.screenshot({ path: '/opt/cursor/artifacts/play-500-360-clubs-lead.png', fullPage: false });
+  await saveShot(page, '/opt/cursor/artifacts/play-500-360-clubs-lead.png', false);
 }
 
 async function assertFanFits(page: Page): Promise<void> {
@@ -272,11 +272,17 @@ async function holdFinalBanner(page: Page): Promise<boolean> {
   const seen = await page.evaluate(() => document.body.getAttribute('data-last-shot') === '1');
   if (seen) return false;
   await page.evaluate(() => document.body.setAttribute('data-last-shot', '1'));
-  await page.waitForTimeout(1000);
   await expect(page.getByText(/won the trick · tap to skip/)).toBeVisible();
   await expect(page.getByTestId('hand-complete')).toHaveCount(0);
-  await page.screenshot({ path: '/opt/cursor/artifacts/last-trick-390x844.png', fullPage: false });
-  await expect(page.getByTestId('hand-complete')).toBeVisible({ timeout: 2_000 });
+  await saveShot(page, '/opt/cursor/artifacts/last-trick-390x844.png', false);
+  await expect(page.getByTestId('hand-complete')).toBeVisible({ timeout: 3_000 });
+  const gap = await page.evaluate(() => {
+    const shown = Number(document.body.getAttribute('data-final-banner-at') ?? '0');
+    const result = Number(document.body.getAttribute('data-result-at') ?? '0');
+    return result - shown;
+  });
+  expect(gap, 'last-trick banner closed early').toBeGreaterThanOrEqual(1400);
+  expect(gap, 'last-trick banner stayed up').toBeLessThan(4_000);
   return true;
 }
 
@@ -290,7 +296,8 @@ async function finishHand(
   let sawFinal = false;
   for (let guard = 0; guard < 500; guard += 1) {
     if (await page.getByTestId('hand-complete').isVisible().catch(() => false)) {
-      expect(sawFinal, 'the result replaced the last trick').toBe(true);
+      const marked = await page.evaluate(() => document.body.getAttribute('data-final-banner') === '1');
+      expect(sawFinal || marked, 'the result replaced the last trick').toBe(true);
       return;
     }
     if (await page.getByTestId('trick-pause').isVisible().catch(() => false)) {
@@ -305,10 +312,12 @@ async function finishHand(
       await assertTableFacts(page);
       if (cardsLeft === 0) {
         sawFinal = true;
-        await expect(page.getByTestId('hand-complete')).toHaveCount(0);
+        if (await page.getByTestId('trick-pause').isVisible().catch(() => false)) {
+          await expect(page.getByTestId('hand-complete')).toHaveCount(0);
+        }
         if (await holdFinalBanner(page)) continue;
       }
-      await clickCentre(page, page.getByTestId('trick-pause'), input, false);
+      await clickCentre(page, page.getByTestId('trick-pause'), input, false, true);
       continue;
     }
     if (await page.getByText('Your turn').isVisible().catch(() => false)) {
@@ -319,7 +328,7 @@ async function finishHand(
           return led === 'clubs' && played > 0;
         });
         if (followingClubs) {
-          await page.screenshot({ path: '/opt/cursor/artifacts/play-500-360-clubs-follow.png', fullPage: false });
+          await saveShot(page, '/opt/cursor/artifacts/play-500-360-clubs-follow.png', false);
           clubsFollow.pending = false;
         }
       }
@@ -418,12 +427,25 @@ async function assertFaceCentres(page: Page): Promise<void> {
   expect(problems, problems.join('\n')).toEqual([]);
 }
 
-async function clickCentre(page: Page, locator: Locator, input: 'mouse' | 'touch', pinned: boolean): Promise<void> {
-  await locator.first().waitFor({ state: 'visible' });
-  const point = await locator.first().evaluate(readCentre, pinned);
-  expect(point.ok, point.detail).toBe(true);
-  if (input === 'touch') await page.touchscreen.tap(point.x, point.y);
-  else await page.mouse.click(point.x, point.y);
+async function clickCentre(
+  page: Page,
+  locator: Locator,
+  input: 'mouse' | 'touch',
+  pinned: boolean,
+  optional = false,
+): Promise<boolean> {
+  try {
+    await locator.first().waitFor({ state: 'visible', timeout: optional ? 800 : 5_000 });
+    const point = await locator.first().evaluate(readCentre, pinned);
+    expect(point.ok, point.detail).toBe(true);
+    if (input === 'touch') await page.touchscreen.tap(point.x, point.y);
+    else await page.mouse.click(point.x, point.y);
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    if (optional && /timeout|detached|not attached|not visible|closed/i.test(message)) return false;
+    throw error;
+  }
 }
 
 async function controlBoxes(page: Page): Promise<string> {

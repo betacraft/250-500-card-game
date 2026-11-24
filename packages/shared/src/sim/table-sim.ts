@@ -52,6 +52,11 @@ export interface TableReport {
   easyScoreSum: number;
   normalSeatSamples: number;
   easySeatSamples: number;
+  /** Auction turns where that bot was asked to bid or pass. */
+  normalAuctionTurns: number;
+  normalRealBids: number;
+  easyAuctionTurns: number;
+  easyRealBids: number;
   moveSamples: number;
   latencyP50Ms: number;
   latencyP95Ms: number;
@@ -138,10 +143,13 @@ function playOne(
       ? chooseNormalBid({ gameType, hand, highBid, rng })
       : chooseBid({ gameType, hand, highBid, rng });
     if (kinds[seat] === 'normal') bids.push(performance.now() - bidStarted);
+    const before = history.length;
     if (!pushAuction(auction(), playerId, decision, history, report)) {
       report.deadlocks += 1;
       return;
     }
+    const acted = history.length > before ? history[history.length - 1] : undefined;
+    if (acted) noteAuctionAct(report, kinds[seat] === 'normal', acted.action === 'bid');
   }
   const winner = getAuctionWinner(auction());
   if (!winner) {
@@ -314,6 +322,16 @@ function pushAuction(
   return true;
 }
 
+function noteAuctionAct(report: TableReport, normal: boolean, bid: boolean): void {
+  if (normal) {
+    report.normalAuctionTurns += 1;
+    if (bid) report.normalRealBids += 1;
+  } else {
+    report.easyAuctionTurns += 1;
+    if (bid) report.easyRealBids += 1;
+  }
+}
+
 function currentHigh(history: readonly BidEntry[]): number | null {
   for (let i = history.length - 1; i >= 0; i -= 1) {
     const entry = history[i];
@@ -357,6 +375,10 @@ function emptyTable(gameType: GameType, hands: number): TableReport {
     easyScoreSum: 0,
     normalSeatSamples: 0,
     easySeatSamples: 0,
+    normalAuctionTurns: 0,
+    normalRealBids: 0,
+    easyAuctionTurns: 0,
+    easyRealBids: 0,
     moveSamples: 0,
     latencyP50Ms: 0,
     latencyP95Ms: 0,

@@ -47,6 +47,24 @@ export function LocalPlayPage(): JSX.Element {
   }, [blocked]);
 
   useEffect(() => {
+    if (phase === 'setup') {
+      document.body.removeAttribute('data-final-banner');
+      document.body.removeAttribute('data-final-banner-at');
+      document.body.removeAttribute('data-result-at');
+      return undefined;
+    }
+    const lastTrick = settledTrick !== null && (hand?.hands[HUMAN_ID] ?? []).length === 0;
+    if (lastTrick && document.body.getAttribute('data-final-banner') !== '1') {
+      document.body.setAttribute('data-final-banner', '1');
+      document.body.setAttribute('data-final-banner-at', String(performance.now()));
+    }
+    if (phase === 'scored' && document.body.getAttribute('data-final-banner-at') && !document.body.getAttribute('data-result-at')) {
+      document.body.setAttribute('data-result-at', String(performance.now()));
+    }
+    return undefined;
+  }, [phase, settledTrick, hand]);
+
+  useEffect(() => {
     if (!settledTrick) return undefined;
     const timer = window.setTimeout(() => dismissTrick(), 1500);
     return () => window.clearTimeout(timer);
@@ -107,8 +125,8 @@ export function LocalPlayPage(): JSX.Element {
           order={seatOrder}
           chips
           narrow={!wide}
-          turnId={phase === 'scored' ? null : phase === 'playing' ? hand.toPlayerId : phase === 'bidding' ? turn : hand.bidder}
-          bidderId={hand.bidder}
+          turnId={chipCue()?.turnId ?? (phase === 'scored' ? null : phase === 'playing' ? hand.toPlayerId : phase === 'bidding' ? turn : hand.bidder)}
+          bidderId={chipCue()?.bidderId ?? hand.bidder}
         />
       </div>
       <div data-testid="play-scroll" className="min-h-0 flex-1 overflow-y-auto py-2">
@@ -214,6 +232,13 @@ export function LocalPlayPage(): JSX.Element {
     </div>
     </div>
   );
+}
+
+/** Dev-only cue so a test can show the turn ring and bidder badge together. */
+function chipCue(): { turnId?: string | null; bidderId?: string | null } | null {
+  if (!import.meta.env.DEV || typeof window === 'undefined') return null;
+  const cue = (window as Window & { __chipCue?: { turnId?: string | null; bidderId?: string | null } }).__chipCue;
+  return cue ?? null;
 }
 
 function useViewport(): { short: boolean; wide: boolean; height: number } {
