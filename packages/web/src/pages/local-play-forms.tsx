@@ -32,21 +32,21 @@ export function Setup({ onStart }: { onStart: (gameType: GameType, name: string)
   const [gameType, setGameType] = useState<GameType>('250');
   const [name, setName] = useState('');
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-[980px] flex-col gap-4 px-5 pt-6">
-      <Link to="/" className="text-sm text-stone-600 underline">Home</Link>
-      <h1 className="text-2xl font-medium">Play vs bots</h1>
-      <p className="text-sm text-stone-600">Free to play against 5 bots (250) or 7 bots (500). No coins, no stakes, no buy-in.</p>
-      <div data-testid="variant-picker" className="grid grid-cols-2 gap-3">
+    <main className="mx-auto flex min-h-0 w-full max-w-[980px] flex-1 flex-col gap-2 overflow-hidden px-4 py-3">
+      <Link to="/" className="shrink-0 text-sm text-stone-600 underline">Home</Link>
+      <h1 className="shrink-0 text-xl font-medium">Play vs bots</h1>
+      <p className="shrink-0 text-sm leading-snug text-stone-600">Free to play against 5 bots (250) or 7 bots (500). No coins, no stakes, no buy-in.</p>
+      <div data-testid="variant-picker" className="grid shrink-0 grid-cols-2 gap-2">
         {(['250', '500'] as const).map((type) => (
-          <button key={type} type="button" data-variant={type} aria-pressed={gameType === type} onPointerDown={(event) => { event.preventDefault(); setGameType(type); }} className={`rounded-xl border p-4 text-left ${gameType === type ? 'border-felt bg-felt text-white' : 'border-stone-300 bg-white'}`}>
-            <div className="text-lg font-medium">{type}</div>
+          <button key={type} type="button" data-variant={type} aria-pressed={gameType === type} onPointerDown={(event) => { event.preventDefault(); setGameType(type); }} className={`rounded-xl border px-3 py-2 text-left ${gameType === type ? 'border-felt bg-felt text-white' : 'border-stone-300 bg-white'}`}>
+            <div className="text-lg font-medium leading-6">{type}</div>
             <div className="text-sm opacity-80">{type === '250' ? 'You + 5 bots' : 'You + 7 bots'}</div>
           </button>
         ))}
       </div>
-      <label className="text-sm font-medium" htmlFor="local-name">Your name</label>
-      <input id="local-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="You" className="h-11 rounded-lg border border-stone-300 px-3" maxLength={40} />
-      <button type="button" data-testid="start-vs-bots" onClick={() => onStart(gameType, name)} className="rounded-xl bg-felt p-4 text-base font-medium text-white">
+      <label className="shrink-0 text-sm font-medium" htmlFor="local-name">Your name</label>
+      <input id="local-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="You" className="h-11 shrink-0 rounded-lg border border-stone-300 px-3" maxLength={40} />
+      <button type="button" data-testid="start-vs-bots" onClick={() => onStart(gameType, name)} className="mt-auto h-12 shrink-0 rounded-xl bg-felt px-4 text-base font-medium text-white">
         Deal the cards
       </button>
     </main>

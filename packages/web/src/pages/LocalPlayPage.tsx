@@ -62,8 +62,10 @@ export function LocalPlayPage(): JSX.Element {
 
   if (phase === 'setup' || !hand) {
     return (
-      <div className="px-3 pt-2">
-        <ExportAnalyticsButton />
+      <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#F5F1E8]">
+        <div className="shrink-0 px-3 pt-2">
+          <ExportAnalyticsButton />
+        </div>
         <Setup onStart={startGame} />
       </div>
     );
@@ -92,7 +94,7 @@ export function LocalPlayPage(): JSX.Element {
       calledIds={new Set(hand.calledCards.map((card) => cardId(card)))}
       reasons={reasons}
       compact={short || !wide}
-      maxHeight={wide && !short ? Math.floor(height * 0.3) : null}
+      maxHeight={height <= 500 ? 88 : wide && !short ? Math.floor(height * 0.3) : null}
       onBlocked={(reason) => setBlocked(reason ? reason : null)}
     />
   );
@@ -147,6 +149,7 @@ export function LocalPlayPage(): JSX.Element {
             onAuctionClose={() => stepBot()}
             compact={height <= 900}
             contained
+            tight={short}
             onBlocked={setBlocked}
             onDraft={() => setBlocked(null)}
           />
