@@ -102,8 +102,8 @@ export function LocalPlayPage(): JSX.Element {
           order={seatOrder}
           chips
           narrow={!wide}
-          turnId={phase === 'scored' ? null : phase === 'playing' ? hand.toPlayerId : phase === 'bidding' ? turn : hand.bidder}
-          bidderId={hand.bidder}
+          turnId={chipCue()?.turnId ?? (phase === 'scored' ? null : phase === 'playing' ? hand.toPlayerId : phase === 'bidding' ? turn : hand.bidder)}
+          bidderId={chipCue()?.bidderId ?? hand.bidder}
         />
       </div>
       <div data-testid="play-scroll" className="min-h-0 flex-1 overflow-y-auto py-2">
@@ -209,6 +209,13 @@ export function LocalPlayPage(): JSX.Element {
     </div>
     </div>
   );
+}
+
+/** Dev-only cue so a test can show the turn ring and bidder badge together. */
+function chipCue(): { turnId?: string | null; bidderId?: string | null } | null {
+  if (!import.meta.env.DEV || typeof window === 'undefined') return null;
+  const cue = (window as Window & { __chipCue?: { turnId?: string | null; bidderId?: string | null } }).__chipCue;
+  return cue ?? null;
 }
 
 function useViewport(): { short: boolean; wide: boolean; height: number } {

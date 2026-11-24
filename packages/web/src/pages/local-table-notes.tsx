@@ -90,7 +90,7 @@ export function ScoreStrip({
     return (
       <ul data-testid="score-strip" className="flex flex-nowrap items-start justify-center gap-0.5">
         {items.map((item) => (
-          <ScoreChip key={item.id} item={item} label={narrow ? shortScoreLabel(item.name) : item.name} />
+          <ScoreChip key={item.id} item={item} label={narrow ? shortScoreLabel(item.name) : item.name} compact={narrow} />
         ))}
       </ul>
     );
@@ -100,12 +100,12 @@ export function ScoreStrip({
       {items.map((item) => (
         <li key={item.id} data-testid="score-chip" title={item.name} aria-label={`${item.name} ${item.score}`} className={chipClass(item, 'flex items-center justify-between gap-1 rounded-lg bg-white px-2 py-1')}>
           <span className="flex min-w-0 items-center gap-1">
-            {item.turn && <TurnPill />}
+            {item.turn && <TurnPill compact={false} />}
             <span data-testid="score-chip-text">{item.name}</span>
           </span>
           <span className="flex shrink-0 items-center gap-1">
             <span data-testid="score-chip-score" className="tabular-nums">{item.score}</span>
-            {item.bidder && <BidderPill />}
+            {item.bidder && <BidderPill compact={false} />}
           </span>
         </li>
       ))}
@@ -121,7 +121,35 @@ function shortScoreLabel(name: string): string {
   return `${first.slice(0, 1)}${parts.slice(1).join('')}`;
 }
 
-function ScoreChip({ item, label }: { item: { id: string; name: string; score: number; turn: boolean; bidder: boolean }; label: string }): JSX.Element {
+function ScoreChip({
+  item,
+  label,
+  compact,
+}: {
+  item: { id: string; name: string; score: number; turn: boolean; bidder: boolean };
+  label: string;
+  compact: boolean;
+}): JSX.Element {
+  const marks = (
+    <>
+      {item.turn && <TurnPill compact={compact} />}
+      {item.bidder && <BidderPill compact={compact} />}
+    </>
+  );
+  if (compact) {
+    return (
+      <li
+        data-testid="score-chip"
+        title={item.name}
+        aria-label={`${item.name} ${item.score}`}
+        className={chipClass(item, 'flex w-max shrink-0 flex-col items-center rounded-2xl bg-white px-px py-0.5 text-center text-[11px] leading-none text-stone-700')}
+      >
+        {(item.turn || item.bidder) && <span className="flex items-center gap-px">{marks}</span>}
+        <span data-testid="score-chip-text" className="whitespace-nowrap">{label}</span>
+        <span data-testid="score-chip-score" className="whitespace-nowrap tabular-nums">{item.score}</span>
+      </li>
+    );
+  }
   return (
     <li
       data-testid="score-chip"
@@ -129,11 +157,10 @@ function ScoreChip({ item, label }: { item: { id: string; name: string; score: n
       aria-label={`${item.name} ${item.score}`}
       className={chipClass(item, 'flex shrink-0 items-center justify-center gap-0.5 rounded-full bg-white px-0.5 py-1 text-center text-sm text-stone-700')}
     >
-      {item.turn && <TurnPill />}
+      {marks}
       <span data-testid="score-chip-text" className="whitespace-nowrap">
         {label} <span data-testid="score-chip-score" className="tabular-nums">{item.score}</span>
       </span>
-      {item.bidder && <BidderPill />}
     </li>
   );
 }
@@ -146,17 +173,19 @@ function chipClass(item: { turn: boolean; bidder: boolean }, base: string): stri
   return `${base} ${cue}`;
 }
 
-function TurnPill(): JSX.Element {
+function TurnPill({ compact }: { compact: boolean }): JSX.Element {
+  const box = compact ? 'h-4 w-4 text-[12px]' : 'h-5 min-w-5 px-0.5 text-[14px]';
   return (
-    <span data-testid="turn-marker" aria-hidden="true" className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-felt px-0.5 text-[14px] font-medium leading-none text-white">
+    <span data-testid="turn-marker" aria-hidden="true" className={`inline-flex shrink-0 items-center justify-center rounded-full bg-felt font-medium leading-none text-white ${box}`}>
       ▶
     </span>
   );
 }
 
-function BidderPill(): JSX.Element {
+function BidderPill({ compact }: { compact: boolean }): JSX.Element {
+  const box = compact ? 'h-4 w-4 text-[12px]' : 'h-5 min-w-5 px-0.5 text-[14px]';
   return (
-    <span data-testid="bidder-marker" aria-hidden="true" className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#4A3000] px-0.5 text-[14px] font-medium leading-none text-white">
+    <span data-testid="bidder-marker" aria-hidden="true" className={`inline-flex shrink-0 items-center justify-center rounded-full bg-[#4A3000] font-medium leading-none text-white ${box}`}>
       B
     </span>
   );
