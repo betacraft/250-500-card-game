@@ -31,6 +31,17 @@ html, body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* Desktop keeps a 12px floor. A touch phone whose env() is 0 still clears a 34px home indicator. */
+.hand-dock {
+  padding-bottom: max(env(safe-area-inset-bottom), 12px);
+}
+
+@media (pointer: coarse) and (max-width: 500px) {
+  .hand-dock {
+    padding-bottom: max(env(safe-area-inset-bottom), 34px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

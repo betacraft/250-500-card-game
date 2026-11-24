@@ -219,10 +219,10 @@ export function LocalPlayPage(): JSX.Element {
       )}
       </div>
       {docked && (
-        <div data-testid="hand-dock" className="shrink-0 pb-[max(env(safe-area-inset-bottom),12px)]">
+        <div data-testid="hand-dock" className="hand-dock shrink-0">
           {fan}
           {humanDeclaring && (
-            <div className="py-2">
+            <div className="pt-1">
               <button type="submit" form="declare-form" aria-disabled={!canConfirm} onClick={(event) => { if (!canConfirm) { event.preventDefault(); setBlocked('Name a trump and the called cards first'); } }} className={`w-full rounded-xl p-3 text-base font-medium text-white ${canConfirm ? 'bg-felt' : 'bg-stone-300'}`}>
                 Confirm declaration
               </button>
