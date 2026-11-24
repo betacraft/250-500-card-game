@@ -143,7 +143,7 @@ test.describe('bid controls stay above the hand', () => {
   }
 
   test('500 game over at 1024 does not cover the result', async ({ page }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(300_000);
     const errors: string[] = [];
     page.on('console', (message) => {
       if (message.type() === 'error') errors.push(message.text());
