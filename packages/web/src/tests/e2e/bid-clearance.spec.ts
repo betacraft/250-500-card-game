@@ -93,22 +93,21 @@ test.describe('bid controls stay above the hand', () => {
     expect(errors, errors.join('\n')).toEqual([]);
   });
 
-  test('short game over keeps every score row readable', async ({ page }) => {
-    test.setTimeout(240_000);
-    const errors: string[] = [];
-    page.on('console', (message) => {
-      if (message.type() === 'error') errors.push(message.text());
-    });
-    page.on('pageerror', (error) => errors.push(error.message));
-    const cases = [
-      { variant: '250' as const, width: 667, height: 375, touch: true, shot: 'gameover-667x375-250' },
-      { variant: '500' as const, width: 667, height: 375, touch: true, shot: 'gameover-667x375-500' },
-      { variant: '250' as const, width: 800, height: 480, touch: false, shot: 'gameover-800x480-250' },
-      { variant: '500' as const, width: 800, height: 480, touch: false, shot: 'gameover-800x480-500' },
-    ];
-    for (const item of cases) {
+  for (const item of [
+    { variant: '250' as const, width: 667, height: 375, touch: true, shot: 'gameover-667x375-250' },
+    { variant: '500' as const, width: 667, height: 375, touch: true, shot: 'gameover-667x375-500' },
+    { variant: '250' as const, width: 800, height: 480, touch: false, shot: 'gameover-800x480-250' },
+    { variant: '500' as const, width: 800, height: 480, touch: false, shot: 'gameover-800x480-500' },
+  ]) {
+    test(`${item.variant} game over scores scroll at ${item.width}x${item.height}`, async ({ page }) => {
+      test.setTimeout(180_000);
+      const errors: string[] = [];
+      page.on('console', (message) => {
+        if (message.type() === 'error') errors.push(message.text());
+      });
+      page.on('pageerror', (error) => errors.push(error.message));
       await page.setViewportSize({ width: item.width, height: item.height });
-      await page.goto(`/play?target=1`);
+      await page.goto('/play?target=1');
       await page.getByRole('button', { name: new RegExp(`^${item.variant}`) }).click();
       await page.getByLabel('Your name').click();
       await page.keyboard.type('Ada');
@@ -136,9 +135,9 @@ test.describe('bid controls stay above the hand', () => {
       await assertPainted(again);
       await press(page, again, item.touch);
       await expect(page.getByTestId('hand-fan')).toBeVisible();
-    }
-    expect(errors, errors.join('\n')).toEqual([]);
-  });
+      expect(errors, errors.join('\n')).toEqual([]);
+    });
+  }
 
   test('500 game over at 1024 does not cover the result', async ({ page }) => {
     test.setTimeout(180_000);
