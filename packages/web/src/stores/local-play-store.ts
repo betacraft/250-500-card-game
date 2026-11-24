@@ -25,6 +25,7 @@ import {
   type GameType,
   type Suit,
 } from '@250-500/shared';
+import { closedBid, noteBidResult, noteCardsCalled, noteGameStart, noteHandComplete, noteHandStart, noteLeaveTable, scoresWithPending } from '../analytics/table-events';
 
 export const HUMAN_ID = 'p1';
 
@@ -102,6 +103,7 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
       seed,
       phase: 'bidding',
     });
+    noteGameStart(gameType, 'easy');
     get().nextHand();
   },
   nextHand: () => {
@@ -115,25 +117,31 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
       seed: state.seed + state.handsPlayed * 97,
     });
     set({ hand, bidHistory: [], firstBidderId: first, phase: 'bidding', summary: null, settledTrick: null, seatOrder: seats });
+    noteHandStart();
   },
   bid: (amount) => {
     const state = get();
     if (state.settledTrick) return;
     const auction = auctionOf(state);
     if (nextBidder(auction) !== HUMAN_ID || !validateBid(auction, HUMAN_ID, amount).ok) return;
-    set(afterBid(state, [...state.bidHistory, { playerId: HUMAN_ID, action: 'bid', amount }]));
+    const next = afterBid(state, [...state.bidHistory, { playerId: HUMAN_ID, action: 'bid', amount }]);
+    set(next);
+    noteBidResult('bid', amount, closedBid(next.phase, next.hand?.bidder, next.hand?.bidAmount, HUMAN_ID));
   },
   pass: () => {
     const state = get();
     if (state.settledTrick) return;
     const auction = auctionOf(state);
     if (nextBidder(auction) !== HUMAN_ID || !validatePass(auction, HUMAN_ID).ok) return;
-    set(afterBid(state, [...state.bidHistory, { playerId: HUMAN_ID, action: 'pass' }]));
+    const next = afterBid(state, [...state.bidHistory, { playerId: HUMAN_ID, action: 'pass' }]);
+    set(next);
+    noteBidResult('pass', null, closedBid(next.phase, next.hand?.bidder, next.hand?.bidAmount, HUMAN_ID));
   },
   declare: (trump, called) => {
     const state = get();
     if (!state.hand || state.phase !== 'declaring' || state.hand.bidder !== HUMAN_ID) return;
     set({ hand: declareTrumpAndPartners(state.hand, trump, called), phase: 'playing' });
+    noteCardsCalled(called.length);
   },
   play: (card) => {
     const state = get();
@@ -160,7 +168,12 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
     }
     set({ settledTrick: null, phase: 'scored', runningScores });
   },
-  leave: () => set({ ...SETUP }),
+  leave: () => {
+    const state = get();
+    const pending = state.summary && state.phase !== 'scored' ? state.summary.scoreDeltas : null;
+    noteLeaveTable(state.phase, state.handsPlayed, scoresWithPending(state.runningScores, pending, false), HUMAN_ID);
+    set({ ...SETUP });
+  },
 }));
 
 if (import.meta.env.DEV && typeof window !== 'undefined') {
@@ -204,6 +217,10 @@ function applyCard(state: LocalPlayState, playerId: string, card: Card): Partial
   if (!result.ok) return {};
   const settledTrick = result.trickWinnerId && snapshot ? { plays: snapshot, winnerId: result.trickWinnerId } : null;
   const next = scoreIfDone(state, result.state);
+  const summary = next.summary;
+  if (summary && !state.summary) {
+    noteHandComplete(summary.bidMade, summary.bidAmount, summary.pointsCollected, summary.bidder === HUMAN_ID, state.handsPlayed === 0);
+  }
   // Keep the table on the trick until the pause ends, including the last trick.
   if (settledTrick && next.phase === 'scored') {
     // Scores stay put until the result screen. The summary holds the deltas.
@@ -251,17 +268,20 @@ function botBid(state: LocalPlayState): Partial<LocalPlayState> {
   } else if (validatePass(auction, turn).ok) {
     bidHistory.push({ playerId: turn, action: 'pass' });
   } else return {};
-  return { ...afterBid(state, bidHistory), decision: state.decision + 1 };
+  const last = bidHistory[bidHistory.length - 1];
+  const next = { ...afterBid(state, bidHistory), decision: state.decision + 1 };
+  if (last && last.action === 'bid') noteBidResult('bid', last.amount ?? null, closedBid(next.phase, next.hand?.bidder, next.hand?.bidAmount, HUMAN_ID));
+  else noteBidResult('pass', null, closedBid(next.phase, next.hand?.bidder, next.hand?.bidAmount, HUMAN_ID));
+  return next;
 }
 
 function botDeclare(state: LocalPlayState): Partial<LocalPlayState> {
   if (!state.hand?.bidder || state.hand.bidder === HUMAN_ID) return {};
   const cards = state.hand.hands[state.hand.bidder] ?? [];
   const trump = chooseTrump(cards);
-  return {
-    hand: declareTrumpAndPartners(state.hand, trump, chooseCalledCards(cards, trump, state.gameType)),
-    phase: 'playing',
-  };
+  const called = chooseCalledCards(cards, trump, state.gameType);
+  noteCardsCalled(called.length);
+  return { hand: declareTrumpAndPartners(state.hand, trump, called), phase: 'playing' };
 }
 
 function botPlay(state: LocalPlayState): Partial<LocalPlayState> {

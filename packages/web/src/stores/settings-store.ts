@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { noteSettingsChanged } from '../analytics/table-events';
 
 interface SettingsState {
   alwaysConfirmCardPlay: boolean;
@@ -14,8 +15,14 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       alwaysConfirmCardPlay: true,
       reducedMotion: 'auto',
-      setAlwaysConfirmCardPlay: (value) => set({ alwaysConfirmCardPlay: value }),
-      setReducedMotion: (value) => set({ reducedMotion: value }),
+      setAlwaysConfirmCardPlay: (value) => {
+        set({ alwaysConfirmCardPlay: value });
+        noteSettingsChanged('alwaysConfirmCardPlay', String(value));
+      },
+      setReducedMotion: (value) => {
+        set({ reducedMotion: value });
+        noteSettingsChanged('reducedMotion', value);
+      },
     }),
     { name: 'settings-v1' },
   ),
