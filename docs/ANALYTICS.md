@@ -71,7 +71,8 @@ Storage keys, only while analytics is on:
 | `hand_complete` | The hand has a result | `made`, `bid`, `points`, `bidder_is_human` |
 | `contract_failed` | That result did not make the bid | `bid`, `points` |
 | `first_hand_finished` | The first finished hand for this anonymous id | — |
-| `game_complete` | The player leaves a table that finished at least one hand | `winner` `human`, `bot`, or `tie`, `human_score`, `hands_played` |
+| `game_complete` | A player's running score reaches the target (1000, or `?target=` in dev) | `winner` `human`, `bot`, or `tie`, `human_score`, `hands_played` |
+| `game_abandoned` | New game or Home before the target | `hands_played`, `human_score`, `reason` `new_game` or `home` |
 | `new_game` | The player leaves the table | — |
 | `settings_changed` | A preference setter runs | `key`, `value` |
 | `ad_watched` | Stub. The UI never calls it. Free to play. | — |
@@ -81,5 +82,6 @@ Storage keys, only while analytics is on:
 
 1. Open `/play?analytics=1&debug=1`.
 2. Deal 250, bid, declare, play the hand, then New game.
-3. `window.__analytics.events().map((event) => event.name)` includes, in order: `session_start`, `game_start`, `hand_start`, `bid_placed`, `auction_won`, `cards_called`, `hand_complete`, `first_hand_finished`, `game_complete`, `new_game`.
-4. Press **Export analytics** and confirm the file is the same JSON as `window.__analytics.export()`.
+3. `window.__analytics.events().map((event) => event.name)` includes, in order: `session_start`, `game_start`, `hand_start`, `bid_placed`, `auction_won`, `cards_called`, `hand_complete`, `first_hand_finished`. Leaving with New game adds `game_abandoned` (`reason: 'new_game'`) and `new_game`, and does not add `game_complete`.
+4. A finished match is first to 1000. In dev, `/play?analytics=1&target=1` ends when any score reaches 1, and that result emits `game_complete`.
+5. Press **Export analytics**. It sits in its own row above the title, and the file matches `window.__analytics.export()`.

@@ -7,6 +7,7 @@ import { CardFace } from '../components/cards/CardFace';
 import { HandFan } from '../components/cards/HandFan';
 import { TrickArea } from '../components/online/TrickArea';
 import { HUMAN_ID, useLocalPlayStore } from '../stores/local-play-store';
+import { ExportAnalyticsButton } from '../analytics/ExportAnalyticsButton';
 import { DeclareForm, NewGameButton, Setup } from './local-play-forms';
 import { AuctionRecap, ScoreStrip, privateNotice, scoreExplainer } from './local-table-notes';
 
@@ -32,6 +33,7 @@ export function LocalPlayPage(): JSX.Element {
   const dismissTrick = useLocalPlayStore((s) => s.dismissTrick);
   const nextHand = useLocalPlayStore((s) => s.nextHand);
   const leave = useLocalPlayStore((s) => s.leave);
+  const gameOver = useLocalPlayStore((s) => s.gameOver);
   const { short, wide, height } = useViewport();
   const [canConfirm, setCanConfirm] = useState(false);
   const [blocked, setBlocked] = useState<string | null>(null);
@@ -57,7 +59,14 @@ export function LocalPlayPage(): JSX.Element {
     return () => window.clearTimeout(timer);
   }, [phase, decision, hand?.toPlayerId, hand?.currentTrick.length, bidHistory.length, settledTrick, stepBot]);
 
-  if (phase === 'setup' || !hand) return <Setup onStart={startGame} />;
+  if (phase === 'setup' || !hand) {
+    return (
+      <div className="px-3 pt-2">
+        <ExportAnalyticsButton />
+        <Setup onStart={startGame} />
+      </div>
+    );
+  }
 
   const players = seatOrder.map((id, index) => ({ id, name: names[id] ?? id, seat: index + 1 }));
   const auction = { gameType, playerIds: seatOrder, firstBidderId, bidHistory };
@@ -90,9 +99,10 @@ export function LocalPlayPage(): JSX.Element {
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#F5F1E8]">
     <div className="mx-auto flex h-full min-h-0 w-full max-w-[980px] flex-col px-3 pt-2">
+      <ExportAnalyticsButton />
       <header className="flex shrink-0 items-center justify-between gap-2">
         <h1 className="text-base font-medium">Play vs bots · {gameType}</h1>
-        <span className="flex items-center gap-3"><NewGameButton onAbandon={leave} /><Link to="/" className="text-sm text-stone-600 underline">Home</Link></span>
+        <span className="flex items-center gap-3"><NewGameButton onAbandon={() => leave('new_game')} /><Link to="/" onClick={() => leave('home')} className="text-sm text-stone-600 underline">Home</Link></span>
       </header>
       {!short && <p className="shrink-0 pt-1 text-sm text-stone-500">Free to play. No coins or stakes.</p>}
       <div className="shrink-0 pt-1">
@@ -173,6 +183,7 @@ export function LocalPlayPage(): JSX.Element {
       )}
       {phase === 'scored' && summary && !settledTrick && (
         <section data-testid="hand-complete" className="rounded-xl bg-white p-4">
+          {gameOver && <h2 data-testid="game-over" className="text-lg font-medium">Game over</h2>}
           <h2 className="text-lg font-medium">{summary.bidMade ? 'Bid made' : 'Bid failed'}</h2>
           <p data-testid="score-explainer" className="mt-1 text-sm text-stone-700">{scoreExplainer(gameType)}</p>
           <p className="mt-1 text-sm text-stone-600">
@@ -189,9 +200,11 @@ export function LocalPlayPage(): JSX.Element {
               );
             })}
           </ul>
-          <button type="button" onClick={nextHand} className="mt-4 w-full rounded-xl bg-felt p-4 text-base font-medium text-white">
-            Next hand
-          </button>
+          {!gameOver && (
+            <button type="button" onClick={nextHand} className="mt-4 w-full rounded-xl bg-felt p-4 text-base font-medium text-white">
+              Next hand
+            </button>
+          )}
         </section>
       )}
       </div>

@@ -8,6 +8,7 @@ import {
   currentHighBid,
   declareTrumpAndPartners,
   finalizeHand,
+  gameWinners,
   getAuctionWinner,
   isAuctionClosed,
   legalPlaysFor,
@@ -25,7 +26,8 @@ import {
   type GameType,
   type Suit,
 } from '@250-500/shared';
-import { closedBid, noteBidResult, noteCardsCalled, noteGameStart, noteHandComplete, noteHandStart, noteLeaveTable, scoresWithPending } from '../analytics/table-events';
+import { currentTarget, localNames, localSeatIds } from '../analytics/local-target';
+import { closedBid, noteAbandoned, noteBidResult, noteCardsCalled, noteGameComplete, noteGameStart, noteHandComplete, noteHandStart, noteNewGame, scoresWithPending, tableWinner } from '../analytics/table-events';
 
 export const HUMAN_ID = 'p1';
 
@@ -58,6 +60,8 @@ interface LocalPlayState {
   decision: number;
   summary: LocalSummary | null;
   settledTrick: SettledTrick | null;
+  targetScore: number;
+  gameOver: boolean;
   startGame: (gameType: GameType, humanName: string) => void;
   bid: (amount: number) => void;
   pass: () => void;
@@ -66,7 +70,7 @@ interface LocalPlayState {
   stepBot: () => void;
   dismissTrick: () => void;
   nextHand: () => void;
-  leave: () => void;
+  leave: (reason?: 'new_game' | 'home') => void;
 }
 
 const SETUP = {
@@ -84,6 +88,8 @@ const SETUP = {
   decision: 0,
   summary: null as LocalSummary | null,
   settledTrick: null as SettledTrick | null,
+  targetScore: 1000,
+  gameOver: false,
 };
 
 /** Local free-to-play table. The human is seat 1. Everyone else is an Easy bot. */
@@ -91,24 +97,27 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
   ...SETUP,
   startGame: (gameType, humanName) => {
     const seed = (Date.now() % 100000) + 1;
-    const seats = seatIds(gameType);
+    const seats = localSeatIds(rulesFor(gameType).PLAYER_COUNT);
     const name = humanName.trim() || 'You';
     set({
       ...SETUP,
       gameType,
       humanName: name,
       seatOrder: seats,
-      names: nameMap(seats, name),
+      names: localNames(seats, HUMAN_ID, name),
       runningScores: Object.fromEntries(seats.map((id) => [id, 0])),
       seed,
       phase: 'bidding',
+      targetScore: currentTarget(),
+      gameOver: false,
     });
     noteGameStart(gameType, 'easy');
     get().nextHand();
   },
   nextHand: () => {
     const state = get();
-    const seats = state.seatOrder.length > 0 ? state.seatOrder : seatIds(state.gameType);
+    if (state.gameOver) return;
+    const seats = state.seatOrder.length > 0 ? state.seatOrder : localSeatIds(rulesFor(state.gameType).PLAYER_COUNT);
     const first = seats[state.handsPlayed % seats.length] ?? HUMAN_ID;
     const hand = startHand({
       gameType: state.gameType,
@@ -162,34 +171,35 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
       set({ settledTrick: null });
       return;
     }
+    if (state.gameOver) {
+      set({ settledTrick: null });
+      return;
+    }
     const runningScores = { ...state.runningScores };
     for (const [id, delta] of Object.entries(state.summary.scoreDeltas)) {
       runningScores[id] = (runningScores[id] ?? 0) + delta;
     }
-    set({ settledTrick: null, phase: 'scored', runningScores });
+    const ended = gameWinners(runningScores, state.targetScore).length > 0;
+    if (ended) {
+      const result = tableWinner(runningScores, HUMAN_ID);
+      noteGameComplete(result.winner, result.humanScore, state.handsPlayed);
+    }
+    set({ settledTrick: null, phase: 'scored', runningScores, gameOver: ended });
   },
-  leave: () => {
+  leave: (reason = 'new_game') => {
     const state = get();
-    const pending = state.summary && state.phase !== 'scored' ? state.summary.scoreDeltas : null;
-    noteLeaveTable(state.phase, state.handsPlayed, scoresWithPending(state.runningScores, pending, false), HUMAN_ID);
+    if (state.phase !== 'setup' && !state.gameOver) {
+      const pending = state.summary && state.phase !== 'scored' ? state.summary.scoreDeltas : null;
+      const scores = scoresWithPending(state.runningScores, pending, false);
+      noteAbandoned(state.handsPlayed, scores[HUMAN_ID] ?? 0, reason);
+    }
+    if (state.phase !== 'setup') noteNewGame();
     set({ ...SETUP });
   },
 }));
 
 if (import.meta.env.DEV && typeof window !== 'undefined') {
   (window as unknown as { __localPlay?: typeof useLocalPlayStore }).__localPlay = useLocalPlayStore;
-}
-
-function seatIds(gameType: GameType): string[] {
-  return Array.from({ length: rulesFor(gameType).PLAYER_COUNT }, (_, index) => `p${index + 1}`);
-}
-
-function nameMap(seats: string[], humanName: string): Record<string, string> {
-  const names: Record<string, string> = {};
-  seats.forEach((id, index) => {
-    names[id] = id === HUMAN_ID ? humanName : `Bot ${index + 1}`;
-  });
-  return names;
 }
 
 function auctionOf(state: LocalPlayState) {
@@ -221,9 +231,7 @@ function applyCard(state: LocalPlayState, playerId: string, card: Card): Partial
   if (summary && !state.summary) {
     noteHandComplete(summary.bidMade, summary.bidAmount, summary.pointsCollected, summary.bidder === HUMAN_ID, state.handsPlayed === 0);
   }
-  // Keep the table on the trick until the pause ends, including the last trick.
   if (settledTrick && next.phase === 'scored') {
-    // Scores stay put until the result screen. The summary holds the deltas.
     return { ...next, runningScores: state.runningScores, phase: 'playing', settledTrick, decision: state.decision + 1 };
   }
   return { ...next, settledTrick, decision: state.decision + 1 };
