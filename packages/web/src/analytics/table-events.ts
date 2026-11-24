@@ -79,14 +79,9 @@ export function closedBid(phase: string | undefined, bidder: string | null | und
   return { human: bidder === humanId, bid };
 }
 
-/** The player abandoned the table. A finished hand also emits game_complete. */
-export function noteLeaveTable(phase: string, handsPlayed: number, scores: Record<string, number>, humanId: string): void {
-  if (phase === 'setup') return;
-  if (handsPlayed > 0) {
-    const result = tableWinner(scores, humanId);
-    noteGameComplete(result.winner, result.humanScore, handsPlayed);
-  }
-  noteNewGame();
+/** The player left before anyone reached the target. This is not a finished game. */
+export function noteAbandoned(handsPlayed: number, humanScore: number, reason: 'new_game' | 'home'): void {
+  track('game_abandoned', { hands_played: handsPlayed, human_score: humanScore, reason });
 }
 
 /** The player abandoned the table. */

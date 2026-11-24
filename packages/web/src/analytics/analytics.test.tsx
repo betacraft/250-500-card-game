@@ -4,6 +4,7 @@ import { legalPlaysFor, nextBidder, rulesFor } from '@250-500/shared';
 import { ExportAnalyticsButton } from './ExportAnalyticsButton';
 import { isAnalyticsEnabled } from './flag';
 import { installAnalytics, resetAnalyticsForTests } from './index';
+import { setLocalTargetForTests } from './local-target';
 import { registerSink, track } from './track';
 import { noteHandComplete, noteSettingsChanged, trackAdWatched, trackPurchase } from './table-events';
 import type { AnalyticsEvent } from './types';
@@ -200,11 +201,65 @@ describe('table events', () => {
     trackAdWatched();
     trackPurchase();
     expect(names()).toEqual(expect.arrayContaining(['ad_watched', 'purchase']));
-    useLocalPlayStore.getState().leave();
-    expect(one('game_complete').props.hands_played).toBe(1);
+    useLocalPlayStore.getState().leave('new_game');
+    expect(names()).not.toContain('game_complete');
+    expect(one('game_abandoned').props).toMatchObject({ hands_played: 1, reason: 'new_game' });
+    expect(typeof one('game_abandoned').props.human_score).toBe('number');
+    const order = names();
+    expect(order.indexOf('game_abandoned')).toBeLessThan(order.indexOf('new_game'));
+  });
+
+  it('emits game_complete only when a score reaches the target', () => {
+    setLocalTargetForTests(1);
+    enable();
+    const store = useLocalPlayStore;
+    store.getState().startGame('250', 'Ada');
+    for (let hands = 0; hands < 8 && !store.getState().gameOver; hands += 1) {
+      for (let guard = 0; guard < 800 && store.getState().phase !== 'scored' && !store.getState().gameOver; guard += 1) {
+        const state = store.getState();
+        if (state.settledTrick) {
+          store.getState().dismissTrick();
+          continue;
+        }
+        if (state.phase === 'bidding') {
+          const turn = nextBidder({ gameType: state.gameType, playerIds: state.seatOrder, firstBidderId: state.firstBidderId, bidHistory: state.bidHistory });
+          if (turn === HUMAN_ID) store.getState().pass();
+          else store.getState().stepBot();
+          continue;
+        }
+        if (state.phase === 'declaring' && state.hand) {
+          if (state.hand.bidder === HUMAN_ID) {
+            const held = state.hand.hands[HUMAN_ID] ?? [];
+            store.getState().declare(held[0]?.suit ?? 'spades', held.slice(0, rulesFor('250').PARTNERS_TO_CALL));
+          } else store.getState().stepBot();
+          continue;
+        }
+        if (state.phase === 'playing' && state.hand?.toPlayerId) {
+          if (state.hand.toPlayerId === HUMAN_ID) {
+            const card = legalPlaysFor(state.hand, HUMAN_ID)[0];
+            if (!card) throw new Error('no legal card');
+            store.getState().play(card);
+          } else store.getState().stepBot();
+        }
+      }
+      if (!store.getState().gameOver && store.getState().phase === 'scored') store.getState().nextHand();
+    }
+    expect(store.getState().gameOver).toBe(true);
+    expect(names().filter((name) => name === 'game_complete')).toHaveLength(1);
     expect(typeof one('game_complete').props.human_score).toBe('number');
     expect(['human', 'bot', 'tie']).toContain(one('game_complete').props.winner);
-    const order = names();
-    expect(order.indexOf('game_complete')).toBeLessThan(order.indexOf('new_game'));
+    expect(Number(one('game_complete').props.hands_played)).toBeGreaterThan(0);
+    store.getState().leave('home');
+    expect(names().filter((name) => name === 'game_complete')).toHaveLength(1);
+    expect(names()).not.toContain('game_abandoned');
+    setLocalTargetForTests(null);
+  });
+
+  it('records home as an abandon', () => {
+    enable();
+    useLocalPlayStore.getState().startGame('250', 'Ada');
+    useLocalPlayStore.getState().leave('home');
+    expect(names()).not.toContain('game_complete');
+    expect(one('game_abandoned').props).toEqual({ hands_played: 0, human_score: 0, reason: 'home' });
   });
 });

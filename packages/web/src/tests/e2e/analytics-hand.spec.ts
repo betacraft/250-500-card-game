@@ -22,6 +22,7 @@ test.describe('analytics during a real hand', () => {
       await page.keyboard.type('Ada');
       await page.getByTestId('start-vs-bots').click();
       await page.getByTestId('hand-fan').waitFor();
+      if (view.width === 390) await assertExportClear(page, true);
       for (let guard = 0; guard < 16; guard += 1) {
         const bid = page.getByRole('button', { name: /^Bid / });
         await expect(bid.or(page.getByTestId('declare-form')).or(page.getByText('Your turn'))).toBeVisible({ timeout: 20_000 });
@@ -47,7 +48,7 @@ test.describe('analytics during a real hand', () => {
       expect(download.suggestedFilename()).toBe('analytics.json');
       const order = events.map((event) => event.name);
       let cursor = 0;
-      for (const name of ['session_start', 'game_start', 'hand_start', 'bid_placed', 'auction_won', 'cards_called', 'hand_complete', 'first_hand_finished', 'game_complete', 'new_game']) {
+      for (const name of ['session_start', 'game_start', 'hand_start', 'bid_placed', 'auction_won', 'cards_called', 'hand_complete', 'first_hand_finished', 'game_abandoned', 'new_game']) {
         const at = order.indexOf(name, cursor);
         expect(at, name).toBeGreaterThanOrEqual(0);
         cursor = at + 1;
@@ -59,13 +60,97 @@ test.describe('analytics during a real hand', () => {
       expect(typeof complete?.props.bidder_is_human).toBe('boolean');
       expect(events.find((event) => event.name === 'bid_placed')?.props.action === 'bid' || events.find((event) => event.name === 'bid_placed')?.props.action === 'pass').toBe(true);
       expect(events.find((event) => event.name === 'session_end')).toBeUndefined();
+      expect(events.find((event) => event.name === 'game_complete')).toBeUndefined();
+      expect(events.find((event) => event.name === 'game_abandoned')?.props).toMatchObject({ reason: 'new_game', hands_played: 1 });
       expect(events.every((event) => event.game === '250' || event.name === 'session_start' || event.name === 'new_game' || event.game === null)).toBe(true);
       const exported = JSON.parse(await page.evaluate(() => window.__analytics?.export() ?? '{}')) as { enabled: boolean };
       expect(exported.enabled).toBe(true);
       expect(errors, errors.join('\n')).toEqual([]);
     });
+
+    test(`export button clears the header at ${view.width}x${view.height}`, async ({ page }) => {
+      await page.setViewportSize(view);
+      await page.goto('/play?analytics=1&debug=1');
+      await page.getByRole('button', { name: /^250/ }).click();
+      await page.getByLabel('Your name').click();
+      await page.keyboard.type('Ada');
+      await page.getByTestId('start-vs-bots').click();
+      await page.getByTestId('hand-fan').waitFor();
+      await assertExportClear(page, view.height > 760);
+    });
   }
+
+  test('export button clears the header at 360x740', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 740 });
+    await page.goto('/play?analytics=1&debug=1');
+    await page.getByRole('button', { name: /^250/ }).click();
+    await page.getByLabel('Your name').click();
+    await page.keyboard.type('Ada');
+    await page.getByTestId('start-vs-bots').click();
+    await page.getByTestId('hand-fan').waitFor();
+    await assertExportClear(page, false);
+    await page.screenshot({ path: '/opt/cursor/artifacts/analytics-export-360.png', fullPage: false });
+  });
+
+  test('a short target ends the game for real', async ({ page }) => {
+    test.setTimeout(180_000);
+    const errors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') errors.push(msg.text());
+    });
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await page.goto('/play?analytics=1&debug=1&target=1');
+    await page.getByRole('button', { name: /^250/ }).click();
+    await page.getByLabel('Your name').click();
+    await page.keyboard.type('Ada');
+    await page.getByTestId('start-vs-bots').click();
+    await page.getByTestId('hand-fan').waitFor();
+    for (let hand = 0; hand < 8; hand += 1) {
+      await passAuction(page);
+      await finishHand(page);
+      if (await page.getByTestId('game-over').isVisible().catch(() => false)) break;
+      await page.getByRole('button', { name: 'Next hand' }).click();
+    }
+    await expect(page.getByTestId('game-over')).toBeVisible();
+    await page.screenshot({ path: '/opt/cursor/artifacts/analytics-game-over-1366.png', fullPage: false });
+    const events = await page.evaluate(() => window.__analytics?.events() ?? []);
+    writeFileSync('/opt/cursor/artifacts/analytics-events-game-over.json', JSON.stringify(events, null, 2));
+    expect(events.some((event) => event.name === 'game_complete')).toBe(true);
+    expect(events.some((event) => event.name === 'game_abandoned')).toBe(false);
+    const complete = events.find((event) => event.name === 'game_complete');
+    expect(Number(complete?.props.hands_played)).toBeGreaterThan(0);
+    expect(['human', 'bot', 'tie']).toContain(complete?.props.winner);
+    expect(errors, errors.join('\n')).toEqual([]);
+  });
 });
+
+async function passAuction(page: Page): Promise<void> {
+  for (let guard = 0; guard < 16; guard += 1) {
+    const pass = page.getByRole('button', { name: 'Pass', exact: true });
+    await expect(pass.or(page.getByTestId('declare-form')).or(page.getByText('Your turn'))).toBeVisible({ timeout: 20_000 });
+    if (!(await pass.isVisible().catch(() => false))) return;
+    await pass.click();
+  }
+}
+
+function boxesOverlap(a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }): boolean {
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+}
+
+async function assertExportClear(page: Page, stakes: boolean): Promise<void> {
+  const button = await page.getByTestId('export-analytics').boundingBox();
+  const title = await page.getByRole('heading', { name: /Play vs bots/ }).boundingBox();
+  const home = await page.getByRole('link', { name: 'Home' }).boundingBox();
+  if (!button || !title || !home) throw new Error('missing header box');
+  expect(button.height).toBeGreaterThanOrEqual(44);
+  expect(boxesOverlap(button, title)).toBe(false);
+  expect(boxesOverlap(button, home)).toBe(false);
+  if (!stakes) return;
+  const line = await page.getByText('Free to play. No coins or stakes.').boundingBox();
+  if (!line) throw new Error('missing stakes line');
+  expect(boxesOverlap(button, line)).toBe(false);
+}
 
 async function finishHand(page: Page): Promise<void> {
   for (let guard = 0; guard < 500; guard += 1) {

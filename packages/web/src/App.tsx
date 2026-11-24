@@ -5,7 +5,6 @@ import { ScorekeeperHandPage } from './pages/ScorekeeperHandPage';
 import { OnlineHomePage } from './pages/OnlineHomePage';
 import { OnlineLobbyPage } from './pages/OnlineLobbyPage';
 import { OnlineGamePage } from './pages/OnlineGamePage';
-import { ExportAnalyticsButton } from './analytics/ExportAnalyticsButton';
 import { LocalPlayPage } from './pages/LocalPlayPage';
 import { SuitLabelSheet } from './pages/SuitLabelSheet';
 
@@ -13,8 +12,6 @@ import { SuitLabelSheet } from './pages/SuitLabelSheet';
  * `/` HomePage, `/scorekeeper/*` Scorekeeper flows, `/online/*` Online flows. */
 export function App(): JSX.Element {
   return (
-    <>
-    <ExportAnalyticsButton />
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/scorekeeper/setup" element={<ScorekeeperSetupPage />} />
@@ -25,6 +22,5 @@ export function App(): JSX.Element {
       <Route path="/play" element={<LocalPlayPage />} />
       <Route path="/suit-labels" element={<SuitLabelSheet />} />
     </Routes>
-    </>
   );
 }

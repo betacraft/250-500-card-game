@@ -11,14 +11,16 @@ export function ExportAnalyticsButton(): JSX.Element | null {
   }
   if (!debug) return null;
   return (
-    <button
-      type="button"
-      data-testid="export-analytics"
-      onClick={downloadAnalytics}
-      className="fixed left-2 top-2 z-50 min-h-11 rounded-xl bg-white px-3 text-sm font-medium text-stone-800 shadow"
-    >
-      Export analytics
-    </button>
+    <div className="shrink-0 pt-1">
+      <button
+        type="button"
+        data-testid="export-analytics"
+        onClick={downloadAnalytics}
+        className="min-h-11 rounded-xl bg-white px-3 text-sm font-medium text-stone-800 shadow"
+      >
+        Export analytics
+      </button>
+    </div>
   );
 }
 
