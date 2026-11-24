@@ -127,6 +127,7 @@ export function LocalPlayPage(): JSX.Element {
           narrow={!wide}
           turnId={chipCue()?.turnId ?? (phase === 'scored' ? null : phase === 'playing' ? hand.toPlayerId : phase === 'bidding' ? turn : hand.bidder)}
           bidderId={chipCue()?.bidderId ?? hand.bidder}
+          selfId={HUMAN_ID}
         />
       </div>
       <div data-testid="play-scroll" className="min-h-0 flex-1 overflow-y-auto py-2">
@@ -218,7 +219,7 @@ export function LocalPlayPage(): JSX.Element {
       )}
       </div>
       {docked && (
-        <div data-testid="hand-dock" className="shrink-0 pb-[env(safe-area-inset-bottom)]">
+        <div data-testid="hand-dock" className="shrink-0 pb-[max(env(safe-area-inset-bottom),12px)]">
           {fan}
           {humanDeclaring && (
             <div className="py-2">

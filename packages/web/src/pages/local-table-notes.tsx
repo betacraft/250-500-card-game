@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from 'react';
 import { cardId, type BidEntry, type Card, type GameType, type PartnerSlot, type Suit } from '@250-500/shared';
 import { SuitIcon } from '../components/shared/SuitIcon';
 import { HUMAN_ID } from '../stores/local-play-store';
@@ -67,17 +68,20 @@ export function ScoreStrip({
   narrow = false,
   turnId = null,
   bidderId = null,
+  selfId = null,
 }: {
   names: Record<string, string>;
   scores: Record<string, number>;
   order: string[];
   chips?: boolean;
-  /** Narrow window: wrap chips so the name and score are not clipped. */
+  /** Narrow window: 12px text, wrapping to two rows when one row would be smaller. */
   narrow?: boolean;
   /** Player about to act. Drawn with the turn ring. */
   turnId?: string | null;
   /** Winning bidder, once the auction has a winner. Drawn with the bidder ring. */
   bidderId?: string | null;
+  /** This player's chip is drawn first on a phone. */
+  selfId?: string | null;
 }): JSX.Element {
   const items = order.map((id) => ({
     id,
@@ -86,11 +90,12 @@ export function ScoreStrip({
     turn: id === turnId,
     bidder: id === bidderId,
   }));
+  if (chips && narrow) return <PhoneChips items={selfFirst(items, selfId)} />;
   if (chips) {
     return (
-      <ul data-testid="score-strip" className="flex flex-nowrap items-start justify-center gap-0.5">
+      <ul data-testid="score-strip" data-rows="1" className="flex flex-nowrap items-start justify-center gap-0.5">
         {items.map((item) => (
-          <ScoreChip key={item.id} item={item} label={narrow ? shortScoreLabel(item.name) : item.name} compact={narrow} />
+          <ScoreChip key={item.id} item={item} label={item.name} compact={false} />
         ))}
       </ul>
     );
@@ -110,6 +115,50 @@ export function ScoreStrip({
         </li>
       ))}
     </ul>
+  );
+}
+
+interface ChipItem {
+  id: string;
+  name: string;
+  score: number;
+  turn: boolean;
+  bidder: boolean;
+}
+
+function selfFirst(items: ChipItem[], selfId: string | null): ChipItem[] {
+  if (!selfId) return items;
+  const self = items.find((item) => item.id === selfId);
+  if (!self) return items;
+  return [self, ...items.filter((item) => item.id !== selfId)];
+}
+
+/** Two rows of 12px chips when one row would be tighter than 12px. */
+function PhoneChips({ items }: { items: ChipItem[] }): JSX.Element {
+  const ref = useRef<HTMLDivElement>(null);
+  const [split, setSplit] = useState(false);
+  const signature = items.map((item) => `${item.id}:${item.score}:${item.turn}:${item.bidder}`).join('|');
+  useLayoutEffect(() => {
+    const root = ref.current;
+    if (!root) return;
+    const chips = [...root.querySelectorAll('[data-testid="score-chip"]')];
+    const gap = 4;
+    const needed = chips.reduce((sum, chip) => sum + (chip instanceof HTMLElement ? chip.offsetWidth : 0), 0) + gap * Math.max(chips.length - 1, 0);
+    const next = chips.length > 3 && needed > root.clientWidth + 1;
+    setSplit((prev) => (prev === next ? prev : next));
+  }, [signature]);
+  const mid = Math.ceil(items.length / 2);
+  const rows = split ? [items.slice(0, mid), items.slice(mid)] : [items];
+  return (
+    <div ref={ref} data-testid="score-strip" data-rows={rows.length} className="flex w-full flex-col items-center gap-1">
+      {rows.map((row, index) => (
+        <ul key={row[0]?.id ?? index} className="flex max-w-full flex-nowrap items-stretch justify-center gap-1">
+          {row.map((item) => (
+            <ScoreChip key={item.id} item={item} label={shortScoreLabel(item.name)} compact />
+          ))}
+        </ul>
+      ))}
+    </div>
   );
 }
 
@@ -137,16 +186,18 @@ function ScoreChip({
     </>
   );
   if (compact) {
+    const frame = item.bidder ? 'border-dashed border-[#8A6700]' : 'border-transparent';
+    const ring = item.turn ? 'ring-2 ring-inset ring-felt' : '';
     return (
       <li
         data-testid="score-chip"
         title={item.name}
         aria-label={`${item.name} ${item.score}`}
-        className={chipClass(item, 'flex w-max shrink-0 flex-col items-center rounded-2xl bg-white px-px py-0.5 text-center text-[11px] leading-none text-stone-700')}
+        className={`flex w-max shrink-0 flex-col items-center justify-center rounded-2xl border-2 bg-white px-1 py-1 text-center text-xs leading-none text-stone-700 ${frame} ${ring}`}
       >
-        {(item.turn || item.bidder) && <span className="flex items-center gap-px">{marks}</span>}
-        <span data-testid="score-chip-text" className="whitespace-nowrap">{label}</span>
-        <span data-testid="score-chip-score" className="whitespace-nowrap tabular-nums">{item.score}</span>
+        <span className="flex h-4 items-center justify-center gap-0.5">{marks}</span>
+        <span data-testid="score-chip-text" className="mt-0.5 whitespace-nowrap">{label}</span>
+        <span data-testid="score-chip-score" className="mt-0.5 whitespace-nowrap tabular-nums">{item.score}</span>
       </li>
     );
   }

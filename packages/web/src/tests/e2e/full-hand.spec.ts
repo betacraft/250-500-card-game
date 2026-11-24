@@ -30,7 +30,12 @@ test.describe('full hands from the real controls', () => {
         if (view.width === 360 || view.width === 390) {
           await assertSlivers(page);
           if (variant === '500') await assertFanFits(page);
-          if (variant === '500' && view.width === 360) await saveShot(page, '/opt/cursor/artifacts/fan-500-360-12.png', false);
+          if (variant === '500' && view.width === 360) {
+            await saveShot(page, '/opt/cursor/artifacts/fan-500-360-12.png', false);
+            await saveShot(page, '/opt/cursor/artifacts/bottom-pad-500-360.png', false);
+            const pad = await page.getByTestId('hand-dock').evaluate((node) => Number.parseFloat(getComputedStyle(node).paddingBottom));
+            expect(pad).toBeGreaterThanOrEqual(12);
+          }
           if (variant === '500' && view.width === 390) await saveShot(page, '/opt/cursor/artifacts/fan-500-390-12.png', false);
         }
         await loseAuction(page, input);
@@ -536,7 +541,7 @@ test('the latest card tap is the one that is played', async ({ page }) => {
   await expect(page.getByText('Your turn')).toBeVisible({ timeout: 20_000 });
   const still = await controlBoxes(page);
   await clickCentre(page, page.getByTestId('confirm-play'), 'mouse', true);
-  await expect(page.getByTestId('disabled-reason')).toContainText(/choose a card/i);
+  await expect(page.getByTestId('disabled-reason')).toContainText('Tap a card, then Play');
   expect(await controlBoxes(page)).toBe(still);
   const legal = page.locator('[data-testid="hand-card"][aria-disabled="false"]');
   const first = legal.first();

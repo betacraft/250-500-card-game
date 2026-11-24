@@ -82,7 +82,7 @@ export function HandFan({
     const now = live.current;
     const card = selectedRef.current;
     if (!now.canPlay || !card) {
-      now.onBlocked?.(now.canPlay ? 'Choose a card first' : 'Wait for your turn');
+      now.onBlocked?.(now.canPlay ? 'Tap a card, then Play' : 'Wait for your turn');
       return;
     }
     selectedRef.current = null;
@@ -113,27 +113,34 @@ export function HandFan({
               event.preventDefault();
               choose(card, legal);
             }}
+            data-selected={isSelected ? 'true' : 'false'}
             className="absolute bg-transparent p-0 touch-manipulation focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-[#0F766E]"
             style={{
               left: metrics.left(index),
               bottom: metrics.bottom(index),
               width: faceW,
               height: faceW * 1.4,
-              zIndex: isSelected ? 30 : index + 1,
-              transform: `rotate(${angle}deg) translateY(${isSelected ? -18 : 0}px)`,
+              zIndex: index + 1,
+              transform: `rotate(${angle}deg)`,
               transformOrigin: 'bottom center',
             }}
           >
-            <CardFace
-              card={card}
-              width={faceW}
-              selected={isSelected}
-              playable={canPlay && legal && !isSelected}
-              disabled={!legal}
-              trump={trump === card.suit}
-              called={calledIds?.has(cardId(card)) ?? false}
-              thirty={thirtySuits?.has(card.suit) === true && card.rank === '3'}
-            />
+            <span
+              data-testid="card-lift"
+              className="block h-full w-full"
+              style={{ transform: isSelected ? 'translateY(-18px)' : undefined, pointerEvents: 'none' }}
+            >
+              <CardFace
+                card={card}
+                width={faceW}
+                selected={isSelected}
+                playable={canPlay && legal && !isSelected}
+                disabled={!legal}
+                trump={trump === card.suit}
+                called={calledIds?.has(cardId(card)) ?? false}
+                thirty={thirtySuits?.has(card.suit) === true && card.rank === '3'}
+              />
+            </span>
           </button>
         );
       })}
