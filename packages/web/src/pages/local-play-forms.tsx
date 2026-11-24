@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import type { Card, GameType, Suit } from '@250-500/shared';
 import { PartnerPicker } from '../components/shared/PartnerPicker';
@@ -75,10 +75,21 @@ export function DeclareForm({
 }): JSX.Element {
   const [trump, setTrump] = useState<Suit | null>(null);
   const [called, setCalled] = useState<Card[]>([]);
+  const trumpRef = useRef(trump);
+  const calledRef = useRef(called);
+  trumpRef.current = trump;
+  calledRef.current = called;
   const ready = trump !== null && called.length === need;
-  useEffect(() => { onCanConfirm(ready); }, [onCanConfirm, ready]);
+  useLayoutEffect(() => { onCanConfirm(ready); }, [onCanConfirm, ready]);
+  const submit = (event: FormEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    const currentTrump = trumpRef.current;
+    const currentCalled = calledRef.current;
+    if (!currentTrump || currentCalled.length !== need) return;
+    onDeclare(currentTrump, currentCalled);
+  };
   return (
-    <form id="declare-form" data-testid="declare-form" className={compact && wide ? 'flex flex-col gap-0' : compact ? 'flex flex-col gap-1' : 'flex flex-col gap-3'} onSubmit={(event) => { event.preventDefault(); if (trump) onDeclare(trump, called); }}>
+    <form id="declare-form" data-testid="declare-form" className={compact && wide ? 'flex flex-col gap-0' : compact ? 'flex flex-col gap-1' : 'flex flex-col gap-3'} onSubmit={submit}>
       <p data-testid="declare-instruction" className="text-sm leading-snug text-stone-800">
         <span className="font-medium">You won the bid. Name trump and {need} cards. </span>
         <span data-testid="score-explainer" className="text-stone-700">{scoreExplainer(gameType, compact)}</span>
