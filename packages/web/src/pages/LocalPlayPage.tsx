@@ -120,10 +120,10 @@ export function LocalPlayPage(): JSX.Element {
           selfId={HUMAN_ID}
         />
       </div>
-      <div data-testid="play-scroll" className="flex min-h-0 flex-1 flex-col overflow-hidden py-2">
+      <div data-testid="play-scroll" className={`flex min-h-0 flex-1 flex-col overflow-hidden ${gameOver && height <= 500 ? 'py-1' : 'py-2'}`}>
       <div className="shrink-0">
       {!(gameOver && height <= 500) && <TableStatus hand={hand} names={names} />}
-      <p data-testid="disabled-reason" role="status" className="pointer-events-none h-5 overflow-hidden text-sm font-medium leading-5 text-red-700">{blocked ?? ''}</p>
+      {!(gameOver && height <= 500) && <p data-testid="disabled-reason" role="status" className="pointer-events-none h-5 overflow-hidden text-sm font-medium leading-5 text-red-700">{blocked ?? ''}</p>}
       {phase !== 'bidding' && !(humanDeclaring && (short || !wide)) && !(gameOver && height <= 500) && (
         <AuctionRecap
           history={bidHistory}
@@ -136,7 +136,7 @@ export function LocalPlayPage(): JSX.Element {
       )}
       {notice && <p data-testid="private-partner" className="text-sm font-medium text-felt">{notice}</p>}
       </div>
-      <div className="min-h-0 flex-1 overflow-hidden">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
       {phase === 'bidding' && turn === HUMAN_ID && !settledTrick && (
         <div data-testid="bid-pass" className="h-full">
           <BiddingFlow
@@ -156,7 +156,7 @@ export function LocalPlayPage(): JSX.Element {
         </div>
       )}
       {!(phase === 'bidding' && turn === HUMAN_ID && !settledTrick) && (
-      <div className={gameOver && height <= 500 ? 'h-full overflow-hidden' : 'h-full overflow-y-auto'}>
+      <div className={gameOver && height <= 500 ? 'absolute inset-0' : 'h-full overflow-y-auto'}>
       {phase === 'bidding' && turn !== HUMAN_ID && <p className="text-sm text-stone-600">Bots are bidding…</p>}
       {phase === 'declaring' && hand.bidder === HUMAN_ID && (
         <DeclareForm
@@ -192,9 +192,14 @@ export function LocalPlayPage(): JSX.Element {
         </p>
       )}
       {phase === 'scored' && summary && !settledTrick && (
-        <section data-testid="hand-complete" className={`rounded-xl bg-white p-3 ${gameOver && height <= 500 ? 'h-full min-h-0 touch-pan-y overflow-y-auto overscroll-contain' : gameOver ? 'max-h-full overflow-y-auto' : ''}`}>
+        <section data-testid="hand-complete" className={`rounded-xl bg-white p-3 ${gameOver && height <= 500 ? 'h-full max-h-[230px] touch-pan-y overflow-y-auto overscroll-contain' : gameOver ? 'max-h-full overflow-y-auto' : ''}`}>
           {gameOver && <h2 data-testid="game-over" className="text-lg font-medium">Game over</h2>}
           <h2 className="text-lg font-medium">{summary.bidMade ? 'Bid made' : 'Bid failed'}</h2>
+          {gameOver && height <= 500 && (
+            <p data-testid="your-result" className="mt-1 text-base font-medium">
+              You {scoreText(summary.scoreDeltas[HUMAN_ID] ?? 0)} ({summary.bidder === HUMAN_ID ? 'bidder' : summary.partners.includes(HUMAN_ID) ? 'partner' : 'opponent'})
+            </p>
+          )}
           <p data-testid="score-explainer" className="mt-1 text-sm text-stone-700">{scoreExplainer(gameType)}</p>
           <p className="mt-1 text-sm text-stone-600">
             {names[summary.bidder] ?? 'Bidder'} bid {summary.bidAmount}. Team collected {summary.pointsCollected}.
@@ -203,7 +208,7 @@ export function LocalPlayPage(): JSX.Element {
             {seatOrder.map((id) => {
               const delta = summary.scoreDeltas[id] ?? 0;
               return (
-                <li key={id} data-testid="score-delta" className="flex justify-between py-0.5">
+                <li key={id} data-testid="score-delta" data-role={id === summary.bidder ? 'bidder' : summary.partners.includes(id) ? 'partner' : 'seat'} className="flex justify-between py-px text-sm leading-5">
                   <span>{names[id] ?? id}{id === summary.bidder ? ' (bidder)' : summary.partners.includes(id) ? ' (partner)' : ''}</span>
                   <span className="tabular-nums">{delta > 0 ? `+${delta}` : delta}</span>
                 </li>
@@ -224,7 +229,7 @@ export function LocalPlayPage(): JSX.Element {
       {docked && (
         <div data-testid="hand-dock" className="hand-dock shrink-0">
           {gameOver ? (
-            <button type="button" data-testid="play-again" onClick={playAgain} className="min-h-11 w-full rounded-xl bg-felt p-4 text-base font-medium text-white focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#0F766E]">
+            <button type="button" data-testid="play-again" onClick={playAgain} className={`min-h-11 w-full rounded-xl bg-felt text-base font-medium text-white focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#0F766E] ${height <= 500 ? 'py-2' : 'p-4'}`}>
               Play again
             </button>
           ) : (
@@ -247,6 +252,10 @@ export function LocalPlayPage(): JSX.Element {
 }
 
 /** Dev-only cue so a test can show the turn ring and bidder badge together. */
+function scoreText(delta: number): string {
+  return delta > 0 ? `+${delta}` : String(delta);
+}
+
 function chipCue(): { turnId?: string | null; bidderId?: string | null } | null {
   if (!import.meta.env.DEV || typeof window === 'undefined') return null;
   const cue = (window as Window & { __chipCue?: { turnId?: string | null; bidderId?: string | null } }).__chipCue;
