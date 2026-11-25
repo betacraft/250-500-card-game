@@ -33,6 +33,24 @@ describe('scripted table', () => {
     expect(openSummary.scoreDeltas[openSummary.bidder]).toBe(openSummary.bidAmount + 100);
   });
 
+  it('opens a declared hand with nobody revealed, and keeps a reveal on the table', () => {
+    window.history.pushState({}, '', '/play?script=declared');
+    const declared = scriptedOpening('250', 'Ada');
+    expect(declared?.hand.trump).toBe('hearts');
+    expect(declared?.hand.bidAmount).toBe(160);
+    expect(declared?.hand.toPlayerId).toBe('p1');
+    expect(declared?.hand.shownPartners.size).toBe(0);
+    window.history.pushState({}, '', '/play?script=reveal');
+    const reveal = scriptedOpening('250', 'Ada');
+    expect(reveal?.hand.toPlayerId).toBeNull();
+    expect(reveal?.hand.currentTrick).toHaveLength(1);
+    expect(reveal?.hand.shownPartners.size).toBe(1);
+    const five = scriptedOpening('500', 'Ada');
+    expect(five?.hand.toPlayerId).toBeNull();
+    expect(five?.hand.currentTrick.length).toBeGreaterThan(1);
+    expect(five?.hand.slots.some((slot) => slot.filledBy)).toBe(true);
+  });
+
   it('opens a trick the human has not led', () => {
     window.history.pushState({}, '', '/play?script=trick');
     const table = scriptedOpening('250', 'Ada');

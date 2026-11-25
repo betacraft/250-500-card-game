@@ -1,7 +1,15 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { cardId, type BidEntry, type Card, type GameType, type PartnerSlot, type Suit } from '@250-500/shared';
+import { SUIT_FILL } from '../components/cards/suit-glyphs';
 import { SuitIcon } from '../components/shared/SuitIcon';
 import { HUMAN_ID } from '../stores/local-play-store';
+
+const SUIT_GLYPH: Record<Suit, string> = { spades: '♠', hearts: '♥', diamonds: '♦', clubs: '♣' };
+
+/** Tiny "♥ 160" label for the bidder's seat at a short height. */
+export function bidderBidText(suit: Suit, amount: number): string {
+  return `${SUIT_GLYPH[suit]} ${amount}`;
+}
 
 /** Own-hand notice. 500 holders are not partners until a called card is played. */
 export function privateNotice(
@@ -69,6 +77,9 @@ export function ScoreStrip({
   turnId = null,
   bidderId = null,
   selfId = null,
+  partnerIds = [],
+  glowIds = [],
+  bidderBid = null,
 }: {
   names: Record<string, string>;
   scores: Record<string, number>;
@@ -82,13 +93,24 @@ export function ScoreStrip({
   bidderId?: string | null;
   /** This player's chip is drawn first on a phone. */
   selfId?: string | null;
+  /** Partners the table has seen. Unrevealed partners are omitted. */
+  partnerIds?: readonly string[];
+  /** The partner whose toast is up. Their seat glows, then keeps the badge. */
+  glowIds?: readonly string[];
+  /** Suit and bid painted on the bidder's seat. Null keeps the tall-layout status line in charge. */
+  bidderBid?: { suit: Suit; amount: number } | null;
 }): JSX.Element {
+  const partners = new Set(partnerIds);
+  const glowing = new Set(glowIds);
   const items = order.map((id) => ({
     id,
     name: names[id] ?? id,
     score: scores[id] ?? 0,
     turn: id === turnId,
     bidder: id === bidderId,
+    partner: partners.has(id),
+    glow: glowing.has(id),
+    bid: id === bidderId && bidderBid ? bidderBidText(bidderBid.suit, bidderBid.amount) : null,
   }));
   if (chips && narrow) return <PhoneChips items={selfFirst(items, selfId)} />;
   if (chips) {
@@ -124,6 +146,9 @@ interface ChipItem {
   score: number;
   turn: boolean;
   bidder: boolean;
+  partner: boolean;
+  glow: boolean;
+  bid: string | null;
 }
 
 function selfFirst(items: ChipItem[], selfId: string | null): ChipItem[] {
@@ -137,7 +162,7 @@ function selfFirst(items: ChipItem[], selfId: string | null): ChipItem[] {
 function PhoneChips({ items }: { items: ChipItem[] }): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
   const [split, setSplit] = useState(false);
-  const signature = items.map((item) => `${item.id}:${item.score}:${item.turn}:${item.bidder}`).join('|');
+  const signature = items.map((item) => `${item.id}:${item.score}:${item.turn}:${item.bidder}:${item.partner}:${item.glow}:${item.bid ?? ''}`).join('|');
   useLayoutEffect(() => {
     const root = ref.current;
     if (!root) return;
@@ -175,7 +200,7 @@ function ScoreChip({
   label,
   compact,
 }: {
-  item: { id: string; name: string; score: number; turn: boolean; bidder: boolean };
+  item: ChipItem;
   label: string;
   compact: boolean;
 }): JSX.Element {
@@ -183,8 +208,12 @@ function ScoreChip({
     <>
       {item.turn && <TurnPill compact={compact} />}
       {item.bidder && <BidderPill compact={compact} />}
+      {item.partner && <PartnerBadge />}
+      {item.bid && <BidderBid text={item.bid} />}
     </>
   );
+  const labelText = `${item.name} ${item.score}${item.partner ? ' partner' : ''}${item.bid ? ` ${item.bid}` : ''}`;
+  const glow = item.glow ? 'partner-glow' : '';
   if (compact) {
     const frame = item.bidder ? 'border-dashed border-[#8A6700]' : 'border-transparent';
     const ring = item.turn ? 'ring-2 ring-inset ring-felt' : '';
@@ -192,8 +221,8 @@ function ScoreChip({
       <li
         data-testid="score-chip"
         title={item.name}
-        aria-label={`${item.name} ${item.score}`}
-        className={`flex w-max shrink-0 flex-col items-center justify-center rounded-2xl border-2 bg-white px-1 py-1 text-center text-xs leading-none text-stone-700 ${frame} ${ring}`}
+        aria-label={labelText}
+        className={`flex w-max shrink-0 flex-col items-center justify-center rounded-2xl border-2 bg-white px-1 py-1 text-center text-xs leading-none text-stone-700 ${frame} ${ring} ${glow}`}
       >
         <span className="flex h-4 items-center justify-center gap-0.5">{marks}</span>
         <span data-testid="score-chip-text" className="mt-0.5 whitespace-nowrap">{label}</span>
@@ -205,14 +234,31 @@ function ScoreChip({
     <li
       data-testid="score-chip"
       title={item.name}
-      aria-label={`${item.name} ${item.score}`}
-      className={chipClass(item, 'flex shrink-0 items-center justify-center gap-0.5 rounded-full bg-white px-0.5 py-1 text-center text-sm text-stone-700')}
+      aria-label={labelText}
+      className={chipClass(item, `flex shrink-0 items-center justify-center gap-0.5 rounded-full bg-white px-0.5 py-1 text-center text-sm text-stone-700 ${glow}`)}
     >
       {marks}
       <span data-testid="score-chip-text" className="whitespace-nowrap">
         {label} <span data-testid="score-chip-score" className="tabular-nums">{item.score}</span>
       </span>
     </li>
+  );
+}
+
+function PartnerBadge(): JSX.Element {
+  return (
+    <span data-testid="partner-badge" aria-hidden="true" className="inline-flex h-4 min-w-4 items-center justify-center text-[12px] leading-none text-felt">
+      ★
+    </span>
+  );
+}
+
+function BidderBid({ text }: { text: string }): JSX.Element {
+  const suit = (Object.keys(SUIT_GLYPH) as Suit[]).find((name) => text.startsWith(SUIT_GLYPH[name]));
+  return (
+    <span data-testid="bidder-bid" className="whitespace-nowrap text-[10px] font-medium leading-none" style={{ color: suit ? SUIT_FILL[suit] : '#1C1C24' }}>
+      {text}
+    </span>
   );
 }
 

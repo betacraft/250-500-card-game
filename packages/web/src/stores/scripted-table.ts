@@ -17,14 +17,14 @@ import { currentTarget, localNames, localSeatIds } from '../analytics/local-targ
 
 const HUMAN_ID = 'p1';
 
-export type DevScript = 'long' | 'over' | 'trick' | 'reveal';
+export type DevScript = 'long' | 'over' | 'trick' | 'reveal' | 'declared';
 
 /** Dev-only `?script=` values. Production builds never read the query. */
 export function devScript(): DevScript | null {
   if (!import.meta.env.DEV || typeof window === 'undefined') return null;
   try {
     const value = new URLSearchParams(window.location.search).get('script');
-    if (value === 'long' || value === 'over' || value === 'trick' || value === 'reveal') return value;
+    if (value === 'long' || value === 'over' || value === 'trick' || value === 'reveal' || value === 'declared') return value;
   } catch {
     /* ignore a blocked location */
   }
@@ -76,7 +76,7 @@ export interface ScriptedTable {
 /** A scored game or a mid-trick table. Null unless `?script=over` or `?script=trick`. */
 export function scriptedOpening(gameType: GameType, humanName: string): ScriptedTable | null {
   const script = devScript();
-  if (script !== 'over' && script !== 'trick' && script !== 'reveal') return null;
+  if (script !== 'over' && script !== 'trick' && script !== 'reveal' && script !== 'declared') return null;
   const seats = localSeatIds(rulesFor(gameType).PLAYER_COUNT);
   const name = humanName.trim() || 'You';
   const bidder = seats[1] ?? HUMAN_ID;
@@ -84,8 +84,9 @@ export function scriptedOpening(gameType: GameType, humanName: string): Scripted
   const rules = rulesFor(gameType);
   hand = setBidder(hand, bidder, rules.MIN_BID);
   hand = declareTrumpAndPartners(hand, 'hearts', calledFromOthers(hand, bidder, rules.PARTNERS_TO_CALL));
-  if (script === 'reveal') hand = playCalledCard(hand);
-  if (script === 'trick' || script === 'reveal') {
+  if (script === 'declared') hand = { ...hand, toPlayerId: HUMAN_ID };
+  if (script === 'reveal') hand = { ...playCalledCard(hand), toPlayerId: null };
+  if (script === 'trick' || script === 'reveal' || script === 'declared') {
     if (script === 'trick') hand = playUntilHuman(hand);
     return {
       phase: 'playing',
@@ -162,11 +163,37 @@ function playCalledCard(hand: GameHand): GameHand {
       if (seat === hand.bidder) continue;
       const card = (hand.hands[seat] ?? []).find((item) => cardId(item) === face);
       if (!card) continue;
-      const result = playCard({ ...hand, toPlayerId: seat, currentTrick: [] }, seat, card);
-      if (result.ok) return result.state;
+      const played = hand.gameType === '250' ? leadCalled(hand, seat, card) : followCalled(hand, seat, card);
+      if (played) return played;
     }
   }
   return hand;
+}
+
+function leadCalled(hand: GameHand, seat: string, card: Card): GameHand | null {
+  const result = playCard({ ...hand, toPlayerId: seat, currentTrick: [] }, seat, card);
+  return result.ok ? result.state : null;
+}
+
+/** 500 cannot lead a called card. Someone else leads the suit, and this seat's only card of it is the call. */
+function followCalled(hand: GameHand, seat: string, called: Card): GameHand | null {
+  const leaderId = hand.seatOrder.find((id) => id !== seat);
+  if (!leaderId) return null;
+  const hands: Record<string, Card[]> = {};
+  for (const id of hand.seatOrder) hands[id] = [...(hand.hands[id] ?? [])];
+  hands[seat] = (hands[seat] ?? []).filter((card) => card.suit !== called.suit || card.id === called.id);
+  const lead = hand.seatOrder.flatMap((id) => (id === seat ? [] : hands[id] ?? [])).find((card) => card.suit === called.suit)
+    ?? { suit: called.suit, rank: '4' as const, id: 'script-lead' };
+  if (lead.id !== 'script-lead') {
+    for (const id of hand.seatOrder) hands[id] = (hands[id] ?? []).filter((card) => card.id !== lead.id);
+  }
+  const result = playCard({
+    ...hand,
+    hands,
+    currentTrick: [{ playerId: leaderId, card: lead }],
+    toPlayerId: seat,
+  }, seat, called);
+  return result.ok ? result.state : null;
 }
 
 function playUntilHuman(hand: GameHand): GameHand {
