@@ -18,6 +18,14 @@ test.describe('short table keeps the trick and the next hand on screen', () => {
       const next = page.getByTestId('next-hand');
       await expect(next).toBeVisible();
       await expect(page.getByTestId('game-over')).toHaveCount(0);
+      const partnerLabels = await page.locator('[data-role="partner"] > span:first-child').allTextContents();
+      const header = page.getByTestId('partner-names');
+      expect(partnerLabels.length).toBeGreaterThan(0);
+      for (const label of partnerLabels) {
+        const name = label.replace(/\s*\(partner\)\s*/, '').trim();
+        await expect(header).toContainText(name);
+      }
+      await expect(header).not.toContainText('none yet');
       await saveShot(page, `/opt/cursor/artifacts/${item.shot}.png`, false);
       await assertPainted(next);
       const dock = await page.getByTestId('hand-dock').boundingBox();
@@ -62,6 +70,19 @@ test.describe('short table keeps the trick and the next hand on screen', () => {
       await expect(legal).toHaveAttribute('data-selected', 'true');
     });
   }
+
+  test('a called card reveals that partner in the header', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 572 });
+    await page.goto('/play?script=reveal');
+    await page.getByRole('button', { name: /^250/ }).click();
+    await page.getByLabel('Your name').click();
+    await page.keyboard.type('Ada');
+    await page.getByTestId('start-vs-bots').click();
+    const header = page.getByTestId('partner-names');
+    await expect(header).toBeVisible();
+    await expect(header).not.toContainText('none yet');
+    await page.screenshot({ path: '/opt/cursor/artifacts/partner-reveal-midhand.png', fullPage: false });
+  });
 });
 
 async function assertPainted(locator: Locator): Promise<void> {

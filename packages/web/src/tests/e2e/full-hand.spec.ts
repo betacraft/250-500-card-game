@@ -337,8 +337,7 @@ async function finishHand(
       await assertFaceCentres(page);
       await assertTableFacts(page);
       const legal = page.locator('[data-testid="hand-card"][aria-disabled="false"]').first();
-      for (let attempt = 0; attempt < 8; attempt += 1) {
-        if (attempt > 0) await page.waitForTimeout(100);
+      for (let attempt = 0; attempt < 3; attempt += 1) {
         await clickCentre(page, legal, input, true);
         if ((await legal.getAttribute('data-selected')) === 'true') break;
       }
@@ -455,11 +454,29 @@ async function assertFaceCentres(page: Page): Promise<void> {
 }
 
 async function clickCentre(page: Page, locator: Locator, input: 'mouse' | 'touch', pinned: boolean): Promise<void> {
-  await locator.first().waitFor({ state: 'visible' });
-  const point = await locator.first().evaluate(readCentre, pinned);
-  expect(point.ok, point.detail).toBe(true);
-  if (input === 'touch') await page.touchscreen.tap(point.x, point.y);
-  else await page.mouse.click(point.x, point.y);
+  const target = locator.first();
+  await target.waitFor({ state: 'visible' });
+  let detail = 'unset';
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const first = await target.evaluate(readCentre, pinned);
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    const second = await target.evaluate(readCentre, pinned);
+    const box = await target.boundingBox();
+    detail = second.detail;
+    const stable = Boolean(box) && first.ok && second.ok && Math.abs(first.x - second.x) < 0.6 && Math.abs(first.y - second.y) < 0.6;
+    if (!stable || !box) {
+      await page.waitForTimeout(40);
+      continue;
+    }
+    const position = {
+      x: Math.min(Math.max(1, second.x - box.x), Math.max(1, box.width - 1)),
+      y: Math.min(Math.max(1, second.y - box.y), Math.max(1, box.height - 1)),
+    };
+    if (input === 'touch') await page.touchscreen.tap(second.x, second.y);
+    else await target.click({ position, delay: 0, timeout: 5_000 });
+    return;
+  }
+  expect(detail, detail).toBe('stable hit');
 }
 
 async function controlBoxes(page: Page): Promise<string> {

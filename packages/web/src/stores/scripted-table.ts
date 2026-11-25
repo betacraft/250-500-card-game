@@ -17,14 +17,14 @@ import { currentTarget, localNames, localSeatIds } from '../analytics/local-targ
 
 const HUMAN_ID = 'p1';
 
-export type DevScript = 'long' | 'over' | 'trick';
+export type DevScript = 'long' | 'over' | 'trick' | 'reveal';
 
 /** Dev-only `?script=` values. Production builds never read the query. */
 export function devScript(): DevScript | null {
   if (!import.meta.env.DEV || typeof window === 'undefined') return null;
   try {
     const value = new URLSearchParams(window.location.search).get('script');
-    if (value === 'long' || value === 'over' || value === 'trick') return value;
+    if (value === 'long' || value === 'over' || value === 'trick' || value === 'reveal') return value;
   } catch {
     /* ignore a blocked location */
   }
@@ -76,7 +76,7 @@ export interface ScriptedTable {
 /** A scored game or a mid-trick table. Null unless `?script=over` or `?script=trick`. */
 export function scriptedOpening(gameType: GameType, humanName: string): ScriptedTable | null {
   const script = devScript();
-  if (script !== 'over' && script !== 'trick') return null;
+  if (script !== 'over' && script !== 'trick' && script !== 'reveal') return null;
   const seats = localSeatIds(rulesFor(gameType).PLAYER_COUNT);
   const name = humanName.trim() || 'You';
   const bidder = seats[1] ?? HUMAN_ID;
@@ -84,8 +84,9 @@ export function scriptedOpening(gameType: GameType, humanName: string): Scripted
   const rules = rulesFor(gameType);
   hand = setBidder(hand, bidder, rules.MIN_BID);
   hand = declareTrumpAndPartners(hand, 'hearts', calledFromOthers(hand, bidder, rules.PARTNERS_TO_CALL));
-  if (script === 'trick') {
-    hand = playUntilHuman(hand);
+  if (script === 'reveal') hand = playCalledCard(hand);
+  if (script === 'trick' || script === 'reveal') {
+    if (script === 'trick') hand = playUntilHuman(hand);
     return {
       phase: 'playing',
       gameType,
@@ -151,6 +152,21 @@ function calledFromOthers(hand: GameHand, bidder: string, count: number): Card[]
     }
   }
   return found;
+}
+
+function playCalledCard(hand: GameHand): GameHand {
+  if (!hand.bidder) return hand;
+  for (const called of hand.calledCards) {
+    const face = cardId(called);
+    for (const seat of hand.seatOrder) {
+      if (seat === hand.bidder) continue;
+      const card = (hand.hands[seat] ?? []).find((item) => cardId(item) === face);
+      if (!card) continue;
+      const result = playCard({ ...hand, toPlayerId: seat, currentTrick: [] }, seat, card);
+      if (result.ok) return result.state;
+    }
+  }
+  return hand;
 }
 
 function playUntilHuman(hand: GameHand): GameHand {
