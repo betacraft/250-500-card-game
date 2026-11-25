@@ -5,24 +5,27 @@ import type { GameType } from '../games/types';
 /** Build a fresh deck for the given game type.
  * 250: one deck minus 2s = 48 cards.
  * 500: two decks minus 2s = 96 cards (each card appears twice).
+ * Every physical card gets a unique `id` so the two copies of a face stay distinct.
  */
 export function buildDeck(gameType: GameType): Card[] {
   const decks = gameType === '250' ? 1 : 2;
   const cards: Card[] = [];
+  let serial = 0;
   for (let d = 0; d < decks; d++) {
     for (const suit of SUITS_ORDERED) {
       for (const rank of RANKS_ORDERED) {
-        cards.push({ suit, rank });
+        cards.push({ suit, rank, id: `${gameType}-${serial}` });
+        serial += 1;
       }
     }
   }
   return cards;
 }
 
-/** Mulberry32 PRNG for deterministic shuffles in tests. */
-function mulberry32(seed: number): () => number {
+/** Mulberry32 PRNG. Same seed returns the same sequence. */
+export function createRng(seed: number): () => number {
   let a = seed >>> 0;
-  return function () {
+  return function next(): number {
     a = (a + 0x6d2b79f5) >>> 0;
     let t = a;
     t = Math.imul(t ^ (t >>> 15), t | 1);
@@ -33,7 +36,7 @@ function mulberry32(seed: number): () => number {
 
 /** Fisher–Yates shuffle. Pass a seed for deterministic output (testing). */
 export function shuffle<T>(items: readonly T[], seed?: number): T[] {
-  const rand = seed === undefined ? Math.random : mulberry32(seed);
+  const rand = seed === undefined ? Math.random : createRng(seed);
   const out = items.slice();
   for (let i = out.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));

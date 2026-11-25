@@ -1,3 +1,11 @@
+@font-face {
+  font-family: 'Anton';
+  src: url('../assets/fonts/Anton-subset.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -23,10 +31,53 @@ html, body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* Desktop keeps a 12px floor. A touch phone whose env() is 0 still clears a 34px home indicator. */
+.hand-dock {
+  padding-bottom: max(env(safe-area-inset-bottom), 12px);
+}
+
+@media (pointer: coarse) and (max-width: 500px) {
+  .hand-dock {
+    padding-bottom: max(env(safe-area-inset-bottom), 34px);
+  }
+}
+
+@keyframes partner-toast-pop {
+  0% { opacity: 0; transform: scale(0.8); }
+  10% { opacity: 1; transform: scale(1); }
+  83.33% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1); }
+}
+
+@keyframes partner-toast-fade {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  83.33% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes partner-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(26, 110, 74, 0.15); }
+  50% { box-shadow: 0 0 0 4px rgba(26, 110, 74, 0.55); }
+}
+
+.partner-toast-pop { animation: partner-toast-pop 1500ms linear both; }
+.partner-toast-fade { animation: partner-toast-fade 1500ms linear both; }
+.partner-glow { animation: partner-glow 1.5s ease-in-out; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .partner-toast-pop,
+  .partner-toast-fade {
+    animation: partner-toast-fade 1500ms linear both !important;
+  }
+
+  .partner-glow {
+    animation: partner-toast-fade 180ms ease-out both !important;
   }
 }

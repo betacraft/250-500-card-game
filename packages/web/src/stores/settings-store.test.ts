@@ -3,7 +3,7 @@ import { useSettingsStore } from './settings-store';
 
 describe('settings-store', () => {
   beforeEach(() => {
-    useSettingsStore.setState({ alwaysConfirmCardPlay: true, reducedMotion: 'auto' });
+    useSettingsStore.setState({ alwaysConfirmCardPlay: true, reducedMotion: 'auto', soundMuted: false });
   });
 
   it('starts with alwaysConfirmCardPlay = true', () => {
@@ -18,5 +18,11 @@ describe('settings-store', () => {
   it('setReducedMotion updates the value', () => {
     useSettingsStore.getState().setReducedMotion('always');
     expect(useSettingsStore.getState().reducedMotion).toBe('always');
+  });
+
+  it('setSoundMuted silences the reveal chime', () => {
+    expect(useSettingsStore.getState().soundMuted).toBe(false);
+    useSettingsStore.getState().setSoundMuted(true);
+    expect(useSettingsStore.getState().soundMuted).toBe(true);
   });
 });

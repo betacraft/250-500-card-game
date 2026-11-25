@@ -1,8 +1,11 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
+import { installAnalytics } from './analytics';
 import { App } from './App';
 import './styles/globals.css';
+
+installAnalytics();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

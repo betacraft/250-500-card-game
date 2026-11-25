@@ -8,12 +8,18 @@ export type Suit = z.infer<typeof suitSchema>;
 export const rankSchema = z.enum(['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']);
 export type Rank = z.infer<typeof rankSchema>;
 
-/** A single card (suit + rank pair). */
+/** A single card. `id` distinguishes the two physical copies of one face in 500. */
 export const cardSchema = z.object({
   suit: suitSchema,
   rank: rankSchema,
+  id: z.string().min(1).optional(),
 });
 export type Card = z.infer<typeof cardSchema>;
+
+/** React/key identity. Instance id when the card was dealt; face id otherwise. */
+export function cardInstanceKey(card: Card): string {
+  return card.id ?? cardId(card);
+}
 
 /** Stable string identifier for a card (e.g. "Ah" for ace of hearts). Used as React key. */
 export function cardId(card: Card): string {

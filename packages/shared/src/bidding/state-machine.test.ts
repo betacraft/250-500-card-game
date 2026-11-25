@@ -160,6 +160,39 @@ describe('bidding state machine', () => {
     expect(suggestedNextBid(state)).toBe(180);
   });
 
+  it('all-pass forces the remaining player at the floor and rejects their pass', () => {
+    const seats = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'];
+    const history = seats.slice(0, 7).map((playerId) => ({ playerId, action: 'pass' as const }));
+    const state = { gameType: '500' as const, playerIds: seats, firstBidderId: 'p1', bidHistory: history };
+    expect(isAuctionClosed(state)).toBe(true);
+    expect(getAuctionWinner(state)).toEqual({ playerId: 'p8', amount: 300 });
+    expect(validatePass(state, 'p8').ok).toBe(false);
+    const withBid = {
+      ...baseState,
+      bidHistory: [
+        { playerId: 'p1', action: 'bid' as const, amount: 165 },
+        ...['p2', 'p3', 'p4', 'p5', 'p6'].map((playerId) => ({ playerId, action: 'pass' as const })),
+      ],
+    };
+    expect(getAuctionWinner(withBid)).toEqual({ playerId: 'p1', amount: 165 });
+  });
+
+  it('250 all-pass forces the last seat at 160', () => {
+    const history = ['p1', 'p2', 'p3', 'p4', 'p5'].map((playerId) => ({ playerId, action: 'pass' as const }));
+    const state = { ...baseState, bidHistory: history };
+    expect(getAuctionWinner(state)).toEqual({ playerId: 'p6', amount: 160 });
+  });
+
+  it('500: a 305 bid stands when everyone else passes', () => {
+    const seats = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'];
+    const history = [
+      { playerId: 'p1', action: 'bid' as const, amount: 305 },
+      ...seats.slice(1).map((playerId) => ({ playerId, action: 'pass' as const })),
+    ];
+    const state = { gameType: '500' as const, playerIds: seats, firstBidderId: 'p1', bidHistory: history };
+    expect(getAuctionWinner(state)).toEqual({ playerId: 'p1', amount: 305 });
+  });
+
   it('500: validateBid uses 500-specific rules (min 300, max 500)', () => {
     const state500 = { ...baseState, gameType: '500' as const };
     expect(validateBid(state500, 'p1', 250).ok).toBe(false);

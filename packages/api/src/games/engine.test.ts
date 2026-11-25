@@ -35,7 +35,8 @@ describe('GameEngine — declareTrumpAndPartners', () => {
       { suit: 'diamonds', rank: 'K' },
     ]);
     expect(ok.trump).toBe('spades');
-    expect(ok.slots).toHaveLength(2);
+    expect(ok.slots).toHaveLength(0);
+    expect(ok.partners).toBeInstanceOf(Set);
   });
 });
 
@@ -150,6 +151,7 @@ describe('GameEngine — 500 first-3♠/3♥ scoring (RULES.md: only first playe
       partners: new Set(['p2']),
       ended: true,
       first3sPlayed: { spades: 'p1' as string | null, hearts: null },
+      premiumWinner: { spades: 'p1', hearts: null },
       collected: {
         p1: [
           { suit: 'spades' as const, rank: '3' as const },
@@ -178,6 +180,7 @@ describe('GameEngine — 500 first-3♠/3♥ scoring (RULES.md: only first playe
       partners: new Set(['p2']),
       ended: true,
       first3sPlayed: { spades: null, hearts: 'p1' as string | null },
+      premiumWinner: { spades: null, hearts: 'p1' },
       collected: {
         p1: [
           { suit: 'hearts' as const, rank: '3' as const },
@@ -204,6 +207,7 @@ describe('GameEngine — 500 first-3♠/3♥ scoring (RULES.md: only first playe
       partners: new Set(['p2']),
       ended: true,
       first3sPlayed: { spades: 'p1' as string | null, hearts: null },
+      premiumWinner: { spades: 'p1', hearts: null },
       collected: {
         p1: [{ suit: 'spades' as const, rank: '3' as const }],
         p2: [], p3: [], p4: [], p5: [], p6: [],

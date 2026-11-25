@@ -11,8 +11,8 @@ export default defineConfig({
   },
   projects: [
     {
-      name: 'iphone-12-pro',
-      use: { ...devices['iPhone 12 Pro'] },
+      name: 'mobile-chrome',
+      use: { ...devices['Pixel 5'] },
     },
   ],
   webServer: {
