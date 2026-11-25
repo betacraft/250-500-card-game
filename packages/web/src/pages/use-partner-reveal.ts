@@ -7,7 +7,7 @@ import { playRevealChime } from './reveal-chime';
 import {
   EMPTY_REVEAL_QUEUE,
   pushReveals,
-  resumeReveal,
+  releaseHeld,
   revealNotices,
   tickReveal,
   type RevealNotice,
@@ -22,7 +22,13 @@ export interface RevealCue {
 }
 
 /** Queue a toast for each newly revealed partner. Hidden partners never enter the list. */
-export function usePartnerReveal(hand: GameHand | null, names: Record<string, string>, hold = false): RevealCue {
+export function usePartnerReveal(
+  hand: GameHand | null,
+  names: Record<string, string>,
+  hold = false,
+  handId = 0,
+  phase = 'playing',
+): RevealCue {
   const revealed = hand ? headerPartnerIds(hand, null) : [];
   const key = revealed.join('|');
   const [queue, setQueue] = useState<RevealQueue>(EMPTY_REVEAL_QUEUE);
@@ -33,6 +39,11 @@ export function usePartnerReveal(hand: GameHand | null, names: Record<string, st
   namesRef.current = names;
   revealedRef.current = revealed;
   const reduced = useReducedMotion();
+  useEffect(() => {
+    setQueue(EMPTY_REVEAL_QUEUE);
+    seen.current = null;
+    chimed.current = '';
+  }, [handId]);
 
   useEffect(() => {
     const currentIds = revealedRef.current;
@@ -52,23 +63,28 @@ export function usePartnerReveal(hand: GameHand | null, names: Record<string, st
     };
   }, [key]);
 
-  useRevealClock(queue, setQueue, hold);
+  useRevealClock(queue, setQueue, hold, phase === 'scored' || phase === 'setup');
 
   return { current: queue.current, partnerIds: revealed, reduced };
 }
 
-function useRevealClock(queue: RevealQueue, setQueue: (update: (current: RevealQueue) => RevealQueue) => void, hold: boolean): void {
+function useRevealClock(
+  queue: RevealQueue,
+  setQueue: (update: (current: RevealQueue) => RevealQueue) => void,
+  hold: boolean,
+  scored: boolean,
+): void {
   const holding = useRef(hold);
   holding.current = hold;
   const parked = useRef(false);
   useEffect(() => {
-    if (hold) {
+    if (hold && !scored) {
       parked.current = queue.current !== null;
       return undefined;
     }
     if (parked.current) {
       parked.current = false;
-      setQueue((current) => resumeReveal(current, Date.now()));
+      setQueue((current) => releaseHeld(current, Date.now(), scored));
       return undefined;
     }
     if (!queue.current) return undefined;
@@ -78,7 +94,7 @@ function useRevealClock(queue: RevealQueue, setQueue: (update: (current: RevealQ
       setQueue((current) => tickReveal(current, Date.now()));
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [queue, hold, setQueue]);
+  }, [queue, hold, scored, setQueue]);
 }
 
 function useReducedMotion(): boolean {

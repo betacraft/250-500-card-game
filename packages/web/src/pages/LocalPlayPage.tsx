@@ -11,6 +11,7 @@ import { PlayBar } from './play-bar';
 import { chipCue, handThirties, legalContext, scoreText, TableStatus, trickThirties, useViewport } from './local-play-helpers';
 import { AuctionRecap, ScoreStrip, scoreExplainer } from './local-table-notes';
 import { PartnerToast } from './partner-toast';
+import { RecapHeading } from './recap-heading';
 import { holdsSecretCall, privateNotice } from './secret-call';
 import { useTablePace } from './use-table-pace';
 import { usePartnerReveal } from './use-partner-reveal';
@@ -39,8 +40,9 @@ export function LocalPlayPage(): JSX.Element {
   const leave = useLocalPlayStore((s) => s.leave);
   const playAgain = useLocalPlayStore((s) => s.playAgain);
   const gameOver = useLocalPlayStore((s) => s.gameOver);
+  const dealId = useLocalPlayStore((s) => s.dealId);
   const pace = useTablePace();
-  const reveal = usePartnerReveal(hand, names, pace.banner !== null);
+  const reveal = usePartnerReveal(hand, names, pace.banner !== null, dealId, phase);
   const soundMuted = useSettingsStore((s) => s.soundMuted);
   const setSoundMuted = useSettingsStore((s) => s.setSoundMuted);
   const playSpeed = useSettingsStore((s) => s.playSpeed);
@@ -226,7 +228,7 @@ maxHeight={height <= 500 || cramped ? 72 : wide && !short ? Math.floor(height * 
       {phase === 'scored' && summary && !settledTrick && (
         <section data-testid="hand-complete" className={`rounded-xl bg-white ${shortScore ? `h-full touch-pan-y overflow-y-auto overscroll-contain ${gameOver ? 'max-h-[230px] p-3' : 'max-h-[172px] px-3 py-1'}` : gameOver ? 'max-h-full overflow-y-auto p-3' : 'p-3'}`}>
           {gameOver && <h2 data-testid="game-over" className="text-lg font-medium">Game over</h2>}
-          <h2 className="text-lg font-medium">{summary.bidMade ? 'Bid made' : 'Bid failed'}</h2>
+          <RecapHeading made={summary.bidMade} lastTrick={pace.lastTrick} reduced={reveal.reduced} />
           {shortScore && (
             <p data-testid="your-result" className="mt-1 text-base font-medium">
               You {scoreText(summary.scoreDeltas[HUMAN_ID] ?? 0)} ({summary.bidder === HUMAN_ID ? 'bidder' : summary.partners.includes(HUMAN_ID) ? 'partner' : 'opponent'})
@@ -270,7 +272,7 @@ maxHeight={height <= 500 || cramped ? 72 : wide && !short ? Math.floor(height * 
             </button>
           ) : (
             <>
-              {pace.lock && phase === 'playing' && (
+              {pace.showFinish && (
                 <button type="button" data-testid="finish-hand" onClick={pace.startFinish} className="mb-1 min-h-11 w-full rounded-xl bg-[#4A3000] py-2 text-base font-medium text-white">
                   Finish hand ⏩
                 </button>

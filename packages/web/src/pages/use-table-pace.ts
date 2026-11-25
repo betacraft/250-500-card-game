@@ -3,6 +3,7 @@ import { bidLock, botPlayDelay, cardInstanceKey, isForcedFollow, legalPlaysFor, 
 import { notePace } from '../analytics/table-events';
 import { useSettingsStore } from '../stores/settings-store';
 import { HUMAN_ID, useLocalPlayStore } from '../stores/local-play-store';
+import { EMPTY_LATCH, lockChrome, type LockLatch, latchLock } from './lock-latch';
 import { playStinger } from './stingers';
 
 interface PaceSample {
@@ -20,6 +21,9 @@ const EMPTY_PACE: PaceSample = { forced: 0, taps: 0, started: 0, twoX: 0, ticks:
 /** Pace timers, the bid lock, and forced-card auto-play for the local table. */
 export function useTablePace(): {
   lock: 'made' | 'sunk' | null;
+  showFinish: boolean;
+  /** Last-trick lock: the recap heading uses the banner words. */
+  lastTrick: boolean;
   banner: 'made' | 'sunk' | null;
   forcedId: string | null;
   finishing: boolean;
@@ -30,18 +34,22 @@ export function useTablePace(): {
   const settledTrick = useLocalPlayStore((s) => s.settledTrick);
   const speed = useSettingsStore((s) => s.playSpeed);
   const autoPlay = useSettingsStore((s) => s.autoPlayForced);
-  const atBoundary = !hand?.currentTrick.length || Boolean(settledTrick) || Boolean(hand?.ended);
-  const lock = hand && (phase === 'playing' || settledTrick) && atBoundary ? bidLock(hand) : null;
+  const latch = useLatchedLock(phase, hand, settledTrick);
+  const chrome = lockChrome(latch, phase);
+  const lock = latch.kind;
   const [finishing, setFinishing] = useState(false);
   const pace = useRef<PaceSample>({ ...EMPTY_PACE });
-  const banner = useLockBanner(lock, phase, pace);
+  const banner = useLockBanner(chrome.banner, phase, pace);
+  useRecapStinger(chrome.recapStinger);
   usePaceReset(phase, pace, setFinishing);
-  useTrickPause(settledTrick, speed, lock);
+  useTrickPause(settledTrick, speed, lock, latch.lastTrick);
   useBotClock(phase, settledTrick, speed, lock, finishing, pace);
   const forcedId = useForcedPlay(phase, hand, settledTrick, autoPlay, finishing, pace);
   usePaceReport(phase, pace);
   return {
     lock,
+    showFinish: chrome.finish,
+    lastTrick: latch.lastTrick,
     banner,
     forcedId,
     finishing,
@@ -50,6 +58,28 @@ export function useTablePace(): {
       setFinishing(true);
     },
   };
+}
+
+function useLatchedLock(phase: string, hand: ReturnType<typeof useLocalPlayStore.getState>['hand'], settledTrick: unknown): LockLatch {
+  const latch = useRef<LockLatch>(EMPTY_LATCH);
+  const atBoundary = !hand?.currentTrick.length || Boolean(settledTrick) || Boolean(hand?.ended);
+  const sample = hand && (phase === 'playing' || Boolean(settledTrick)) && atBoundary ? bidLock(hand) : null;
+  const reset = phase === 'bidding' || phase === 'setup';
+  latch.current = latchLock(latch.current, sample, Boolean(hand?.ended), reset);
+  return latch.current;
+}
+
+function useRecapStinger(kind: 'made' | 'sunk' | null): void {
+  const played = useRef(false);
+  useEffect(() => {
+    if (!kind) {
+      played.current = false;
+      return;
+    }
+    if (played.current) return;
+    played.current = true;
+    playStinger(kind, useSettingsStore.getState().soundMuted);
+  }, [kind]);
 }
 
 function usePaceReset(phase: string, pace: MutableRefObject<PaceSample>, setFinishing: (value: boolean) => void): void {
@@ -92,13 +122,14 @@ function useLockBanner(lock: 'made' | 'sunk' | null, phase: string, pace: Mutabl
   return banner;
 }
 
-function useTrickPause(settledTrick: unknown, speed: 'normal' | 'fast', lock: 'made' | 'sunk' | null): void {
+function useTrickPause(settledTrick: unknown, speed: 'normal' | 'fast', lock: 'made' | 'sunk' | null, lastTrick: boolean): void {
   const dismissTrick = useLocalPlayStore((s) => s.dismissTrick);
   useEffect(() => {
     if (!settledTrick) return undefined;
-    const timer = window.setTimeout(() => dismissTrick(), trickPause(speed, lock !== null));
+    const wait = lastTrick ? 0 : trickPause(speed, lock !== null);
+    const timer = window.setTimeout(() => dismissTrick(), wait);
     return () => window.clearTimeout(timer);
-  }, [settledTrick, dismissTrick, speed, lock]);
+  }, [settledTrick, dismissTrick, speed, lock, lastTrick]);
 }
 
 function useBotClock(phase: string, settledTrick: unknown, speed: 'normal' | 'fast', lock: 'made' | 'sunk' | null, finishing: boolean, pace: MutableRefObject<PaceSample>): void {

@@ -109,10 +109,13 @@ async function advance(page: Page): Promise<boolean> {
   }
   const declare = page.getByTestId('declare-form');
   if (await declare.isVisible().catch(() => false)) {
-    const ranks = ['A', 'K', 'Q', 'J', '10', '9'];
-    for (let i = 0; i < 2; i += 1) {
-      const rank = ranks[i] ?? 'A';
-      await page.locator(`[data-testid="declare-form"] button[aria-label^="${rank} of hearts"]`).click();
+    const title = (await page.getByTestId('table-title').textContent()) ?? '';
+    const need = title.includes('500') ? 3 : 2;
+    const labels = await page.locator('[data-testid="declare-form"] button').evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute('aria-label') ?? '').filter((label) => label.length > 0 && !label.includes('in your hand')),
+    );
+    for (const label of labels.slice(0, need)) {
+      await page.getByRole('button', { name: label, exact: true }).click();
     }
     await page.getByRole('button', { name: 'Confirm declaration' }).click();
     return true;

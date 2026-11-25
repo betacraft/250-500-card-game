@@ -64,6 +64,12 @@ export function resumeReveal(queue: RevealQueue, now: number): RevealQueue {
   return { ...queue, until: now + REVEAL_TOAST_MS };
 }
 
+/** A held toast dies with the hand. It does not start again on the recap or the next deal. */
+export function releaseHeld(queue: RevealQueue, now: number, scored: boolean): RevealQueue {
+  if (scored) return EMPTY_REVEAL_QUEUE;
+  return resumeReveal(queue, now);
+}
+
 /** Move to the next notice once the current one has been up for {@link REVEAL_TOAST_MS}. */
 export function tickReveal(queue: RevealQueue, now: number): RevealQueue {
   if (!queue.current) return startIfIdle(queue, now);

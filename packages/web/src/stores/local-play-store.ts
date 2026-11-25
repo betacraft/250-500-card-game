@@ -60,6 +60,8 @@ interface LocalPlayState {
   firstBidderId: string;
   runningScores: Record<string, number>;
   handsPlayed: number;
+  /** Changes on each deal, including New game. Partner cues key off this. */
+  dealId: number;
   seed: number;
   decision: number;
   summary: LocalSummary | null;
@@ -94,6 +96,7 @@ const SETUP = {
   firstBidderId: HUMAN_ID,
   runningScores: {} as Record<string, number>,
   handsPlayed: 0,
+  dealId: 0,
   seed: 1,
   decision: 0,
   summary: null as LocalSummary | null,
@@ -111,7 +114,7 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
     const name = humanName.trim() || 'You';
     const scripted = scriptedOpening(gameType, name);
     if (scripted) {
-      set({ ...scripted, difficulty });
+      set({ ...scripted, difficulty, dealId: get().dealId + 1 });
       noteGameStart(gameType, difficulty);
       if (scripted.summary && scripted.gameOver) {
         const result = tableWinner(scripted.runningScores, HUMAN_ID);
@@ -148,7 +151,7 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
       firstBidderId: first,
       seed: state.seed + state.handsPlayed * 97,
     });
-    set({ hand, bidHistory: [], firstBidderId: first, phase: 'bidding', summary: null, settledTrick: null, seatOrder: seats });
+    set({ hand, bidHistory: [], firstBidderId: first, phase: 'bidding', summary: null, settledTrick: null, seatOrder: seats, dealId: state.dealId + 1 });
     noteHandStart();
   },
   bid: (amount) => {
