@@ -5,6 +5,7 @@ test.describe('trick seat labels stay on the felt', () => {
   test.describe.configure({ timeout: 60_000 });
 
   for (const view of [
+    { variant: '500' as const, width: 320, height: 568, cards: 8, shot: 'trick-labels-500-320.png' },
     { variant: '500' as const, width: 360, height: 740, cards: 8, shot: 'trick-labels-500-360.png' },
     { variant: '500' as const, width: 390, height: 844, cards: 8, shot: 'trick-labels-500-390.png' },
     { variant: '500' as const, width: 667, height: 375, cards: 8, shot: 'trick-labels-500-667x375.png' },

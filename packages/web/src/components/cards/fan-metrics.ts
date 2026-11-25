@@ -38,7 +38,7 @@ export function fanMetrics(count: number, container: number, compact = false, ma
   if (gaps > 0 && (inner - cardW) / gaps < MIN_SLIVER) {
     cardW = Math.max(48, inner - MIN_SLIVER * gaps);
   }
-  const step = gaps === 0 ? 0 : Math.min(cardW * 0.62, (inner - cardW) / gaps);
+  const step = gaps === 0 ? 0 : Math.min(cardW * 0.6, (inner - cardW) / gaps);
   const cardH = cardW * 1.4;
   const used = gaps === 0 ? cardW : step * gaps + cardW;
   const origin = Math.max(0, (inner - used) / 2);
