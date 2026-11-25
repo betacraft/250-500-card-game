@@ -113,7 +113,7 @@ export function LocalPlayPage(): JSX.Element {
       calledIds={new Set(hand.calledCards.map((card) => cardId(card)))}
       reasons={reasons}
       compact={short || !wide}
-      maxHeight={height <= 500 ? 72 : wide && !short ? Math.floor(height * 0.3) : null}
+      maxHeight={height <= 500 ? 72 : wide && !short ? Math.floor(height * 0.3) : wide ? null : Math.floor(height * 0.32) - 86}
       onBlocked={(reason) => setBlocked(reason ? reason : null)}
       forcedId={pace.forcedId}
       liftForced={!reveal.reduced}
@@ -128,7 +128,7 @@ export function LocalPlayPage(): JSX.Element {
         <h1 className="min-w-0 truncate text-sm font-medium">Play vs bots · {gameType}</h1>
         <span className="flex shrink-0 items-center gap-2 whitespace-nowrap">
           <span className="text-sm text-stone-500">Bots: {difficulty === 'normal' ? 'Normal' : 'Easy'}</span>
-          <button type="button" data-testid="speed-toggle" aria-pressed={playSpeed === 'fast'} onClick={() => setPlaySpeed(playSpeed === 'fast' ? 'normal' : 'fast')} className="inline-flex h-11 min-w-11 items-center justify-center rounded-full text-sm font-medium text-stone-800">{playSpeed === 'fast' ? '2x' : '1x'}</button>
+          <button type="button" data-testid="speed-toggle" aria-pressed={playSpeed === 'fast'} onClick={() => setPlaySpeed(playSpeed === 'fast' ? 'normal' : 'fast')} className="-my-3 inline-flex h-11 min-w-11 items-center justify-center rounded-full text-sm font-medium text-stone-800">{playSpeed === 'fast' ? '2x' : '1x'}</button>
           <button type="button" data-testid="sound-toggle" aria-pressed={!soundMuted} onClick={() => setSoundMuted(!soundMuted)} className="text-sm text-stone-600 underline">{soundMuted ? 'Sound off' : 'Sound on'}</button>
           <NewGameButton onAbandon={() => leave('new_game')} />
           <Link to="/" onClick={() => leave('home')} className="text-sm text-stone-600 underline">Home</Link>

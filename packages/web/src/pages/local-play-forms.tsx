@@ -49,7 +49,12 @@ export function Setup({ onStart }: { onStart: (gameType: GameType, name: string,
           </button>
         ))}
       </div>
-      <p className="shrink-0 text-sm font-medium">Bot difficulty</p>
+      <div className="flex shrink-0 items-center justify-between gap-2">
+        <p className="text-sm font-medium">Bot difficulty</p>
+        <button type="button" data-testid="autoplay-toggle" aria-pressed={autoPlay} onClick={() => setAutoPlay(!autoPlay)} className="-my-3 inline-flex h-11 shrink-0 items-center text-sm font-medium text-stone-800">
+          Auto-play: {autoPlay ? 'On' : 'Off'}
+        </button>
+      </div>
       <div className="grid shrink-0 grid-cols-2 gap-2" data-testid="difficulty-picker">
         {(['easy', 'normal'] as const).map((level) => (
           <button
@@ -64,9 +69,6 @@ export function Setup({ onStart }: { onStart: (gameType: GameType, name: string,
           </button>
         ))}
       </div>
-      <button type="button" data-testid="autoplay-toggle" aria-pressed={autoPlay} onClick={() => setAutoPlay(!autoPlay)} className="h-11 shrink-0 text-left text-sm font-medium text-stone-800">
-        Auto-play forced cards: {autoPlay ? 'On' : 'Off'}
-      </button>
       <label className="shrink-0 text-sm font-medium" htmlFor="local-name">Your name</label>
       <input id="local-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="You" className="h-11 shrink-0 rounded-lg border border-stone-300 px-3" maxLength={40} />
       <button type="button" data-testid="start-vs-bots" onClick={() => onStart(gameType, name, difficulty)} className="mt-auto h-11 shrink-0 rounded-xl bg-felt px-4 text-base font-medium text-white">

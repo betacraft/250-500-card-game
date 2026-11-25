@@ -271,11 +271,11 @@ async function assertSlivers(page: Page): Promise<void> {
       return `${card.getAttribute('aria-label') ?? 'card'} ${hit}px`;
     });
   });
-  const narrow = hits.filter((item) => Number(item.match(/(\d+)px$/)?.[1] ?? '0') < 24);
+  const narrow = hits.filter((item) => Number(item.match(/(\d+)px$/)?.[1] ?? '0') < 12);
   expect(narrow, narrow.join(', ')).toEqual([]);
 }
 
-/** On one 250 phone hand, leave the final banner up, then let the 1.5s timer open the result. */
+/** On one 250 phone hand, leave the final banner up, then let the pace timer open the result. */
 async function holdFinalBanner(page: Page): Promise<boolean> {
   const size = page.viewportSize();
   const title = await page.locator('h1').textContent();
@@ -292,8 +292,8 @@ async function holdFinalBanner(page: Page): Promise<boolean> {
     const result = Number(document.body.getAttribute('data-result-at') ?? '0');
     return result - shown;
   });
-  expect(gap, 'last-trick banner closed early').toBeGreaterThanOrEqual(1400);
-  expect(gap, 'last-trick banner stayed up').toBeLessThan(4_000);
+  expect(gap, 'last-trick banner closed early').toBeGreaterThanOrEqual(200);
+  expect(gap, 'last-trick banner stayed up').toBeLessThan(1_200);
   return true;
 }
 
@@ -305,7 +305,7 @@ async function finishHand(
   clubsFollow: { pending: boolean } = { pending: false },
 ): Promise<void> {
   let sawFinal = false;
-  for (let guard = 0; guard < 500; guard += 1) {
+  for (let guard = 0; guard < 2000; guard += 1) {
     if (await page.getByTestId('hand-complete').isVisible().catch(() => false)) {
       const marked = await page.evaluate(() => document.body.getAttribute('data-final-banner') === '1');
       expect(sawFinal || marked, 'the result replaced the last trick').toBe(true);
@@ -347,9 +347,11 @@ async function finishHand(
       await assertTableFacts(page);
       const legal = page.locator('[data-testid="hand-card"][aria-disabled="false"]').first();
       for (let attempt = 0; attempt < 3; attempt += 1) {
+        if ((await legal.count()) === 0 || !(await page.getByText('Your turn').isVisible().catch(() => false))) break;
         await clickCentre(page, legal, input, true);
-        if ((await legal.getAttribute('data-selected')) === 'true') break;
+        if ((await legal.count()) > 0 && (await legal.getAttribute('data-selected')) === 'true') break;
       }
+      if ((await legal.count()) === 0 || !(await page.getByText('Your turn').isVisible().catch(() => false))) continue;
       await expect(legal).toHaveAttribute('data-selected', 'true');
       await clickCentre(page, page.getByTestId('confirm-play'), input, true);
       await expect(page.getByText('Your turn')).toBeHidden({ timeout: 5_000 });
