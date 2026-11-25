@@ -67,6 +67,7 @@ function useReducedMotion(): boolean {
   const mode = useSettingsStore((s) => s.reducedMotion);
   const [os, setOs] = useState(false);
   useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined;
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     const apply = (): void => setOs(media.matches);
     apply();
