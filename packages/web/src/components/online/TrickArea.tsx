@@ -16,10 +16,12 @@ interface TrickAreaProps {
   /** Indexes in `played` that are the first scoring 3 of their suit. */
   thirtyIndexes?: ReadonlySet<number>;
   winnerId?: string | null;
+  /** Short window: no tall minimum, so the played cards stay above the fan. */
+  compact?: boolean;
 }
 
 /** Center-of-screen area showing cards played to the current trick + led suit. */
-export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerId = null }: TrickAreaProps): JSX.Element {
+export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerId = null, compact = false }: TrickAreaProps): JSX.Element {
   const rowRef = useRef<HTMLDivElement>(null);
   const [rowWidth, setRowWidth] = useState(360);
   useEffect(() => {
@@ -31,10 +33,10 @@ export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerI
     observer.observe(node);
     return () => observer.disconnect();
   }, [played.length]);
-  const layout = trickLayout(played.length, rowWidth);
+  const layout = trickLayout(played.length, rowWidth, compact);
   const rows = splitRows(played, layout.rows);
   return (
-    <div className="flex min-h-[150px] flex-col items-center justify-center gap-2 rounded-xl bg-felt px-1 py-3">
+    <div className={compact ? 'flex flex-col items-center justify-center gap-0.5 rounded-xl bg-felt px-1 py-1' : 'flex min-h-[150px] flex-col items-center justify-center gap-2 rounded-xl bg-felt px-1 py-3'}>
       {ledSuit && (
         <div data-testid="led-suit" data-suit={ledSuit} className="flex items-center gap-1 text-sm text-white/90">
           Led: {ledSuit} <SuitIcon suit={ledSuit} size={18} badge />
@@ -69,9 +71,10 @@ export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerI
 }
 
 /** Eight-card tricks use two rows so each card stays at least 47px wide. */
-function trickLayout(count: number, rowWidth: number): { width: number; rows: number } {
+function trickLayout(count: number, rowWidth: number, compact: boolean): { width: number; rows: number } {
   const cards = Math.max(count, 1);
   const single = Math.floor((rowWidth - 4) / cards);
+  if (compact) return { width: Math.min(56, Math.max(36, single)), rows: 1 };
   if (cards >= 8 && single < 47) {
     const perRow = Math.ceil(cards / 2);
     return { width: Math.min(72, Math.max(47, Math.floor((rowWidth - 8) / perRow))), rows: 2 };

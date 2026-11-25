@@ -99,7 +99,9 @@ export function LocalPlayPage(): JSX.Element {
   const shownTrick = settledTrick?.plays ?? hand.currentTrick;
   const thirty = trickThirties(shownTrick, hand);
   const reasons = new Map(humanHand.map((card) => [cardInstanceKey(card), illegalReason(legalContext(hand), card) ?? '']));
-  const docked = phase === 'bidding' || phase === 'declaring' || phase === 'playing' || gameOver;
+  const shortPlay = height <= 500 && (phase === 'playing' || Boolean(settledTrick));
+  const dockNext = phase === 'scored' && !gameOver && height <= 500;
+  const docked = phase === 'bidding' || phase === 'declaring' || phase === 'playing' || gameOver || dockNext;
   const humanDeclaring = phase === 'declaring' && hand.bidder === HUMAN_ID;
   const notice = privateNotice(humanHand, hand.calledCards, hand.bidder, gameType, hand.slots);
   const fan = (
@@ -145,9 +147,9 @@ export function LocalPlayPage(): JSX.Element {
       </div>
       <div data-testid="play-scroll" className={`flex min-h-0 flex-1 flex-col overflow-hidden ${gameOver && height <= 500 ? 'py-1' : 'py-2'}`}>
       <div className="shrink-0">
-      {!(gameOver && height <= 500) && <TableStatus hand={hand} names={names} />}
-      {!(gameOver && height <= 500) && <p data-testid="disabled-reason" role="status" className="pointer-events-none h-5 overflow-hidden text-sm font-medium leading-5 text-red-700">{blocked ?? ''}</p>}
-      {phase !== 'bidding' && !(humanDeclaring && (short || !wide)) && !(gameOver && height <= 500) && (
+      {!(gameOver && height <= 500) && !shortPlay && <TableStatus hand={hand} names={names} />}
+      {!(gameOver && height <= 500) && !shortPlay && <p data-testid="disabled-reason" role="status" className="pointer-events-none h-5 overflow-hidden text-sm font-medium leading-5 text-red-700">{blocked ?? ''}</p>}
+      {phase !== 'bidding' && !(humanDeclaring && (short || !wide)) && !(gameOver && height <= 500) && !shortPlay && (
         <AuctionRecap
           history={bidHistory}
           names={names}
@@ -204,6 +206,7 @@ export function LocalPlayPage(): JSX.Element {
             ledSuit={shownTrick[0]?.card.suit ?? null}
             thirtyIndexes={thirty}
             winnerId={settledTrick?.winnerId ?? null}
+            compact={height <= 500}
           />
           {settledTrick && <p className="mt-1 text-center text-sm text-stone-600">{names[settledTrick.winnerId] ?? 'Winner'} won the trick · tap to skip</p>}
         </div>
@@ -238,8 +241,8 @@ export function LocalPlayPage(): JSX.Element {
               );
             })}
           </ul>
-          {!gameOver && (
-            <button type="button" onClick={nextHand} className="mt-4 w-full rounded-xl bg-felt p-4 text-base font-medium text-white">
+          {!gameOver && !dockNext && (
+            <button type="button" data-testid="next-hand" onClick={nextHand} className="mt-4 w-full rounded-xl bg-felt p-4 text-base font-medium text-white">
               Next hand
             </button>
           )}
@@ -254,6 +257,10 @@ export function LocalPlayPage(): JSX.Element {
           {gameOver ? (
             <button type="button" data-testid="play-again" onClick={playAgain} className={`min-h-11 w-full rounded-xl bg-felt text-base font-medium text-white focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#0F766E] ${height <= 500 ? 'py-2' : 'p-4'}`}>
               Play again
+            </button>
+          ) : dockNext ? (
+            <button type="button" data-testid="next-hand" onClick={nextHand} className="min-h-11 w-full rounded-xl bg-felt py-2 text-base font-medium text-white focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#0F766E]">
+              Next hand
             </button>
           ) : (
             <>
