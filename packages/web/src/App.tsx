@@ -5,6 +5,8 @@ import { ScorekeeperHandPage } from './pages/ScorekeeperHandPage';
 import { OnlineHomePage } from './pages/OnlineHomePage';
 import { OnlineLobbyPage } from './pages/OnlineLobbyPage';
 import { OnlineGamePage } from './pages/OnlineGamePage';
+import { LocalPlayPage } from './pages/LocalPlayPage';
+import { SuitLabelSheet } from './pages/SuitLabelSheet';
 
 /** Top-level router for the app. Routes:
  * `/` HomePage, `/scorekeeper/*` Scorekeeper flows, `/online/*` Online flows. */
@@ -17,6 +19,8 @@ export function App(): JSX.Element {
       <Route path="/online" element={<OnlineHomePage />} />
       <Route path="/online/lobby" element={<OnlineLobbyPage />} />
       <Route path="/online/game" element={<OnlineGamePage />} />
+      <Route path="/play" element={<LocalPlayPage />} />
+      <Route path="/suit-labels" element={<SuitLabelSheet />} />
     </Routes>
   );
 }

@@ -6,4 +6,8 @@ export * from './scoring';
 export * from './events';
 export * from './trick';
 export * from './partners';
+export * from './legal';
+export * from './engine';
+export * from './bot';
+export * from './sim';
 export { healthSchema, type Health } from './placeholder';

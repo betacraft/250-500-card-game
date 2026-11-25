@@ -13,6 +13,15 @@ describe('deck', () => {
     expect(d).toHaveLength(96);
   });
 
+  it('500 deck gives every physical card its own id', () => {
+    const d = buildDeck('500');
+    const ids = d.map((card) => card.id);
+    expect(new Set(ids).size).toBe(96);
+    const aces = d.filter((card) => card.suit === 'hearts' && card.rank === 'A');
+    expect(aces).toHaveLength(2);
+    expect(aces[0]?.id).not.toBe(aces[1]?.id);
+  });
+
   it('250 deck: 4 of each rank (one per suit)', () => {
     const d = buildDeck('250');
     const ranks = d.reduce<Record<string, number>>((acc, c) => {

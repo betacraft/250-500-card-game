@@ -19,6 +19,21 @@ describe('TrickArea', () => {
         ledSuit="spades"
       />,
     );
-    expect(screen.getByText(/alice · bob/i)).toBeInTheDocument();
+    expect(screen.getByText('Winning: A')).toBeInTheDocument();
+    expect(screen.getAllByTestId('trick-seat').map((node) => node.textContent)).toEqual(['A', 'B']);
+    expect(screen.getByTestId('led-suit')).toHaveAttribute('data-suit', 'spades');
+    expect(screen.getByTestId('led-suit').textContent).toMatch(/Led: spades/i);
+  });
+
+  it('labels the led suit from the suit it was given', () => {
+    render(
+      <TrickArea
+        played={[{ playerId: 'p1', card: { suit: 'clubs', rank: '9' } }]}
+        playerNames={{ p1: 'Ada' }}
+        ledSuit="clubs"
+      />,
+    );
+    expect(screen.getByTestId('led-suit')).toHaveAttribute('data-suit', 'clubs');
+    expect(screen.getByTestId('led-suit').querySelector('svg')).toBeTruthy();
   });
 });

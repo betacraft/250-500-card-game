@@ -192,7 +192,7 @@ export function OnlineGamePage(): JSX.Element {
 
       {handState?.phase === 'playing' && (
         <>
-          <TrickArea played={handState.currentTrick} playerNames={playerNames} ledSuit={ledSuit} />
+          <TrickArea played={handState.currentTrick} playerNames={playerNames} ledSuit={ledSuit} trump={handState.trump} />
           <div className="mt-auto">
             <HandSlider cards={myHand} legalCardIds={legalIds} canPlay={isMyTurn} onPlay={sendPlay} />
           </div>

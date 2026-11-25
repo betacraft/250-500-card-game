@@ -85,6 +85,35 @@ describe('BiddingFlow', () => {
     expect(screen.getByText(/won the bid at 175/i)).toBeInTheDocument();
   });
 
+  it('collapses a long auction into the latest bids', () => {
+    const history = [
+      { playerId: 'p1', action: 'bid' as const, amount: 160 },
+      { playerId: 'p2', action: 'pass' as const },
+      { playerId: 'p3', action: 'bid' as const, amount: 165 },
+      { playerId: 'p4', action: 'pass' as const },
+      { playerId: 'p5', action: 'bid' as const, amount: 170 },
+      { playerId: 'p6', action: 'pass' as const },
+      { playerId: 'p1', action: 'bid' as const, amount: 175 },
+      { playerId: 'p2', action: 'bid' as const, amount: 180 },
+    ];
+    render(
+      <BiddingFlow
+        players={PLAYERS_6}
+        gameType="250"
+        firstBidderId="p1"
+        bidHistory={history}
+        onBid={() => {}}
+        onPass={() => {}}
+        onAuctionClose={() => {}}
+      />,
+    );
+    const recap = screen.getByTestId('bid-history');
+    expect(recap).toHaveAttribute('data-count', '8');
+    expect(recap).toHaveTextContent('5 earlier bids');
+    expect(recap).toHaveTextContent('Player 2 180');
+    expect(recap).not.toHaveTextContent('160');
+  });
+
   it('shows bid history as it accumulates', () => {
     const history = [
       { playerId: 'p1', action: 'bid' as const, amount: 165 },
@@ -102,7 +131,31 @@ describe('BiddingFlow', () => {
       />,
     );
     expect(screen.getAllByText('165').length).toBeGreaterThan(0);
-    expect(screen.getByText(/passed/i)).toBeInTheDocument();
+    expect(screen.getByText(/Player 2 pass/)).toBeInTheDocument();
+  });
+
+  it('keeps the stepper on one row when the window is short', async () => {
+    render(
+      <BiddingFlow
+        players={PLAYERS_6}
+        gameType="250"
+        firstBidderId="p1"
+        bidHistory={[]}
+        onBid={() => {}}
+        onPass={() => {}}
+        onAuctionClose={() => {}}
+        tight
+      />,
+    );
+    expect(screen.getByTestId('bid-stepper')).toBeInTheDocument();
+    expect(screen.queryByText(/current high/i)).toBeNull();
+    expect(screen.getByTestId('draft-amount')).toHaveTextContent('160');
+    await userEvent.click(screen.getByRole('button', { name: /add 5 to the bid/i }));
+    expect(screen.getByTestId('draft-amount')).toHaveTextContent('165');
+    await userEvent.click(screen.getByRole('button', { name: /decrease bid by 5/i }));
+    expect(screen.getByTestId('draft-amount')).toHaveTextContent('160');
+    await userEvent.click(screen.getByRole('button', { name: /decrease bid by 5/i }));
+    expect(screen.getByTestId('draft-amount')).toHaveTextContent('160');
   });
 
   it('plus/minus buttons adjust the draft amount in increments of 5', async () => {

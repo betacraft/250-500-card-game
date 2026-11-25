@@ -15,8 +15,8 @@ export function TopStateStrip({ trump, bid, bidderName, yourScore }: TopStateStr
       <div className="rounded-lg bg-white p-2">
         <div className="text-[10px] text-stone-500">Trump</div>
         <div className="mt-0.5 flex items-center gap-1">
-          {trump ? <SuitIcon suit={trump} size={14} /> : <span className="text-stone-400">—</span>}
-          <span className="capitalize">{trump ?? ''}</span>
+          {trump ? <SuitIcon suit={trump} size={18} className="shrink-0" /> : <span className="text-stone-400">—</span>}
+          <span>{trump ? `Trump: ${trump}` : ''}</span>
         </div>
       </div>
       <div className="rounded-lg bg-white p-2">

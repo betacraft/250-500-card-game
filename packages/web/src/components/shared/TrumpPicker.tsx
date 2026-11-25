@@ -7,6 +7,8 @@ interface TrumpPickerProps {
   value: Suit | null;
   /** Called when the selection changes */
   onChange: (suit: Suit) => void;
+  /** Four suits in one row, for a short window. */
+  compact?: boolean;
 }
 
 const LABELS: Record<Suit, string> = {
@@ -17,9 +19,9 @@ const LABELS: Record<Suit, string> = {
 };
 
 /** Four large suit buttons for picking trump. */
-export function TrumpPicker({ value, onChange }: TrumpPickerProps): JSX.Element {
+export function TrumpPicker({ value, onChange, compact = false }: TrumpPickerProps): JSX.Element {
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className={compact ? 'grid grid-cols-4 gap-2' : 'grid grid-cols-2 gap-3'}>
       {SUITS_ORDERED.map((suit) => {
         const selected = value === suit;
         return (
@@ -28,15 +30,16 @@ export function TrumpPicker({ value, onChange }: TrumpPickerProps): JSX.Element 
             type="button"
             onClick={() => onChange(suit)}
             aria-pressed={selected}
-            aria-label={`Trump ${LABELS[suit]}`}
+            aria-label={`Trump: ${LABELS[suit]}`}
             className={clsx(
-              'flex flex-col items-center gap-2 rounded-xl p-5 transition-transform active:scale-95',
+              'flex items-center justify-center transition-transform active:scale-95',
+              compact ? 'min-h-11 flex-col gap-0.5 rounded-lg px-0.5 py-1' : 'flex-col gap-2 rounded-xl p-5',
               selected
                 ? 'bg-gold ring-2 ring-gold-border'
                 : 'bg-white ring-1 ring-stone-200',
             )}
           >
-            <SuitIcon suit={suit} size={36} />
+            <SuitIcon suit={suit} size={compact ? 22 : 36} className="shrink-0" />
             <span
               className={clsx(
                 'text-sm font-medium',

@@ -55,33 +55,46 @@ export function applyCardToSlots(args: PlaySlotInput): {
   return { slots: updated, newPartner, slotIndex };
 }
 
+/** Literal: closest clockwise holder takes the slot even if already a partner.
+ * skip-existing-partner: walk past holders who already fill a slot. */
+export type ClockwiseDefaultFlag = 'literal' | 'skip-existing-partner';
+
+/** Default matches RULES.md: a wasted slot still lands on the closest holder. */
+export const DEFAULT_CLOCKWISE_FLAG: ClockwiseDefaultFlag = 'literal';
+
 /** Apply the clockwise-default rule at hand-end: any unfilled slot is filled by
  * the closest-clockwise NON-BIDDER holder of a copy of the called card.
  * `seatOrder` is players in clockwise seat order; `holdersByCardId` maps cardId
  * to the set of player IDs that received that card in the deal.
+ * 500 only. 250 does not call this.
  */
 export function applyClockwiseDefault(args: {
   slots: readonly PartnerSlot[];
   bidderId: string;
   seatOrder: readonly string[];
   holdersByCardId: ReadonlyMap<string, ReadonlySet<string>>;
+  flag?: ClockwiseDefaultFlag;
 }): PartnerSlot[] {
+  const flag = args.flag ?? DEFAULT_CLOCKWISE_FLAG;
   const bidderIdx = args.seatOrder.indexOf(args.bidderId);
+  const taken = new Set<string>();
+  for (const slot of args.slots) {
+    if (slot.filledBy) taken.add(slot.filledBy);
+  }
   return args.slots.map((slot) => {
     if (slot.filledBy !== null) return slot;
     const id = cardId(slot.card);
     const holders = args.holdersByCardId.get(id) ?? new Set<string>();
-    // Walk seatOrder clockwise from bidder+1, find first non-bidder holder
     for (let i = 1; i <= args.seatOrder.length; i++) {
       const idx = (bidderIdx + i) % args.seatOrder.length;
       const candidate = args.seatOrder[idx];
-      if (!candidate) continue;
-      if (candidate === args.bidderId) continue;
-      if (holders.has(candidate)) {
-        return { ...slot, filledBy: candidate };
-      }
+      if (!candidate || candidate === args.bidderId) continue;
+      if (!holders.has(candidate)) continue;
+      if (flag === 'skip-existing-partner' && taken.has(candidate)) continue;
+      taken.add(candidate);
+      return { ...slot, filledBy: candidate };
     }
-    return slot; // stays empty (bidder holds both copies)
+    return slot;
   });
 }
 

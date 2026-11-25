@@ -86,6 +86,21 @@ describe('partner slots', () => {
     expect(result[2]?.filledBy).toBeNull(); // JS — both with bidder
   });
 
+  it('skip-existing-partner walks past a holder who already fills a slot', () => {
+    const slots = initSlots([QH, KD]);
+    const filled = [{ ...slots[0]!, filledBy: 'p3' }, slots[1]!];
+    const holders = new Map<string, ReadonlySet<string>>([['Kd', new Set(['p3', 'p6'])]]);
+    const literal = applyClockwiseDefault({
+      slots: filled, bidderId: 'p1', seatOrder: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'], holdersByCardId: holders,
+    });
+    const skipped = applyClockwiseDefault({
+      slots: filled, bidderId: 'p1', seatOrder: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'], holdersByCardId: holders,
+      flag: 'skip-existing-partner',
+    });
+    expect(literal[1]?.filledBy).toBe('p3');
+    expect(skipped[1]?.filledBy).toBe('p6');
+  });
+
   it('partnersFromSlots dedupes (same player filling multiple slots)', () => {
     const slots = [
       { card: QH, filledBy: 'p3' },
