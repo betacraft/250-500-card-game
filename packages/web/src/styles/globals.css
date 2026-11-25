@@ -42,14 +42,18 @@ html, body {
   }
 }
 
-@keyframes partner-toast-slide {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: none; }
+@keyframes partner-toast-pop {
+  0% { opacity: 0; transform: scale(0.8); }
+  10% { opacity: 1; transform: scale(1); }
+  83.33% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1); }
 }
 
 @keyframes partner-toast-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  83.33% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 @keyframes partner-glow {
@@ -57,8 +61,8 @@ html, body {
   50% { box-shadow: 0 0 0 4px rgba(26, 110, 74, 0.55); }
 }
 
-.partner-toast-slide { animation: partner-toast-slide 180ms ease-out both; }
-.partner-toast-fade { animation: partner-toast-fade 180ms ease-out both; }
+.partner-toast-pop { animation: partner-toast-pop 1500ms linear both; }
+.partner-toast-fade { animation: partner-toast-fade 1500ms linear both; }
 .partner-glow { animation: partner-glow 1.5s ease-in-out; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -68,8 +72,11 @@ html, body {
     transition-duration: 0.01ms !important;
   }
 
-  .partner-toast-slide,
-  .partner-toast-fade,
+  .partner-toast-pop,
+  .partner-toast-fade {
+    animation: partner-toast-fade 1500ms linear both !important;
+  }
+
   .partner-glow {
     animation: partner-toast-fade 180ms ease-out both !important;
   }
