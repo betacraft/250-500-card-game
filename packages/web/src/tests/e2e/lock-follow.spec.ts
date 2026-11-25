@@ -181,13 +181,16 @@ async function advance(page: Page): Promise<boolean> {
   }
   const declare = page.getByTestId('declare-form');
   if (await declare.isVisible().catch(() => false)) {
+    await page.getByRole('button', { name: 'Trump: Hearts' }).click();
     const title = (await page.getByTestId('table-title').textContent()) ?? '';
     const need = title.includes('500') ? 3 : 2;
-    const labels = await page.locator('[data-testid="declare-form"] button').evaluateAll((nodes) =>
+    const labels = await page.locator('[data-testid="declare-form"] button[aria-label*=" of "]').evaluateAll((nodes) =>
       nodes.map((node) => node.getAttribute('aria-label') ?? '').filter((label) => label.length > 0 && !label.includes('in your hand')),
     );
-    for (const label of labels.slice(0, need)) await page.getByRole('button', { name: label, exact: true }).click();
-    await page.getByRole('button', { name: 'Confirm declaration' }).click();
+    for (const label of labels.slice(0, need)) await page.locator(`[data-testid="declare-form"] button[aria-label="${label}"]`).click();
+    const confirm = page.getByRole('button', { name: 'Confirm declaration' });
+    await expect(confirm).toBeEnabled({ timeout: 2_000 });
+    await confirm.click();
     return true;
   }
   return playLowest(page);
