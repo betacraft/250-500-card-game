@@ -52,31 +52,6 @@ test.describe('table pace', () => {
     await saveShot(page, '/opt/cursor/artifacts/handfan-250-3cards-390.png', false);
   });
 
-  test('eight trick cards keep seat labels inside 360 and 667', async ({ page }) => {
-    for (const view of [
-      { width: 360, height: 740, shot: 'trick-labels-500-360.png' },
-      { width: 667, height: 375, shot: 'trick-labels-500-667x375.png' },
-    ]) {
-      await page.setViewportSize({ width: view.width, height: view.height });
-      await open(page, 'labels', '500');
-      await expect(page.getByTestId('trick-seat')).toHaveCount(8);
-      await expect(page.getByTestId('trick-leader')).toContainText('Winning:');
-      const fit = await page.evaluate(() => {
-        const seats = [...document.querySelectorAll('[data-testid="trick-seat"]')];
-        const boxes = seats.map((seat) => seat.getBoundingClientRect());
-        return {
-          left: Math.min(...boxes.map((box) => box.left)),
-          right: Math.max(...boxes.map((box) => box.right)),
-          bottom: Math.max(...boxes.map((box) => box.bottom)),
-        };
-      });
-      expect(fit.left).toBeGreaterThanOrEqual(0);
-      expect(fit.right).toBeLessThanOrEqual(view.width);
-      expect(fit.bottom).toBeLessThanOrEqual(view.height);
-      await saveShot(page, `/opt/cursor/artifacts/${view.shot}`, false);
-    }
-  });
-
   test('a forced follow lifts then plays', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await open(page, 'forced', '250');

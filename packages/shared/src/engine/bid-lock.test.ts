@@ -15,7 +15,7 @@ import {
 import type { BidEntry } from '../state/scorekeeper';
 import { rulesFor } from '../games';
 import { finalizeHand, legalPlaysFor, playCard, setBidder, startHand, declareTrumpAndPartners, type GameHand } from './hand';
-import { bidLockDetail } from './bid-lock';
+import { bidLock, bidLockDetail } from './bid-lock';
 
 describe('bid lock', () => {
   it('logs the median scheduled hand length before and after the new pace', () => {
@@ -57,13 +57,15 @@ describe('bid lock', () => {
   it('logs public and omniscient lock tricks for 250 and 500', () => {
     for (const gameType of ['250', '500'] as const) {
       const report = summarize(gameType, 1000);
-      console.info(`lock ${gameType} n=${report.n} neverBeforeLast=${report.neverBeforeLast} early=${report.early} ${report.line}`);
+      console.info(`lock ${gameType} n=${report.n} firstLockOnLastTrick=${report.onLast} noLock=${report.noLock} early=${report.early} ${report.line}`);
       expect(report.early).toBe(0);
+      expect(report.noLock).toBe(0);
       expect(report.n).toBeGreaterThan(900);
     }
     const fifty = summarize('500', 50);
-    console.info(`lock 500 n=50 neverBeforeLast=${fifty.neverBeforeLast} early=${fifty.early} ${fifty.line}`);
+    console.info(`lock 500 n=50 firstLockOnLastTrick=${fifty.onLast} noLock=${fifty.noLock} early=${fifty.early} ${fifty.line}`);
     expect(fifty.early).toBe(0);
+    expect(fifty.noLock).toBe(0);
   });
 
   it('matches the final result on 1000 seeded 500 hands and ignores hidden partners', () => {
@@ -143,24 +145,29 @@ function omniscientLock(hand: GameHand): 'made' | 'sunk' | null {
   return null;
 }
 
-function summarize(gameType: '250' | '500', seeds: number): { n: number; neverBeforeLast: number; early: number; line: string } {
+function summarize(gameType: '250' | '500', seeds: number): { n: number; onLast: number; noLock: number; early: number; line: string } {
   const made = new Map<number, number>();
   const sunk = new Map<number, number>();
   const gaps = new Map<number, number>();
   let n = 0;
-  let neverBeforeLast = 0;
+  let onLast = 0;
   let early = 0;
   let gapOverTwo = 0;
   let gapHands = 0;
+  let noLock = 0;
   for (let seed = 1; seed <= seeds; seed += 1) {
     const played = playSeed(gameType, seed);
     if (!played) continue;
     n += 1;
     if (played.madeLate > 0) early += played.madeLate;
+    const fin = finalizeHand(played.state);
+    const finalLock = bidLock(played.state);
+    if (finalLock === null) noLock += 1;
+    else if ((finalLock === 'made') !== fin.bidMade) early += 1;
     const last = played.state.trickCount;
     const pub = played.publicAt;
     const omni = played.omniAt;
-    if (pub === null || pub >= last) neverBeforeLast += 1;
+    if (pub !== null && pub >= last) onLast += 1;
     if (pub !== null) {
       const bag = played.locks[0]?.kind === 'sunk' ? sunk : made;
       bag.set(pub, (bag.get(pub) ?? 0) + 1);
@@ -173,8 +180,10 @@ function summarize(gameType: '250' | '500', seeds: number): { n: number; neverBe
       if (gap > 2) gapOverTwo += 1;
     } else if (pub !== null && omni === null) early += 1;
   }
-  const line = `made=${hist(made)} sunk=${hist(sunk)} gaps=${hist(gaps)} gapHands=${gapHands} gapOverTwo=${gapOverTwo}`;
-  return { n, neverBeforeLast, early, line };
+  const madeN = [...made.values()].reduce((sum, count) => sum + count, 0);
+  const sunkN = [...sunk.values()].reduce((sum, count) => sum + count, 0);
+  const line = `made(${madeN})=${hist(made)} sunk(${sunkN})=${hist(sunk)} gaps=${hist(gaps)} gapHands=${gapHands} gapOverTwo=${gapOverTwo}`;
+  return { n, onLast, noLock, early, line };
 }
 
 function hist(counts: Map<number, number>): string {

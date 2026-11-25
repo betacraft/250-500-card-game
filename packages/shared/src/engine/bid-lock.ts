@@ -1,7 +1,7 @@
 import { buildDeck, cardPointValue } from '../cards/deck';
 import { rulesFor } from '../games';
 import { visiblePartners } from '../bot/public-view';
-import type { GameHand } from './hand';
+import { finalizeHand, type GameHand } from './hand';
 
 /** Public bid outcome. Null while the remaining points could still go either way. */
 export type BidLockKind = 'made' | 'sunk';
@@ -23,6 +23,10 @@ const PIP_TOTAL = new Map<string, number>();
  * A hidden partner's points stay in U or R, so they cannot flip a lock.
  */
 export function bidLockDetail(hand: GameHand): BidLockDetail {
+  if (hand.ended && hand.bidder && hand.bidAmount !== null) {
+    const scored = finalizeHand(hand);
+    return { kind: scored.bidMade ? 'made' : 'sunk', k: scored.pointsCollected, u: 0, r: 0 };
+  }
   const bid = hand.bidAmount ?? 0;
   const bidder = hand.bidder ?? '';
   const revealed = new Set(visiblePartners(hand));
