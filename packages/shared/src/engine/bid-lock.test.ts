@@ -95,6 +95,28 @@ describe('bid lock', () => {
     expect(checked).toBeGreaterThan(900);
   });
 
+  it('matches the final result after every card over 3000 hands', () => {
+    for (const gameType of ['250', '500'] as const) {
+      let hands = 0;
+      let checks = 0;
+      let wrong = 0;
+      for (let seed = 1; seed <= 3000; seed += 1) {
+        const played = playSeed(gameType, seed);
+        if (!played) continue;
+        hands += 1;
+        const made = finalizeHand(played.state).bidMade;
+        for (const kind of played.shown) {
+          checks += 1;
+          if ((kind === 'made') !== made) wrong += 1;
+        }
+      }
+      console.info(`per-card lock ${gameType} hands=${hands} checks=${checks} wrong=${wrong}`);
+      expect(wrong).toBe(0);
+      expect(hands).toBe(3000);
+      expect(checks).toBeGreaterThan(hands);
+    }
+  });
+
   it('plays the same cards and the same scores with or without the lock', () => {
     const plain = playSeed('500', 4242);
     const paced = playSeed('500', 4242);
@@ -121,6 +143,7 @@ interface PlayedSeed {
   state: GameHand;
   cards: string[];
   locks: { kind: 'made' | 'sunk'; hand: GameHand; trick: number }[];
+  shown: Array<'made' | 'sunk'>;
   publicAt: number | null;
   omniAt: number | null;
   madeLate: number;
@@ -218,6 +241,7 @@ function playSeed(gameType: '250' | '500', seed: number): PlayedSeed | null {
   state = declareTrumpAndPartners(state, trump, chooseCalledCards(bidderHand, trump, gameType));
   const cards: string[] = [];
   const locks: { kind: 'made' | 'sunk'; hand: GameHand; trick: number }[] = [];
+  const shown: Array<'made' | 'sunk'> = [];
   const timing = { publicAt: null as number | null, omniAt: null as number | null, madeLate: 0 };
   let steps = 0;
   while (!state.ended && steps < rules.TOTAL_CARDS + 5) {
@@ -230,10 +254,12 @@ function playSeed(gameType: '250' | '500', seed: number): PlayedSeed | null {
     if (!played.ok) return null;
     cards.push(`${playerId}:${card.rank}${card.suit}`);
     state = played.state;
+    const kind = bidLock(state);
+    if (kind) shown.push(kind);
     if (played.trickWinnerId) noteCompletedTrick(state, locks, timing);
   }
   if (!state.ended) return null;
-  return { state, cards, locks, publicAt: timing.publicAt, omniAt: timing.omniAt, madeLate: timing.madeLate };
+  return { state, cards, locks, shown, publicAt: timing.publicAt, omniAt: timing.omniAt, madeLate: timing.madeLate };
 }
 
 function noteCompletedTrick(

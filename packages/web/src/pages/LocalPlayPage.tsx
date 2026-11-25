@@ -39,12 +39,12 @@ export function LocalPlayPage(): JSX.Element {
   const leave = useLocalPlayStore((s) => s.leave);
   const playAgain = useLocalPlayStore((s) => s.playAgain);
   const gameOver = useLocalPlayStore((s) => s.gameOver);
-  const reveal = usePartnerReveal(hand, names);
+  const pace = useTablePace();
+  const reveal = usePartnerReveal(hand, names, pace.banner !== null);
   const soundMuted = useSettingsStore((s) => s.soundMuted);
   const setSoundMuted = useSettingsStore((s) => s.setSoundMuted);
   const playSpeed = useSettingsStore((s) => s.playSpeed);
   const setPlaySpeed = useSettingsStore((s) => s.setPlaySpeed);
-  const pace = useTablePace();
   const { short, wide, height } = useViewport();
   const [canConfirm, setCanConfirm] = useState(false);
   const [blocked, setBlocked] = useState<string | null>(null);

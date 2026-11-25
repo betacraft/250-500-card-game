@@ -1,7 +1,5 @@
 import {
-  bidLock,
   cardId,
-  cardPointValue,
   currentHighBid,
   declareTrumpAndPartners,
   finalizeHand,
@@ -249,40 +247,40 @@ function forceHumanFollow(hand: GameHand): GameHand {
   };
 }
 
+const SCORING_RANKS = new Set(['A', 'K', 'Q', 'J', '10', '5', '3']);
+
+/** One quiet card each, the rest already won, and one trick left so Finish can end the hand. */
 function parkForLock(hand: GameHand, kind: 'made' | 'sunk'): GameHand {
   const bidder = hand.bidder ?? 'p2';
   const defender = hand.seatOrder.find((id) => id !== bidder && id !== HUMAN_ID) ?? HUMAN_ID;
-  const hands: Record<string, Card[]> = {};
-  const bidderPile: Card[] = [];
-  const defenderPile: Card[] = [];
-  for (const id of hand.seatOrder) {
-    const cards = [...(hand.hands[id] ?? [])];
-    hands[id] = [];
-    for (const card of cards) {
-      const points = cardPointValue(card);
-      if (kind === 'made' && points > 0 && bidderPile.reduce((sum, item) => sum + cardPointValue(item), 0) < (hand.bidAmount ?? 0)) bidderPile.push(card);
-      else if (kind === 'sunk' && points > 0) defenderPile.push(card);
-      else if (hands[id].length < 2) hands[id].push(card);
-      else defenderPile.push(card);
-    }
-  }
-  const shown = new Set(hand.seatOrder.filter((id) => id !== bidder && id !== defender).slice(0, rulesFor(hand.gameType).PARTNERS_TO_CALL));
-  const next: GameHand = {
+  const hands = oneQuietEach(hand);
+  const held = new Set(Object.values(hands).flat());
+  const owner = kind === 'made' ? bidder : defender;
+  const collected: Record<string, Card[]> = {};
+  for (const id of hand.seatOrder) collected[id] = [];
+  collected[owner] = hand.seatOrder.flatMap((id) => hand.hands[id] ?? []).filter((card) => !held.has(card));
+  const partners = hand.seatOrder.filter((id) => id !== bidder && id !== defender).slice(0, rulesFor(hand.gameType).PARTNERS_TO_CALL);
+  return {
     ...hand,
     hands,
-    collected: { ...hand.collected, [bidder]: bidderPile, [defender]: defenderPile },
-    shownPartners: shown,
-    slots: hand.slots.map((slot, index) => ({ ...slot, filledBy: [...shown][index] ?? null })),
+    collected,
+    shownPartners: new Set(partners),
+    slots: hand.slots.map((slot, index) => ({ ...slot, filledBy: partners[index] ?? null })),
     currentTrick: [],
     toPlayerId: HUMAN_ID,
-    premiumWinner: {
-      spades: kind === 'sunk' ? defender : hand.premiumWinner.spades,
-      hearts: kind === 'sunk' ? defender : hand.premiumWinner.hearts,
-    },
+    trickCount: rulesFor(hand.gameType).CARDS_PER_PLAYER - 1,
+    ended: false,
+    premiumWinner: { spades: owner, hearts: owner },
   };
-  if (bidLock(next) !== kind && kind === 'made') {
-    const extra = defenderPile.splice(0, defenderPile.length);
-    next.collected = { ...next.collected, [bidder]: [...bidderPile, ...extra], [defender]: [] };
+}
+
+function oneQuietEach(hand: GameHand): Record<string, Card[]> {
+  const called = new Set(hand.calledCards.map((card) => cardId(card)));
+  const spare = hand.seatOrder.flatMap((id) => hand.hands[id] ?? []).filter((card) => !SCORING_RANKS.has(card.rank) && !called.has(cardId(card)));
+  const hands: Record<string, Card[]> = {};
+  for (const id of hand.seatOrder) {
+    const card = spare.pop();
+    hands[id] = card ? [card] : [];
   }
-  return next;
+  return hands;
 }

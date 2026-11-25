@@ -72,7 +72,7 @@ function pointsStillOut(hand: GameHand): number {
   for (const id of hand.seatOrder) {
     for (const card of hand.collected[id] ?? []) collected += cardPointValue(card);
   }
-  for (const play of hand.currentTrick) collected += cardPointValue(play.card);
+  // The open trick is still in play. Either side can win it, so those points stay in R.
   let premium = hand.premiumWinner.spades === null ? 30 : 0;
   if (hand.gameType === '500' && hand.premiumWinner.hearts === null) premium += 30;
   return pipTotal(hand) - collected + premium;

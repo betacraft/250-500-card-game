@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EMPTY_REVEAL_QUEUE, pushReveals, revealNotices, tickReveal } from './reveal-queue';
+import { EMPTY_REVEAL_QUEUE, pushReveals, resumeReveal, revealNotices, tickReveal } from './reveal-queue';
 
 const names = { p1: 'Ada', p3: 'Bot 3', p4: 'Bot 4' };
 
@@ -23,6 +23,16 @@ describe('reveal queue', () => {
     expect(revealNotices(['p1'], ['p1', 'p4'], names, 'p1')).toEqual([
       { playerId: 'p4', text: 'Bot 4 is a partner!' },
     ]);
+  });
+
+  it('gives a parked toast its full time after the banner', () => {
+    const [first] = revealNotices([], ['p3'], names, 'p1');
+    if (!first) throw new Error('missing notice');
+    const queued = pushReveals(EMPTY_REVEAL_QUEUE, [first], 0);
+    const resumed = resumeReveal(queued, 5_000);
+    expect(resumed.current?.playerId).toBe('p3');
+    expect(resumed.until).toBe(6_500);
+    expect(tickReveal(resumed, 6_499).current?.playerId).toBe('p3');
   });
 
   it('does not stack a second copy of the same reveal', () => {

@@ -8,17 +8,18 @@ test.describe('table pace', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await open(page, 'declared', '250');
     const speed = page.getByTestId('speed-toggle');
-    await expect(speed).toHaveAttribute('aria-label', 'Speed 1x');
+    await expect(speed).toHaveAttribute('aria-label', 'Double speed');
     await expect(speed).toHaveAttribute('aria-pressed', 'false');
     const box = await speed.boundingBox();
     expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
     await speed.click();
-    await expect(speed).toHaveAttribute('aria-label', 'Speed 2x');
+    await expect(speed).toHaveAttribute('aria-label', 'Double speed');
     await expect(speed).toHaveAttribute('aria-pressed', 'true');
     await page.reload();
     await open(page, 'declared', '250');
-    await expect(page.getByTestId('speed-toggle')).toHaveAttribute('aria-label', 'Speed 2x');
+    await expect(page.getByTestId('speed-toggle')).toHaveAttribute('aria-label', 'Double speed');
+    await expect(page.getByTestId('speed-toggle')).toHaveAttribute('aria-pressed', 'true');
     await saveShot(page, '/opt/cursor/artifacts/pace-2x-toggle-390.png', false);
     await page.getByTestId('speed-toggle').click();
   });
@@ -68,11 +69,22 @@ test.describe('table pace', () => {
     await expect(made).toHaveText('Bid made!');
     await expect.poll(async () => made.evaluate((node) => Number(getComputedStyle(node).opacity))).toBeGreaterThan(0.9);
     await saveShot(page, '/opt/cursor/artifacts/bid-made-banner-667x375.png', false);
+    await expect(made).toBeHidden({ timeout: 2_500 });
+    await expect(page.getByTestId('partner-toast')).toBeVisible();
     await open(page, 'lock-sunk', '250');
     const sunk = page.getByTestId('bid-lock-banner');
     await expect(sunk).toHaveText('Bid sunk!');
     await expect.poll(async () => sunk.evaluate((node) => Number(getComputedStyle(node).opacity))).toBeGreaterThan(0.9);
     await saveShot(page, '/opt/cursor/artifacts/bid-sunk-banner-667x375.png', false);
+  });
+
+  test('finish hand on a lock script reaches the recap', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await open(page, 'lock-sunk', '250');
+    await page.getByTestId('finish-hand').click();
+    await expect(page.getByTestId('hand-complete')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId('bid-lock-banner')).toHaveCount(0);
+    await expect(page.getByTestId('hand-complete')).toContainText('Bid failed');
   });
 
   test('finish hand appears after the lock', async ({ page }) => {

@@ -28,7 +28,7 @@ export function PlayBar({
       <h1 data-testid="table-title" className={narrow ? 'text-sm font-medium' : 'min-w-0 truncate text-sm font-medium'}>Play vs bots · {gameType}</h1>
       <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="text-sm text-stone-500">Bots: {difficulty === 'normal' ? 'Normal' : 'Easy'}</span>
-        <button type="button" data-testid="speed-toggle" aria-pressed={fast} aria-label={fast ? 'Speed 2x' : 'Speed 1x'} onClick={onSpeed} className={`inline-flex h-11 w-11 items-center justify-center rounded-full text-lg text-stone-800 ${narrow ? '-my-1' : '-my-3'}`}>{fast ? '⏩' : '▶'}</button>
+        <button type="button" data-testid="speed-toggle" aria-pressed={fast} aria-label="Double speed" onClick={onSpeed} className={`inline-flex h-11 w-11 items-center justify-center rounded-full text-lg text-stone-800 ${narrow ? '-my-1' : '-my-3'}`}>{fast ? '⏩' : '▶'}</button>
         <button type="button" data-testid="sound-toggle" aria-pressed={!soundMuted} onClick={onSound} className="text-sm text-stone-600 underline">{soundMuted ? 'Sound off' : 'Sound on'}</button>
         <NewGameButton onAbandon={() => onLeave('new_game')} />
         <Link to="/" onClick={() => onLeave('home')} className="text-sm text-stone-600 underline">Home</Link>

@@ -55,6 +55,15 @@ export function pushReveals(queue: RevealQueue, notices: readonly RevealNotice[]
   return startIfIdle({ ...queue, pending: [...queue.pending, ...fresh] }, now);
 }
 
+/**
+ * A toast that waited behind the lock banner starts its full time when the banner goes.
+ * Nothing is dropped.
+ */
+export function resumeReveal(queue: RevealQueue, now: number): RevealQueue {
+  if (!queue.current) return startIfIdle(queue, now);
+  return { ...queue, until: now + REVEAL_TOAST_MS };
+}
+
 /** Move to the next notice once the current one has been up for {@link REVEAL_TOAST_MS}. */
 export function tickReveal(queue: RevealQueue, now: number): RevealQueue {
   if (!queue.current) return startIfIdle(queue, now);

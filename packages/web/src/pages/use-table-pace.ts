@@ -30,7 +30,8 @@ export function useTablePace(): {
   const settledTrick = useLocalPlayStore((s) => s.settledTrick);
   const speed = useSettingsStore((s) => s.playSpeed);
   const autoPlay = useSettingsStore((s) => s.autoPlayForced);
-  const lock = hand && (phase === 'playing' || settledTrick) ? bidLock(hand) : null;
+  const atBoundary = !hand?.currentTrick.length || Boolean(settledTrick) || Boolean(hand?.ended);
+  const lock = hand && (phase === 'playing' || settledTrick) && atBoundary ? bidLock(hand) : null;
   const [finishing, setFinishing] = useState(false);
   const pace = useRef<PaceSample>({ ...EMPTY_PACE });
   const banner = useLockBanner(lock, phase, pace);
@@ -62,21 +63,32 @@ function usePaceReset(phase: string, pace: MutableRefObject<PaceSample>, setFini
 function useLockBanner(lock: 'made' | 'sunk' | null, phase: string, pace: MutableRefObject<PaceSample>): 'made' | 'sunk' | null {
   const [banner, setBanner] = useState<'made' | 'sunk' | null>(null);
   const announced = useRef(false);
+  const timer = useRef<number | null>(null);
+  const stop = (): void => {
+    if (timer.current === null) return;
+    window.clearTimeout(timer.current);
+    timer.current = null;
+  };
   useEffect(() => {
-    if (phase !== 'bidding') return;
-    announced.current = false;
+    if (phase !== 'bidding' && phase !== 'scored' && phase !== 'setup') return;
+    if (phase === 'bidding') announced.current = false;
+    stop();
     setBanner(null);
   }, [phase]);
   useEffect(() => {
-    if (!lock || announced.current) return undefined;
+    if (phase === 'scored' || phase === 'setup' || !lock || announced.current) return;
     announced.current = true;
     pace.current.lockTrick = useLocalPlayStore.getState().hand?.trickCount ?? null;
     pace.current.lockKind = lock;
     setBanner(lock);
     playStinger(lock, useSettingsStore.getState().soundMuted);
-    const timer = window.setTimeout(() => setBanner(null), 1200);
-    return () => window.clearTimeout(timer);
-  }, [lock, pace]);
+    stop();
+    timer.current = window.setTimeout(() => {
+      timer.current = null;
+      setBanner(null);
+    }, 1200);
+  }, [lock, phase, pace]);
+  if (phase === 'scored' || phase === 'setup') return null;
   return banner;
 }
 

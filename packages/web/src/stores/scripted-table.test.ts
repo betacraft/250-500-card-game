@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { bidLock, finalizeHand, legalPlaysFor, playCard } from '@250-500/shared';
 import { forcedAuctionAction, scriptedOpening } from './scripted-table';
 
 afterEach(() => {
@@ -49,6 +50,28 @@ describe('scripted table', () => {
     expect(five?.hand.toPlayerId).toBeNull();
     expect(five?.hand.currentTrick.length).toBeGreaterThan(1);
     expect(five?.hand.slots.some((slot) => slot.filledBy)).toBe(true);
+  });
+
+  it('finishes a lock script on the next trick and keeps the result', () => {
+    for (const gameType of ['250', '500'] as const) {
+      for (const kind of ['made', 'sunk'] as const) {
+        window.history.pushState({}, '', `/play?script=lock-${kind}`);
+        const table = scriptedOpening(gameType, 'Ada');
+        if (!table) throw new Error(`missing ${kind} ${gameType}`);
+        expect(bidLock(table.hand)).toBe(kind);
+        let state = table.hand;
+        for (let guard = 0; guard < 20 && !state.ended; guard += 1) {
+          const seat = state.toPlayerId;
+          const card = seat ? legalPlaysFor(state, seat)[0] : undefined;
+          if (!seat || !card) throw new Error(`${kind} ${gameType} stalled at ${seat ?? 'nobody'}`);
+          const played = playCard(state, seat, card);
+          if (!played.ok) throw new Error(played.message);
+          state = played.state;
+        }
+        expect(state.ended).toBe(true);
+        expect(finalizeHand(state).bidMade).toBe(kind === 'made');
+      }
+    }
   });
 
   it('opens a trick the human has not led', () => {
