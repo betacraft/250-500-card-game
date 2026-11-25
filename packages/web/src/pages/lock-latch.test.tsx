@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { announceLock, EMPTY_LATCH, latchLock, lockChrome } from './lock-latch';
+import { announceLock, EMPTY_LATCH, latchLock, lockChrome, noteLatchedLock } from './lock-latch';
 import { RecapHeading } from './recap-heading';
 
 describe('lock latch', () => {
@@ -35,6 +35,11 @@ describe('lock latch', () => {
     announceLock(latch, 'scored', { banner: false, recap: false }, play);
     expect(play).toHaveBeenCalledTimes(1);
     expect(play).toHaveBeenCalledWith('sunk');
+    const sample = { lockTrick: null, lockKind: null as 'made' | 'sunk' | null };
+    noteLatchedLock(sample, latch, 8);
+    expect(sample).toEqual({ lockKind: 'sunk', lockTrick: 8 });
+    noteLatchedLock(sample, latchLock(EMPTY_LATCH, 'made', false, false), 3);
+    expect(sample.lockTrick).toBe(8);
   });
 
   it('forgets the lock when the next hand is dealt', () => {

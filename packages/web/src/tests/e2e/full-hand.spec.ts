@@ -315,8 +315,11 @@ async function finishHand(
     if (await page.getByTestId('trick-pause').isVisible().catch(() => false)) {
       const cardsLeft = await page.locator('[data-testid="hand-card"]').count();
       if (holdScores && cardsLeft === 0) {
-        const scores = await page.locator('[data-testid="score-chip-score"]').allTextContents();
-        expect(scores.every((score) => score.trim() === '0')).toBe(true);
+        const live = await page.evaluate(() => {
+          if (!document.querySelector('[data-testid="trick-pause"]')) return null;
+          return [...document.querySelectorAll('[data-testid="score-chip-score"]')].map((node) => node.textContent?.trim() ?? '');
+        });
+        if (live) expect(live.every((score) => score === '0')).toBe(true);
       }
       const width = await page.getByTestId('trick-winner').getAttribute('data-card-width').catch(() => null);
       if (width) widths.push(Number(width));

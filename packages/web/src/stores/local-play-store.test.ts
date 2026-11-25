@@ -6,12 +6,13 @@ describe('local play store', () => {
   it('holds the last trick on the table until it is dismissed', () => {
     const store = useLocalPlayStore;
     store.getState().leave();
-    store.getState().startGame('250', 'Ada');
+    store.getState().startGame('250', 'Ada', 'easy', 17);
     for (let guard = 0; guard < 800; guard += 1) {
       const state = store.getState();
       if (state.settledTrick && state.hand?.ended) {
         expect(state.phase).toBe('playing');
         expect(state.summary?.scoreDeltas).toBeTruthy();
+        expect(Object.values(state.runningScores).every((score) => score === 0)).toBe(true);
         store.getState().dismissTrick();
         expect(store.getState().phase).toBe('scored');
         expect(store.getState().settledTrick).toBeNull();

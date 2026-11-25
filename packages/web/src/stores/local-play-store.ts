@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import {
-  bidLock,
   chooseBid,
   chooseCalledCards,
   chooseNormalBid,
@@ -72,7 +71,7 @@ interface LocalPlayState {
   gameOver: boolean;
   /** Milliseconds the last bot decision took. Subtracted from the pace target. */
   lastComputeMs: number;
-  startGame: (gameType: GameType, humanName: string, difficulty?: 'easy' | 'normal') => void;
+  startGame: (gameType: GameType, humanName: string, difficulty?: 'easy' | 'normal', seed?: number) => void;
   bid: (amount: number) => void;
   pass: () => void;
   declare: (trump: Suit, called: Card[]) => void;
@@ -83,7 +82,7 @@ interface LocalPlayState {
   dismissTrick: () => void;
   nextHand: () => void;
   leave: (reason?: 'new_game' | 'home') => void;
-  playAgain: () => void;
+  playAgain: (seed?: number) => void;
 }
 
 const SETUP = {
@@ -111,7 +110,7 @@ const SETUP = {
 /** Local free-to-play table. The human is seat 1. Bots default to Easy. */
 export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
   ...SETUP,
-  startGame: (gameType, humanName, difficulty = 'easy') => {
+  startGame: (gameType, humanName, difficulty = 'easy', seed?: number) => {
     const name = humanName.trim() || 'You';
     const scripted = scriptedOpening(gameType, name);
     if (scripted) {
@@ -123,7 +122,7 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
       }
       return;
     }
-    const seed = (Date.now() % 100000) + 1;
+    const dealSeed = seed ?? (Date.now() % 100000) + 1;
     const seats = localSeatIds(rulesFor(gameType).PLAYER_COUNT);
     set({
       ...SETUP,
@@ -132,7 +131,7 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
       seatOrder: seats,
       names: localNames(seats, HUMAN_ID, name),
       runningScores: Object.fromEntries(seats.map((id) => [id, 0])),
-      seed,
+      seed: dealSeed,
       phase: 'bidding',
       difficulty,
       targetScore: currentTarget(),
@@ -236,10 +235,10 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
     if (state.phase !== 'setup') noteNewGame();
     set({ ...SETUP });
   },
-  playAgain: () => {
+  playAgain: (seed?: number) => {
     const state = get();
     if (!state.gameOver) return;
-    const seed = (Date.now() % 100000) + 1;
+    const dealSeed = seed ?? (Date.now() % 100000) + 1;
     const seats = localSeatIds(rulesFor(state.gameType).PLAYER_COUNT);
     const name = state.humanName.trim() || 'You';
     set({
@@ -249,7 +248,7 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
       seatOrder: seats,
       names: localNames(seats, HUMAN_ID, name),
       runningScores: Object.fromEntries(seats.map((id) => [id, 0])),
-      seed,
+      seed: dealSeed,
       phase: 'bidding',
       difficulty: state.difficulty,
       targetScore: state.targetScore,
@@ -283,7 +282,6 @@ function afterBid(state: LocalPlayState, bidHistory: BidEntry[]): Partial<LocalP
 
 function applyCard(state: LocalPlayState, playerId: string, card: Card): Partial<LocalPlayState> {
   if (!state.hand) return {};
-  const before = bidLock(state.hand);
   const completing = state.hand.currentTrick.length + 1 === state.hand.seatOrder.length;
   const snapshot = completing ? [...state.hand.currentTrick, { playerId, card }] : null;
   const result = playCard(state.hand, playerId, card);
@@ -294,11 +292,10 @@ function applyCard(state: LocalPlayState, playerId: string, card: Card): Partial
   if (summary && !state.summary) {
     noteHandComplete(summary.bidMade, summary.bidAmount, summary.pointsCollected, summary.bidder === HUMAN_ID, state.handsPlayed === 0);
   }
-  const openedOnTheLastTrick = result.state.ended && before === null && bidLock(result.state) !== null;
-  if (settledTrick && next.phase === 'scored' && !openedOnTheLastTrick) {
+  if (settledTrick && next.phase === 'scored') {
     return { ...next, runningScores: state.runningScores, phase: 'playing', settledTrick, decision: state.decision + 1 };
   }
-  return { ...next, settledTrick: openedOnTheLastTrick ? null : settledTrick, decision: state.decision + 1 };
+  return { ...next, settledTrick, decision: state.decision + 1 };
 }
 
 function scoreIfDone(state: LocalPlayState, hand: GameHand): Partial<LocalPlayState> {

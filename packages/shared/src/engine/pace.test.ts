@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { botPlayDelay, remainingDelay, trickPause } from './pace';
+import { botPlayDelay, lastTrickHoldMs, remainingDelay, trickPause } from './pace';
 
 describe('play pace', () => {
   it('uses 250/700 at normal speed, 125/350 at 2x, and 150/250 after the lock', () => {
@@ -9,6 +9,8 @@ describe('play pace', () => {
     expect(trickPause('fast', false)).toBe(350);
     expect(botPlayDelay('fast', true)).toBe(150);
     expect(trickPause('normal', true)).toBe(250);
+    expect(lastTrickHoldMs('normal')).toBe(700);
+    expect(lastTrickHoldMs('fast')).toBe(350);
   });
 
   it('subtracts compute time and never stacks it', () => {

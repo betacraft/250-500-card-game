@@ -167,7 +167,7 @@ describe('table events', () => {
   it('emits the hand funnel with the committed props', () => {
     enable();
     const store = useLocalPlayStore;
-    store.getState().startGame('250', 'Ada');
+    store.getState().startGame('250', 'Ada', 'easy', 17);
     for (let guard = 0; guard < 800; guard += 1) {
       const state = store.getState();
       if (state.phase === 'scored') break;
@@ -239,7 +239,7 @@ describe('table events', () => {
     setLocalTargetForTests(1);
     enable();
     const store = useLocalPlayStore;
-    store.getState().startGame('250', 'Ada');
+    store.getState().startGame('250', 'Ada', 'easy', 17);
     for (let hands = 0; hands < 8 && !store.getState().gameOver; hands += 1) {
       for (let guard = 0; guard < 800 && store.getState().phase !== 'scored' && !store.getState().gameOver; guard += 1) {
         const state = store.getState();
@@ -306,7 +306,7 @@ describe('table events', () => {
   it('Play again starts the same game without new_game', () => {
     enable();
     useLocalPlayStore.setState({ phase: 'scored', gameOver: true, gameType: '500', humanName: 'Ada', handsPlayed: 2, targetScore: 1000 });
-    useLocalPlayStore.getState().playAgain();
+    useLocalPlayStore.getState().playAgain(17);
     expect(useLocalPlayStore.getState().phase).toBe('bidding');
     expect(useLocalPlayStore.getState().gameOver).toBe(false);
     expect(useLocalPlayStore.getState().gameType).toBe('500');
@@ -317,7 +317,7 @@ describe('table events', () => {
 
   it('records home as an abandon', () => {
     enable();
-    useLocalPlayStore.getState().startGame('250', 'Ada');
+    useLocalPlayStore.getState().startGame('250', 'Ada', 'easy', 17);
     useLocalPlayStore.getState().leave('home');
     expect(names()).not.toContain('game_complete');
     expect(one('game_abandoned').props).toEqual({ hands_played: 0, human_score: 0, reason: 'home' });

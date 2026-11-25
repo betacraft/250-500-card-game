@@ -116,7 +116,7 @@ export function LocalPlayPage(): JSX.Element {
       calledIds={new Set(hand.calledCards.map((card) => cardId(card)))}
       reasons={reasons}
       compact={short || !wide}
-maxHeight={height <= 500 || cramped ? 72 : wide && !short ? Math.floor(height * 0.3) : wide ? null : Math.floor(height * 0.32) - 86}
+      maxHeight={height <= 500 || cramped ? 72 : wide && !short ? Math.floor(height * 0.3) : wide ? null : Math.floor(height * 0.32) - 86}
       onBlocked={(reason) => setBlocked(reason ? reason : null)}
       forcedId={pace.forcedId}
       liftForced={!reveal.reduced}
@@ -181,7 +181,7 @@ maxHeight={height <= 500 || cramped ? 72 : wide && !short ? Math.floor(height * 
         </div>
       )}
       {!(phase === 'bidding' && turn === HUMAN_ID && !settledTrick) && (
-      <div className={shortScore ? 'absolute inset-0' : 'h-full overflow-y-auto'}>
+      <div className={shortScore ? 'absolute inset-0' : 'h-full min-h-0 overflow-y-auto'}>
       {phase === 'bidding' && turn !== HUMAN_ID && <p className="text-sm text-stone-600">Bots are bidding…</p>}
       {phase === 'declaring' && hand.bidder === HUMAN_ID && (
         <DeclareForm
@@ -200,7 +200,7 @@ maxHeight={height <= 500 || cramped ? 72 : wide && !short ? Math.floor(height * 
         <p className="text-sm text-stone-600">{names[hand.bidder ?? ''] ?? 'Bidder'} is declaring…</p>
       )}
       {pace.banner && (
-        <p data-testid="bid-lock-banner" data-lock={pace.banner} className={`pointer-events-none mx-auto my-1 w-fit rounded-full px-4 py-2 text-base font-semibold text-white shadow-lg ${pace.banner === 'made' ? 'bg-felt' : 'bg-[#7A3E2E]'} ${reveal.reduced ? 'bid-lock-fade' : 'bid-lock-pop'}`}>
+        <p data-testid="bid-lock-banner" data-lock={pace.banner} className={`pointer-events-none mx-auto my-1 w-fit shrink-0 rounded-full px-4 py-2 text-base font-semibold text-white shadow-lg ${pace.banner === 'made' ? 'bg-felt' : 'bg-[#7A3E2E]'} ${reveal.reduced ? 'bid-lock-fade' : 'bid-lock-pop'}`}>
           {pace.banner === 'made' ? 'Bid made!' : 'Bid sunk!'}
         </p>
       )}
@@ -214,16 +214,22 @@ maxHeight={height <= 500 || cramped ? 72 : wide && !short ? Math.floor(height * 
             winnerId={settledTrick?.winnerId ?? null}
             trump={hand.trump}
             compact={height <= 500 || cramped}
+            flush={pace.showFinish}
           />
           {!pace.banner && <PartnerToast notice={reveal.current} reduced={reveal.reduced} />}
-          {settledTrick && <p className="mt-1 text-center text-sm text-stone-600">{names[settledTrick.winnerId] ?? 'Winner'} won the trick · tap to skip</p>}
+          {settledTrick && <p data-testid="trick-status" className="mt-1 text-center text-sm leading-5 text-stone-600">{names[settledTrick.winnerId] ?? 'Winner'} won the trick · tap to skip</p>}
         </div>
       )}
       {phase === 'playing' && !settledTrick && (
-        <p data-testid="play-status" className="mb-2 text-sm text-stone-500">
+        <p data-testid="play-status" className="mb-1 text-sm leading-5 text-stone-500">
           {myTurn ? 'Your turn' : `${names[hand.toPlayerId ?? ''] ?? 'Bot'} to play`}
           {myTurn && [...reasons.values()].find((reason) => reason) ? ` · ${[...reasons.values()].find((reason) => reason)}` : ''}
         </p>
+      )}
+      {pace.showFinish && (
+        <button type="button" data-testid="finish-hand" onClick={pace.startFinish} className="mx-auto mb-1 mt-1 flex h-11 items-center justify-center rounded-full bg-[#4A3000] px-5 text-base font-medium text-white">
+          Finish hand ⏩
+        </button>
       )}
       {phase === 'scored' && summary && !settledTrick && (
         <section data-testid="hand-complete" className={`rounded-xl bg-white ${shortScore ? `h-full touch-pan-y overflow-y-auto overscroll-contain ${gameOver ? 'max-h-[230px] p-3' : 'max-h-[172px] px-3 py-1'}` : gameOver ? 'max-h-full overflow-y-auto p-3' : 'p-3'}`}>
@@ -263,7 +269,7 @@ maxHeight={height <= 500 || cramped ? 72 : wide && !short ? Math.floor(height * 
       {docked && (
         <div data-testid="hand-dock" className="hand-dock shrink-0">
           {gameOver ? (
-            <button type="button" data-testid="play-again" onClick={playAgain} className={`min-h-11 w-full rounded-xl bg-felt text-base font-medium text-white focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#0F766E] ${height <= 500 ? 'py-2' : 'p-4'}`}>
+            <button type="button" data-testid="play-again" onClick={() => playAgain()} className={`min-h-11 w-full rounded-xl bg-felt text-base font-medium text-white focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#0F766E] ${height <= 500 ? 'py-2' : 'p-4'}`}>
               Play again
             </button>
           ) : dockNext ? (
@@ -272,11 +278,6 @@ maxHeight={height <= 500 || cramped ? 72 : wide && !short ? Math.floor(height * 
             </button>
           ) : (
             <>
-              {pace.showFinish && (
-                <button type="button" data-testid="finish-hand" onClick={pace.startFinish} className="mb-1 min-h-11 w-full rounded-xl bg-[#4A3000] py-2 text-base font-medium text-white">
-                  Finish hand ⏩
-                </button>
-              )}
               {fan}
               {humanDeclaring && (
                 <div className="pt-1">

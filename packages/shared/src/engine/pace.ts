@@ -14,6 +14,14 @@ export function trickPause(speed: PlaySpeed, locked: boolean): number {
 }
 
 /**
+ * How long the completed final trick stays up when the lock first lands on it.
+ * This is the unlocked trick pause, so a last-trick lock is not the shorter locked pause.
+ */
+export function lastTrickHoldMs(speed: PlaySpeed): number {
+  return trickPause(speed, false);
+}
+
+/**
  * Wait this long after the AI has already spent `elapsedMs`.
  * The player sees max(target, compute), not target plus compute.
  */

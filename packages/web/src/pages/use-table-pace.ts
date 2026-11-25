@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type MutableRefObject } from 'react';
-import { bidLock, botPlayDelay, cardInstanceKey, isForcedFollow, legalPlaysFor, remainingDelay, trickPause, type Card } from '@250-500/shared';
+import { bidLock, botPlayDelay, cardInstanceKey, isForcedFollow, lastTrickHoldMs, legalPlaysFor, remainingDelay, trickPause, type Card } from '@250-500/shared';
 import { notePace } from '../analytics/table-events';
 import { useSettingsStore } from '../stores/settings-store';
 import { HUMAN_ID, useLocalPlayStore } from '../stores/local-play-store';
-import { EMPTY_LATCH, lockChrome, type LockLatch, latchLock } from './lock-latch';
+import { EMPTY_LATCH, lockChrome, noteLatchedLock, type LockLatch, latchLock } from './lock-latch';
 import { playStinger } from './stingers';
 
 interface PaceSample {
@@ -39,7 +39,8 @@ export function useTablePace(): {
   const lock = latch.kind;
   const [finishing, setFinishing] = useState(false);
   const pace = useRef<PaceSample>({ ...EMPTY_PACE });
-  const banner = useLockBanner(chrome.banner, phase, pace);
+  noteLatchedLock(pace.current, latch, hand?.trickCount ?? null);
+  const banner = useLockBanner(chrome.banner, phase);
   useRecapStinger(chrome.recapStinger);
   usePaceReset(phase, pace, setFinishing);
   useTrickPause(settledTrick, speed, lock, latch.lastTrick);
@@ -91,7 +92,7 @@ function usePaceReset(phase: string, pace: MutableRefObject<PaceSample>, setFini
   }, [phase, pace, setFinishing]);
 }
 
-function useLockBanner(lock: 'made' | 'sunk' | null, phase: string, pace: MutableRefObject<PaceSample>): 'made' | 'sunk' | null {
+function useLockBanner(lock: 'made' | 'sunk' | null, phase: string): 'made' | 'sunk' | null {
   const [banner, setBanner] = useState<'made' | 'sunk' | null>(null);
   const announced = useRef(false);
   const timer = useRef<number | null>(null);
@@ -109,8 +110,6 @@ function useLockBanner(lock: 'made' | 'sunk' | null, phase: string, pace: Mutabl
   useEffect(() => {
     if (phase === 'scored' || phase === 'setup' || !lock || announced.current) return;
     announced.current = true;
-    pace.current.lockTrick = useLocalPlayStore.getState().hand?.trickCount ?? null;
-    pace.current.lockKind = lock;
     setBanner(lock);
     playStinger(lock, useSettingsStore.getState().soundMuted);
     stop();
@@ -118,7 +117,7 @@ function useLockBanner(lock: 'made' | 'sunk' | null, phase: string, pace: Mutabl
       timer.current = null;
       setBanner(null);
     }, 1200);
-  }, [lock, phase, pace]);
+  }, [lock, phase]);
   if (phase === 'scored' || phase === 'setup') return null;
   return banner;
 }
@@ -127,7 +126,7 @@ function useTrickPause(settledTrick: unknown, speed: 'normal' | 'fast', lock: 'm
   const dismissTrick = useLocalPlayStore((s) => s.dismissTrick);
   useEffect(() => {
     if (!settledTrick) return undefined;
-    const wait = lastTrick ? 0 : trickPause(speed, lock !== null);
+    const wait = lastTrick ? lastTrickHoldMs(speed) : trickPause(speed, lock !== null);
     const timer = window.setTimeout(() => dismissTrick(), wait);
     return () => window.clearTimeout(timer);
   }, [settledTrick, dismissTrick, speed, lock, lastTrick]);

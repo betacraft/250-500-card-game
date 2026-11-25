@@ -16,10 +16,17 @@ test.describe('analytics during a real hand', () => {
       });
       page.on('pageerror', (error) => errors.push(error.message));
       await page.setViewportSize(view);
+      await page.addInitScript(() => {
+        const raw = localStorage.getItem('settings-v1');
+        const parsed = raw ? JSON.parse(raw) as { state?: { autoPlayForced?: boolean }; version?: number } : {};
+        const state = { ...(parsed.state ?? {}), autoPlayForced: false };
+        localStorage.setItem('settings-v1', JSON.stringify({ ...parsed, state, version: parsed.version ?? 0 }));
+      });
       await page.goto('/play?analytics=1&debug=1');
       await page.getByRole('button', { name: /^250/ }).click();
       await page.getByLabel('Your name').click();
       await page.keyboard.type('Ada');
+      await expect(page.getByTestId('autoplay-toggle')).toHaveAttribute('aria-pressed', 'false');
       await page.getByTestId('start-vs-bots').click();
       await page.getByTestId('hand-fan').waitFor();
       if (view.width === 390) await assertExportClear(page, true);

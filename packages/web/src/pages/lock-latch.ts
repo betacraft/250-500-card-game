@@ -46,6 +46,20 @@ export function lockChrome(latch: LockLatch, phase: string): LockChrome {
  * Play the stinger once for a mid-hand banner, and once when a last-trick recap opens.
  * A scored hand does not start the banner stinger.
  */
+/**
+ * Fill the pace sample from the latched lock, including a last-trick lock that shows no banner.
+ * The first non-null lock wins; a later trick does not overwrite it.
+ */
+export function noteLatchedLock(
+  sample: { lockTrick: number | null; lockKind: 'made' | 'sunk' | null },
+  latch: LockLatch,
+  trick: number | null,
+): void {
+  if (!latch.kind || sample.lockKind !== null) return;
+  sample.lockKind = latch.kind;
+  sample.lockTrick = trick;
+}
+
 export function announceLock(
   latch: LockLatch,
   phase: string,
