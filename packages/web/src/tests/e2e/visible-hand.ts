@@ -307,3 +307,20 @@ export async function assertControlsClear(page: Page): Promise<void> {
   });
   expect(gap).toBeGreaterThanOrEqual(8);
 }
+
+/** Retry a screenshot when the artifact filesystem is briefly busy. */
+export async function saveShot(page: Page, path: string, fullPage = false): Promise<void> {
+  let last: unknown;
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      await page.screenshot({ path, fullPage });
+      return;
+    } catch (error) {
+      last = error;
+      const message = error instanceof Error ? error.message : '';
+      if (!/EAGAIN|EBUSY|EMFILE|ENFILE|EIO/.test(message) || attempt === 5) throw error;
+      await page.waitForTimeout(200 * (attempt + 1));
+    }
+  }
+  throw last;
+}
