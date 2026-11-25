@@ -41,7 +41,7 @@ export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerI
       {(ledSuit || leaderId) && (
         <div className="flex items-center gap-2 text-sm text-white/90">
           {ledSuit && <span data-testid="led-suit" data-suit={ledSuit} className="inline-flex items-center gap-1">Led: {ledSuit} <SuitIcon suit={ledSuit} size={18} badge /></span>}
-          {leaderId && <span data-testid="trick-leader">Winning: {playerNames[leaderId] ?? leaderId}</span>}
+          {leaderId && <span data-testid="trick-leader">Winning: {seatLabel(playerNames[leaderId] ?? leaderId)}</span>}
         </div>
       )}
       {played.length === 0 ? (

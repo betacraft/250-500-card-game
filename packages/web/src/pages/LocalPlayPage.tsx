@@ -96,7 +96,8 @@ export function LocalPlayPage(): JSX.Element {
   const shownTrick = settledTrick?.plays ?? hand.currentTrick;
   const thirty = trickThirties(shownTrick, hand);
   const reasons = new Map(humanHand.map((card) => [cardInstanceKey(card), illegalReason(legalContext(hand), card) ?? '']));
-  const shortPlay = height <= 500 && (phase === 'playing' || Boolean(settledTrick));
+  const cramped = !wide && height <= 600;
+  const shortPlay = (height <= 500 || cramped) && (phase === 'playing' || Boolean(settledTrick));
   const shortScore = phase === 'scored' && !settledTrick && height <= 500;
   const dockNext = phase === 'scored' && !gameOver && height <= 500;
   const docked = phase === 'bidding' || phase === 'declaring' || phase === 'playing' || gameOver || dockNext;
@@ -113,7 +114,7 @@ export function LocalPlayPage(): JSX.Element {
       calledIds={new Set(hand.calledCards.map((card) => cardId(card)))}
       reasons={reasons}
       compact={short || !wide}
-      maxHeight={height <= 500 ? 72 : wide && !short ? Math.floor(height * 0.3) : wide ? null : Math.floor(height * 0.32) - 86}
+maxHeight={height <= 500 || cramped ? 72 : wide && !short ? Math.floor(height * 0.3) : wide ? null : Math.floor(height * 0.32) - 86}
       onBlocked={(reason) => setBlocked(reason ? reason : null)}
       forcedId={pace.forcedId}
       liftForced={!reveal.reduced}
@@ -210,7 +211,7 @@ export function LocalPlayPage(): JSX.Element {
             thirtyIndexes={thirty}
             winnerId={settledTrick?.winnerId ?? null}
             trump={hand.trump}
-            compact={height <= 500}
+            compact={height <= 500 || cramped}
           />
           {!pace.banner && <PartnerToast notice={reveal.current} reduced={reveal.reduced} />}
           {settledTrick && <p className="mt-1 text-center text-sm text-stone-600">{names[settledTrick.winnerId] ?? 'Winner'} won the trick · tap to skip</p>}

@@ -54,7 +54,7 @@ export function fanMetrics(count: number, screen: number, compact = false, maxHe
       cardW -= 1;
     }
   }
-  cardW = Math.max(maxHeight !== null ? 36 : 44, cardW);
+cardW = Math.max(maxHeight !== null ? 36 : 44, cardW);
   const pad = fanSidePad(cardW, degrees);
   const usable = Math.max(cardW, screen - pad * 2);
   const spread = gaps === 0 ? 0 : (usable - cardW) / gaps;

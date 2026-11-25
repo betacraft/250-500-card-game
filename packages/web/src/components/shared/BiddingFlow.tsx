@@ -159,11 +159,11 @@ export function BiddingFlow({
             <span className="min-w-0 truncate"><span className="font-medium text-felt">{currentPlayer.name}</span>&apos;s turn</span>
             <span className="shrink-0 text-stone-600">{high ? `High ${high.amount}` : `Min ${rules.MIN_BID}`}</span>
           </div>
-          <div className="flex items-center justify-center gap-1.5">
+          <div className="flex items-center justify-center gap-0.5">
             <StepButton label="Decrease bid by 5" disabled={draftAmount <= rules.MIN_BID} onClick={() => (draftAmount <= rules.MIN_BID ? onBlocked?.(`The lowest bid is ${rules.MIN_BID}`) : adjust(-rules.BID_INCREMENT))}>
               <Minus size={18} />
             </StepButton>
-            <div data-testid="draft-amount" className="min-w-[3.5rem] text-center text-2xl font-medium tabular-nums">{draftAmount}</div>
+            <div data-testid="draft-amount" className="min-w-[2.75rem] text-center text-xl font-medium tabular-nums">{draftAmount}</div>
             <StepButton label="Increase bid by 5" disabled={draftAmount >= rules.MAX_BID} onClick={() => (draftAmount >= rules.MAX_BID ? onBlocked?.(`The highest bid is ${rules.MAX_BID}`) : adjust(rules.BID_INCREMENT))}>
               <Plus size={18} />
             </StepButton>
