@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import {
   chooseBid,
   chooseCalledCards,
+  chooseNormalBid,
+  chooseNormalDeclaration,
+  chooseNormalPlay,
   choosePlay,
   chooseTrump,
   createRng,
@@ -61,13 +64,18 @@ interface LocalPlayState {
   decision: number;
   summary: LocalSummary | null;
   settledTrick: SettledTrick | null;
+  difficulty: 'easy' | 'normal';
   targetScore: number;
   gameOver: boolean;
-  startGame: (gameType: GameType, humanName: string) => void;
+  /** Milliseconds the last bot decision took. Subtracted from the pace target. */
+  lastComputeMs: number;
+  startGame: (gameType: GameType, humanName: string, difficulty?: 'easy' | 'normal') => void;
   bid: (amount: number) => void;
   pass: () => void;
   declare: (trump: Suit, called: Card[]) => void;
   play: (card: Card) => void;
+  /** Play the seat to move with the Easy heuristic, including the human. */
+  finishStep: () => void;
   stepBot: () => void;
   dismissTrick: () => void;
   nextHand: () => void;
@@ -90,19 +98,21 @@ const SETUP = {
   decision: 0,
   summary: null as LocalSummary | null,
   settledTrick: null as SettledTrick | null,
+  difficulty: 'easy' as const,
   targetScore: 1000,
   gameOver: false,
+  lastComputeMs: 0,
 };
 
-/** Local free-to-play table. The human is seat 1. Everyone else is an Easy bot. */
+/** Local free-to-play table. The human is seat 1. Bots default to Easy. */
 export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
   ...SETUP,
-  startGame: (gameType, humanName) => {
+  startGame: (gameType, humanName, difficulty = 'easy') => {
     const name = humanName.trim() || 'You';
     const scripted = scriptedOpening(gameType, name);
     if (scripted) {
-      set(scripted);
-      noteGameStart(gameType, 'easy');
+      set({ ...scripted, difficulty });
+      noteGameStart(gameType, difficulty);
       if (scripted.summary && scripted.gameOver) {
         const result = tableWinner(scripted.runningScores, HUMAN_ID);
         noteGameComplete(result.winner, result.humanScore, scripted.handsPlayed);
@@ -120,10 +130,11 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
       runningScores: Object.fromEntries(seats.map((id) => [id, 0])),
       seed,
       phase: 'bidding',
+      difficulty,
       targetScore: currentTarget(),
       gameOver: false,
     });
-    noteGameStart(gameType, 'easy');
+    noteGameStart(gameType, difficulty);
     get().nextHand();
   },
   nextHand: () => {
@@ -169,12 +180,25 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
     if (!state.hand || state.settledTrick || state.hand.toPlayerId !== HUMAN_ID) return;
     set(applyCard(state, HUMAN_ID, card));
   },
+  finishStep: () => {
+    const state = get();
+    if (!state.hand?.toPlayerId || !state.hand.trump || state.phase !== 'playing' || state.settledTrick) return;
+    const turn = state.hand.toPlayerId;
+    const legal = legalPlaysFor(state.hand, turn);
+    const first = legal[0];
+    if (!first) return;
+    const rng = createRng(state.seed + state.decision + 11);
+    const card = choosePlay(legal, { ...toPublicView(state.hand, turn), rng });
+    set({ ...applyCard(state, turn, card), lastComputeMs: 0 });
+  },
   stepBot: () => {
+    const started = typeof performance === 'undefined' ? 0 : performance.now();
     const state = get();
     if (!state.hand || state.settledTrick) return;
-    if (state.phase === 'bidding') set(botBid(state));
-    else if (state.phase === 'declaring') set(botDeclare(state));
-    else if (state.phase === 'playing') set(botPlay(state));
+    const patch = state.phase === 'bidding' ? botBid(state) : state.phase === 'declaring' ? botDeclare(state) : state.phase === 'playing' ? botPlay(state) : {};
+    if (Object.keys(patch).length === 0) return;
+    const elapsed = (typeof performance === 'undefined' ? 0 : performance.now()) - started;
+    set({ ...patch, lastComputeMs: elapsed });
   },
   dismissTrick: () => {
     const state = get();
@@ -223,10 +247,11 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
       runningScores: Object.fromEntries(seats.map((id) => [id, 0])),
       seed,
       phase: 'bidding',
+      difficulty: state.difficulty,
       targetScore: state.targetScore,
       gameOver: false,
     });
-    noteGameStart(state.gameType, 'easy', true);
+    noteGameStart(state.gameType, state.difficulty, true);
     get().nextHand();
   },
 }));
@@ -297,12 +322,13 @@ function botBid(state: LocalPlayState): Partial<LocalPlayState> {
   if (isAuctionClosed(auction)) return afterBid(state, state.bidHistory);
   const turn = nextBidder(auction);
   if (!turn || turn === HUMAN_ID) return {};
-  const decision = forcedAuctionAction(state.gameType, state.bidHistory) ?? chooseBid({
+  const bidArgs = {
     gameType: state.gameType,
     hand: state.hand.hands[turn] ?? [],
     highBid: currentHighBid(state.bidHistory)?.amount ?? null,
     rng: createRng(state.seed + state.decision + 1),
-  });
+  };
+  const decision = forcedAuctionAction(state.gameType, state.bidHistory) ?? (state.difficulty === 'normal' ? chooseNormalBid(bidArgs) : chooseBid(bidArgs));
   const bidHistory = [...state.bidHistory];
   if (decision.action === 'bid' && typeof decision.amount === 'number' && validateBid(auction, turn, decision.amount).ok) {
     bidHistory.push({ playerId: turn, action: 'bid', amount: decision.amount });
@@ -320,9 +346,11 @@ function botDeclare(state: LocalPlayState): Partial<LocalPlayState> {
   if (!state.hand?.bidder || state.hand.bidder === HUMAN_ID) return {};
   const cards = state.hand.hands[state.hand.bidder] ?? [];
   const trump = chooseTrump(cards);
-  const called = chooseCalledCards(cards, trump, state.gameType);
-  noteCardsCalled(called.length);
-  return { hand: declareTrumpAndPartners(state.hand, trump, called), phase: 'playing' };
+  const choice = state.difficulty === 'normal'
+    ? chooseNormalDeclaration(cards, state.gameType)
+    : { trump, called: chooseCalledCards(cards, trump, state.gameType) };
+  noteCardsCalled(choice.called.length);
+  return { hand: declareTrumpAndPartners(state.hand, choice.trump, choice.called), phase: 'playing' };
 }
 
 function botPlay(state: LocalPlayState): Partial<LocalPlayState> {
@@ -332,6 +360,7 @@ function botPlay(state: LocalPlayState): Partial<LocalPlayState> {
   const first = legal[0];
   if (!first) return {};
   const rng = createRng(state.seed + state.decision + 3);
-  const card = choosePlay(legal, { ...toPublicView(state.hand, turn), rng });
+  const view = toPublicView(state.hand, turn);
+  const card = state.difficulty === 'normal' ? chooseNormalPlay({ view, legal, rng }) : choosePlay(legal, { ...view, rng });
   return applyCard(state, turn, card);
 }

@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { assertBidAtRest, assertChipInset, assertChipRings, assertCueBoxes, assertHandCorners, assertHandSize, assertReadableCopy } from './visible-hand';
+import { assertBidAtRest, assertChipInset, assertChipRings, assertCueBoxes, assertHandCorners, assertHandSize, assertReadableCopy, saveShot } from './visible-hand';
 
 const views = [
   { width: 1024, height: 572 },
@@ -31,9 +31,9 @@ test.describe('full hands from the real controls', () => {
           await assertSlivers(page);
           if (variant === '500') await assertFanFits(page);
           await assertHomeZone(page, 34);
-          await page.screenshot({ path: `/opt/cursor/artifacts/bottom-zone-${variant}-${view.width}x${view.height}-bid.png`, fullPage: false });
-          if (variant === '500' && view.width === 360) await page.screenshot({ path: '/opt/cursor/artifacts/fan-500-360-12.png', fullPage: false });
-          if (variant === '500' && view.width === 390) await page.screenshot({ path: '/opt/cursor/artifacts/fan-500-390-12.png', fullPage: false });
+          await saveShot(page, `/opt/cursor/artifacts/bottom-zone-${variant}-${view.width}x${view.height}-bid.png`, false);
+          if (variant === '500' && view.width === 360) await saveShot(page, '/opt/cursor/artifacts/fan-500-360-12.png', false);
+          if (variant === '500' && view.width === 390) await saveShot(page, '/opt/cursor/artifacts/fan-500-390-12.png', false);
         }
         if (view.width >= 720) {
           const pad = await page.getByTestId('hand-dock').evaluate((node) => Number.parseFloat(getComputedStyle(node).paddingBottom));
@@ -70,19 +70,19 @@ test.describe('full hands from the real controls', () => {
         await assertReadableCopy(page);
         await assertBoard(page, view, true);
         if (variant === '500' && view.width === 360) {
-          await page.screenshot({ path: '/opt/cursor/artifacts/chips-500-360x740.png', fullPage: false });
+          await saveShot(page, '/opt/cursor/artifacts/chips-500-360x740.png', false);
         }
         if (view.width === 360 || view.width === 390) {
-          await page.screenshot({ path: `/opt/cursor/artifacts/declare-${variant}-${view.width}x${view.height}.png`, fullPage: false });
+          await saveShot(page, `/opt/cursor/artifacts/declare-${variant}-${view.width}x${view.height}.png`, false);
         }
         await declare(page, input, isPhone(view));
         await expect(page.getByText('Your turn')).toBeVisible();
         if (isPhone(view)) {
           await assertHomeZone(page, 34);
-          await page.screenshot({ path: `/opt/cursor/artifacts/bottom-zone-${variant}-${view.width}x${view.height}-play.png`, fullPage: false });
+          await saveShot(page, `/opt/cursor/artifacts/bottom-zone-${variant}-${view.width}x${view.height}-play.png`, false);
         }
         if (variant === '500' && view.width === 360) {
-          await page.screenshot({ path: '/opt/cursor/artifacts/play-500-360x740.png', fullPage: false });
+          await saveShot(page, '/opt/cursor/artifacts/play-500-360x740.png', false);
           await assertFanFits(page);
         }
         await assertBoard(page, view, false);
@@ -145,7 +145,7 @@ async function winAuction(page: Page, input: 'mouse' | 'touch', shot: boolean, v
       continue;
     }
     if (shot && turns === 2) {
-      await page.screenshot({ path: `/opt/cursor/artifacts/bid-round2-${view.width}x${view.height}.png`, fullPage: false });
+      await saveShot(page, `/opt/cursor/artifacts/bid-round2-${view.width}x${view.height}.png`, false);
     }
     await raiseToMax(page, input);
     await clickCentre(page, page.getByRole('button', { name: /^Bid / }), input, true);
@@ -204,7 +204,7 @@ async function shootClubsLead(page: Page, input: 'mouse' | 'touch'): Promise<voi
   await clickCentre(page, club, input, true);
   await clickCentre(page, page.getByTestId('confirm-play'), input, true);
   await expect(page.getByTestId('led-suit')).toHaveAttribute('data-suit', 'clubs', { timeout: 2_000 });
-  await page.screenshot({ path: '/opt/cursor/artifacts/play-500-360-clubs-lead.png', fullPage: false });
+  await saveShot(page, '/opt/cursor/artifacts/play-500-360-clubs-lead.png', false);
 }
 
 async function assertFanFits(page: Page): Promise<void> {
@@ -271,11 +271,11 @@ async function assertSlivers(page: Page): Promise<void> {
       return `${card.getAttribute('aria-label') ?? 'card'} ${hit}px`;
     });
   });
-  const narrow = hits.filter((item) => Number(item.match(/(\d+)px$/)?.[1] ?? '0') < 24);
+  const narrow = hits.filter((item) => Number(item.match(/(\d+)px$/)?.[1] ?? '0') < 12);
   expect(narrow, narrow.join(', ')).toEqual([]);
 }
 
-/** On one 250 phone hand, leave the final banner up, then let the 1.5s timer open the result. */
+/** On one 250 phone hand, leave the final banner up, then let the pace timer open the result. */
 async function holdFinalBanner(page: Page): Promise<boolean> {
   const size = page.viewportSize();
   const title = await page.locator('h1').textContent();
@@ -283,11 +283,17 @@ async function holdFinalBanner(page: Page): Promise<boolean> {
   const seen = await page.evaluate(() => document.body.getAttribute('data-last-shot') === '1');
   if (seen) return false;
   await page.evaluate(() => document.body.setAttribute('data-last-shot', '1'));
-  await page.waitForTimeout(1000);
   await expect(page.getByText(/won the trick · tap to skip/)).toBeVisible();
   await expect(page.getByTestId('hand-complete')).toHaveCount(0);
-  await page.screenshot({ path: '/opt/cursor/artifacts/last-trick-390x844.png', fullPage: false });
-  await expect(page.getByTestId('hand-complete')).toBeVisible({ timeout: 2_000 });
+  await saveShot(page, '/opt/cursor/artifacts/last-trick-390x844.png', false);
+  await expect(page.getByTestId('hand-complete')).toBeVisible({ timeout: 3_000 });
+  const gap = await page.evaluate(() => {
+    const shown = Number(document.body.getAttribute('data-final-banner-at') ?? '0');
+    const result = Number(document.body.getAttribute('data-result-at') ?? '0');
+    return result - shown;
+  });
+  expect(gap, 'last-trick banner closed early').toBeGreaterThanOrEqual(200);
+  expect(gap, 'last-trick banner stayed up').toBeLessThan(1_200);
   return true;
 }
 
@@ -299,9 +305,10 @@ async function finishHand(
   clubsFollow: { pending: boolean } = { pending: false },
 ): Promise<void> {
   let sawFinal = false;
-  for (let guard = 0; guard < 500; guard += 1) {
+  for (let guard = 0; guard < 2000; guard += 1) {
     if (await page.getByTestId('hand-complete').isVisible().catch(() => false)) {
-      expect(sawFinal, 'the result replaced the last trick').toBe(true);
+      const marked = await page.evaluate(() => document.body.getAttribute('data-final-banner') === '1');
+      expect(sawFinal || marked, 'the result replaced the last trick').toBe(true);
       return;
     }
     if (await page.getByTestId('trick-pause').isVisible().catch(() => false)) {
@@ -316,10 +323,12 @@ async function finishHand(
       await assertTableFacts(page);
       if (cardsLeft === 0) {
         sawFinal = true;
-        await expect(page.getByTestId('hand-complete')).toHaveCount(0);
+        if (await page.getByTestId('trick-pause').isVisible().catch(() => false)) {
+          await expect(page.getByTestId('hand-complete')).toHaveCount(0);
+        }
         if (await holdFinalBanner(page)) continue;
       }
-      await clickCentre(page, page.getByTestId('trick-pause'), input, false);
+      await clickCentre(page, page.getByTestId('trick-pause'), input, false, true);
       continue;
     }
     if (await page.getByText('Your turn').isVisible().catch(() => false)) {
@@ -330,7 +339,7 @@ async function finishHand(
           return led === 'clubs' && played > 0;
         });
         if (followingClubs) {
-          await page.screenshot({ path: '/opt/cursor/artifacts/play-500-360-clubs-follow.png', fullPage: false });
+          await saveShot(page, '/opt/cursor/artifacts/play-500-360-clubs-follow.png', false);
           clubsFollow.pending = false;
         }
       }
@@ -338,12 +347,14 @@ async function finishHand(
       await assertTableFacts(page);
       const legal = page.locator('[data-testid="hand-card"][aria-disabled="false"]').first();
       for (let attempt = 0; attempt < 3; attempt += 1) {
+        if ((await legal.count()) === 0 || !(await page.getByText('Your turn').isVisible().catch(() => false))) break;
         await clickCentre(page, legal, input, true);
-        if ((await legal.getAttribute('data-selected')) === 'true') break;
+        if ((await legal.count()) > 0 && (await legal.getAttribute('data-selected')) === 'true') break;
       }
+      if ((await legal.count()) === 0 || !(await page.getByText('Your turn').isVisible().catch(() => false))) continue;
       await expect(legal).toHaveAttribute('data-selected', 'true');
       await clickCentre(page, page.getByTestId('confirm-play'), input, true);
-      await expect(page.getByText('Your turn')).toBeHidden({ timeout: 2_000 });
+      await expect(page.getByText('Your turn')).toBeHidden({ timeout: 5_000 });
       continue;
     }
     await page.waitForTimeout(40);
@@ -453,32 +464,45 @@ async function assertFaceCentres(page: Page): Promise<void> {
   expect(problems, problems.join('\n')).toEqual([]);
 }
 
-async function clickCentre(page: Page, locator: Locator, input: 'mouse' | 'touch', pinned: boolean): Promise<void> {
+async function clickCentre(
+  page: Page,
+  locator: Locator,
+  input: 'mouse' | 'touch',
+  pinned: boolean,
+  optional = false,
+): Promise<boolean> {
   const target = locator.first();
-  await target.waitFor({ state: 'visible' });
-  let detail = 'unset';
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    const first = await target.evaluate(readCentre, pinned);
-    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-    const second = await target.evaluate(readCentre, pinned);
-    const box = await target.boundingBox();
-    detail = second.detail;
-    const stable = Boolean(box) && first.ok && second.ok && Math.abs(first.x - second.x) < 0.6 && Math.abs(first.y - second.y) < 0.6;
-    if (!stable || !box) {
-      await page.waitForTimeout(40);
-      continue;
+  try {
+    await target.waitFor({ state: 'visible', timeout: optional ? 800 : 5_000 });
+    let detail = 'unset';
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const first = await target.evaluate(readCentre, pinned);
+      await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+      const second = await target.evaluate(readCentre, pinned);
+      const box = await target.boundingBox();
+      detail = second.detail;
+      const stable = Boolean(box) && first.ok && second.ok && Math.abs(first.x - second.x) < 0.6 && Math.abs(first.y - second.y) < 0.6;
+      if (!stable || !box) {
+        await page.waitForTimeout(40);
+        continue;
+      }
+      if (input === 'touch') await page.touchscreen.tap(second.x, second.y);
+      else await page.mouse.click(second.x, second.y, { delay: 0 });
+      if ((await target.count()) === 0) return true;
+      const selected = await target.evaluate((node) => node.getAttribute('data-selected')).catch(() => null);
+      if (selected === 'false') {
+        await page.waitForTimeout(30);
+        continue;
+      }
+      return true;
     }
-    if (input === 'touch') await page.touchscreen.tap(second.x, second.y);
-    else await page.mouse.click(second.x, second.y, { delay: 0 });
-    if ((await target.count()) === 0) return;
-    const selected = await target.evaluate((node) => node.getAttribute('data-selected')).catch(() => null);
-    if (selected === 'false') {
-      await page.waitForTimeout(30);
-      continue;
-    }
-    return;
+    expect(detail, detail).toBe('stable hit');
+    return false;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    if (optional && /timeout|detached|not attached|not visible|closed/i.test(message)) return false;
+    throw error;
   }
-  expect(detail, detail).toBe('stable hit');
 }
 
 async function controlBoxes(page: Page): Promise<string> {

@@ -1,4 +1,4 @@
-/** Where one card sits in the fan. */
+/** Where one card sits in the fan. Positions are from the left of the viewport-wide fan. */
 export interface FanMetrics {
   cardW: number;
   cardH: number;
@@ -10,47 +10,71 @@ export interface FanMetrics {
   angle: (index: number) => number;
 }
 
-/**
- * Layout gap between cards. A 1px border makes the tappable sliver about
- * one pixel narrower, so 25px here still measures at least 24px.
- */
-const MIN_SLIVER = 25;
+const END_DEGREES = 8;
 
 /**
- * One overlapping row. Every card is the same width, and the whole row,
- * including the last card, stays inside the container. A 12-card phone row
- * shrinks the faces (about 72px at 360) so the slivers stay at least 24px.
- * A wide window can also shrink the row so the dock stays under the given height.
+ * How far a card rotated around its bottom centre sticks out past its unrotated edge.
+ * The top corner swings outward by the height's sine, minus the small cosine pull of the width.
  */
-export function fanMetrics(count: number, container: number, compact = false, maxHeight: number | null = null): FanMetrics {
-  const wide = !compact && container >= 900;
+export function rotationOverhang(cardW: number, degrees: number): number {
+  const radians = (Math.abs(degrees) * Math.PI) / 180;
+  const cardH = cardW * 1.4;
+  return cardH * Math.sin(radians) - (cardW / 2) * (1 - Math.cos(radians));
+}
+
+/** Side pad so the rotated corner stays at least 12px inside the screen. */
+export function fanSidePad(cardW: number, degrees: number, minPad = 12): number {
+  return Math.max(minPad, 12 + rotationOverhang(cardW, degrees));
+}
+
+/**
+ * One overlapping row. Side pad covers the rotation overhang.
+ * Usable width is the screen minus both pads, and the strip shares what is left after one card.
+ */
+export function fanMetrics(count: number, screen: number, compact = false, maxHeight: number | null = null): FanMetrics {
+  const wide = !compact && screen >= 900;
   const lift = compact ? 8 : 12;
   const headroom = compact ? 16 : 18;
-  const side = !compact ? 28 : count <= 8 ? 12 : 0;
-  let cardW = compact ? 84 : wide ? (count > 8 ? 156 : 176) : 96;
+  let cardW = compact ? 108 : wide ? (count > 8 ? 156 : 176) : 96;
   if (maxHeight !== null) {
     const room = maxHeight - headroom - lift;
     if (room > 40) cardW = Math.min(cardW, room / 1.4);
   }
-  const inner = Math.max(container - side * 2, 48);
-  cardW = Math.min(cardW, inner);
   const gaps = Math.max(count - 1, 0);
-  if (gaps > 0 && (inner - cardW) / gaps < MIN_SLIVER) {
-    cardW = Math.max(48, inner - MIN_SLIVER * gaps);
+  const degrees = count <= 1 ? 0 : END_DEGREES;
+  if (gaps > 0) {
+    while (cardW > 44) {
+      const pad = fanSidePad(cardW, degrees);
+      const usable = screen - pad * 2;
+      const strip = (usable - cardW) / gaps;
+      if (strip >= 12) break;
+      cardW -= 1;
+    }
   }
-  const step = gaps === 0 ? 0 : Math.min(cardW * 0.62, (inner - cardW) / gaps);
+  cardW = Math.max(maxHeight !== null ? 36 : 44, cardW);
+  const pad = fanSidePad(cardW, degrees);
+  const usable = Math.max(cardW, screen - pad * 2);
+  const step = gaps === 0 ? 0 : (usable - cardW) / gaps;
   const cardH = cardW * 1.4;
   const used = gaps === 0 ? cardW : step * gaps + cardW;
-  const origin = Math.max(0, (inner - used) / 2);
-  const crowded = compact && gaps > 0 && step < 30;
-  const total = crowded ? 0 : wide ? (count > 8 ? 16 : 14) : 8;
+  const origin = Math.max(pad, (screen - used) / 2);
   return {
     cardW,
     cardH,
-    height: headroom + cardH + lift,
+    height: maxHeight !== null ? Math.min(maxHeight, headroom + cardH + lift) : headroom + cardH + lift,
     cardWidth: () => cardW,
-    left: (index) => side + origin + index * step,
+    left: (index) => (gaps === 0 ? (screen - cardW) / 2 : origin + index * step),
     bottom: () => lift,
-    angle: (index) => (count <= 1 || crowded ? 0 : -total / 2 + (index * total) / (count - 1)),
+    angle: (index) => (count <= 1 ? 0 : -degrees + (index * (degrees * 2)) / (count - 1)),
   };
+}
+
+/** Viewport clearance of the rotated outer corners, in px. */
+export function cornerClearance(count: number, screen: number, compact = false): { left: number; right: number } {
+  const metrics = fanMetrics(count, screen, compact, null);
+  const hang = rotationOverhang(metrics.cardW, Math.abs(metrics.angle(0)));
+  const left = metrics.left(0) - hang;
+  const last = Math.max(count - 1, 0);
+  const right = screen - (metrics.left(last) + metrics.cardW + hang);
+  return { left, right };
 }

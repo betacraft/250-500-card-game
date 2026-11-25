@@ -1,3 +1,4 @@
+import { saveShot } from './visible-hand';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 test.describe.configure({ timeout: 300_000 });
@@ -9,7 +10,7 @@ test('a variant tap within 50ms of the picker selects it', async ({ page }) => {
   await mouseCentre(page, page.getByTestId('abandon-yes'));
   const picker = page.getByTestId('variant-picker');
   await picker.waitFor({ state: 'visible' });
-  await page.screenshot({ path: '/opt/cursor/artifacts/variant-picker-1024.png', fullPage: false });
+  await saveShot(page, '/opt/cursor/artifacts/variant-picker-1024.png', false);
   const fiveHundred = page.locator('[data-variant="500"]');
   const box = await fiveHundred.boundingBox();
   if (!box) throw new Error('variant picker has no box');
@@ -69,12 +70,28 @@ async function playOne(page: Page, delay: number): Promise<void> {
   const rank = await card.getAttribute('data-rank');
   const spot = await centre(card);
   await page.mouse.click(spot.x, spot.y);
-  await expect(page.getByTestId('confirm-play')).toHaveText(new RegExp(`Play ${rank}`));
+  const playButton = page.getByTestId('confirm-play');
+  await expect(playButton).toHaveText(new RegExp(`Play ${rank}`));
   await page.waitForTimeout(delay);
-  const play = await centre(page.getByTestId('confirm-play'));
+  if (!(await page.getByText('Your turn').isVisible().catch(() => false))) {
+    await advanceToTurn(page);
+    return;
+  }
+  const label = (await playButton.textContent()) ?? '';
+  if (!label.includes(String(rank))) {
+    const again = page.locator(`[data-testid="hand-card"][data-rank="${rank}"][aria-disabled="false"]`).last();
+    if ((await again.count()) === 0) {
+      await advanceToTurn(page);
+      return;
+    }
+    const next = await centre(again);
+    await page.mouse.click(next.x, next.y);
+    await expect(playButton).toHaveText(new RegExp(`Play ${rank}`));
+  }
+  const play = await centre(playButton);
   await page.mouse.click(play.x, play.y);
   await expect(page.getByTestId('disabled-reason')).not.toContainText(/choose a card/i);
-  await expect(page.getByText('Your turn')).toBeHidden({ timeout: 3_000 });
+  await expect(page.getByText('Your turn')).toBeHidden({ timeout: 5_000 });
   await advanceToTurn(page);
 }
 

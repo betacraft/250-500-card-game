@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type { Card, GameType, Suit } from '@250-500/shared';
 import { PartnerPicker } from '../components/shared/PartnerPicker';
 import { TrumpPicker } from '../components/shared/TrumpPicker';
+import { useSettingsStore } from '../stores/settings-store';
 import { scoreExplainer } from './local-table-notes';
 
 /** Leaves the current hand after a confirm, then the variant picker is shown again. */
@@ -27,12 +28,16 @@ export function NewGameButton({ onAbandon }: { onAbandon: () => void }): JSX.Ele
   );
 }
 
-/** Name and variant before the first deal. */
-export function Setup({ onStart }: { onStart: (gameType: GameType, name: string) => void }): JSX.Element {
+/** Name, variant, and bot strength before the first deal. */
+export function Setup({ onStart }: { onStart: (gameType: GameType, name: string, difficulty?: 'easy' | 'normal') => void }): JSX.Element {
   const [gameType, setGameType] = useState<GameType>('250');
   const [name, setName] = useState('');
+  const difficulty = useSettingsStore((s) => s.botDifficulty);
+  const setDifficulty = useSettingsStore((s) => s.setBotDifficulty);
+  const autoPlay = useSettingsStore((s) => s.autoPlayForced);
+  const setAutoPlay = useSettingsStore((s) => s.setAutoPlayForced);
   return (
-    <main className="mx-auto flex min-h-0 w-full max-w-[980px] flex-1 flex-col gap-2 overflow-hidden px-4 py-3">
+    <main className="mx-auto flex min-h-0 w-full max-w-[980px] flex-1 flex-col gap-1.5 overflow-hidden px-4 py-2">
       <Link to="/" className="shrink-0 text-sm text-stone-600 underline">Home</Link>
       <h1 className="shrink-0 text-xl font-medium">Play vs bots</h1>
       <p className="shrink-0 text-sm leading-snug text-stone-600">Free to play against 5 bots (250) or 7 bots (500). No coins, no stakes, no buy-in.</p>
@@ -44,9 +49,29 @@ export function Setup({ onStart }: { onStart: (gameType: GameType, name: string)
           </button>
         ))}
       </div>
+      <div className="flex shrink-0 items-center justify-between gap-2">
+        <p className="text-sm font-medium">Bot difficulty</p>
+        <button type="button" data-testid="autoplay-toggle" aria-pressed={autoPlay} onClick={() => setAutoPlay(!autoPlay)} className="-my-3 inline-flex h-11 shrink-0 items-center text-sm font-medium text-stone-800">
+          Auto-play: {autoPlay ? 'On' : 'Off'}
+        </button>
+      </div>
+      <div className="grid shrink-0 grid-cols-2 gap-2" data-testid="difficulty-picker">
+        {(['easy', 'normal'] as const).map((level) => (
+          <button
+            key={level}
+            type="button"
+            data-testid={`difficulty-${level}`}
+            aria-pressed={difficulty === level}
+            onPointerDown={(event) => { event.preventDefault(); setDifficulty(level); }}
+            className={`h-11 rounded-xl border text-base font-medium ${difficulty === level ? 'border-felt bg-felt text-white' : 'border-stone-300 bg-white'}`}
+          >
+            {level === 'easy' ? 'Easy' : 'Normal'}
+          </button>
+        ))}
+      </div>
       <label className="shrink-0 text-sm font-medium" htmlFor="local-name">Your name</label>
       <input id="local-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="You" className="h-11 shrink-0 rounded-lg border border-stone-300 px-3" maxLength={40} />
-      <button type="button" data-testid="start-vs-bots" onClick={() => onStart(gameType, name)} className="mt-auto h-12 shrink-0 rounded-xl bg-felt px-4 text-base font-medium text-white">
+      <button type="button" data-testid="start-vs-bots" onClick={() => onStart(gameType, name, difficulty)} className="mt-auto h-11 shrink-0 rounded-xl bg-felt px-4 text-base font-medium text-white">
         Deal the cards
       </button>
     </main>

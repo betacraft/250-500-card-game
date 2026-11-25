@@ -21,6 +21,14 @@ export interface PublicBotView {
   revealedTeamPoints: number;
   bidAmount: number;
   premiumAwarded: { spades: boolean; hearts: boolean };
+  /** Called faces. Public at declaration. 250 has no slots, so this is how a bot sees the call. */
+  calledCards: readonly Card[];
+  /** Cards won in completed tricks, with the seat that won them. Already shown to the table. */
+  wonCards: readonly { playerId: string; card: Card }[];
+  /** Who won an already-awarded 30, or null. The trick winner is public. */
+  premiumWinner: { spades: string | null; hearts: string | null };
+  /** Suits each seat has shown it cannot follow. */
+  voids: Readonly<Record<string, readonly Suit[]>>;
 }
 
 /** Partners the table has seen. 250 stays hidden until that player plays a called card. */
@@ -37,6 +45,10 @@ export function visiblePartners(state: GameHand): string[] {
 export function toPublicView(state: GameHand, selfId: string): PublicBotView {
   const unique = visiblePartners(state);
   const known = new Set<string>([state.bidder ?? '', ...unique]);
+  const wonCards: { playerId: string; card: Card }[] = [];
+  for (const id of state.seatOrder) {
+    for (const card of state.collected[id] ?? []) wonCards.push({ playerId: id, card });
+  }
   let points = 0;
   for (const id of known) {
     if (!id) continue;
@@ -62,6 +74,10 @@ export function toPublicView(state: GameHand, selfId: string): PublicBotView {
       spades: state.premiumWinner.spades !== null,
       hearts: state.premiumWinner.hearts !== null,
     },
+    calledCards: state.calledCards.map((card) => ({ suit: card.suit, rank: card.rank, id: card.id })),
+    wonCards,
+    premiumWinner: { spades: state.premiumWinner.spades, hearts: state.premiumWinner.hearts },
+    voids: state.voids ?? {},
   };
 }
 

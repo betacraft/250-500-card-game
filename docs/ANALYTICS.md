@@ -48,7 +48,7 @@ Storage keys, only while analytics is on:
 | `anon_player_id` | Random UUID kept in localStorage |
 | `game` | `250`, `500`, or `null` before a table starts |
 | `mode` | `local` at a bot table, otherwise `null` |
-| `difficulty` | Bot strength (`easy` on this build), otherwise `null` |
+| `difficulty` | Bot strength (`easy` or `normal`), otherwise `null` |
 | `build` | `VITE_BUILD_HASH`, or `dev` |
 | `viewport` | `phone` under 720px wide, otherwise `desktop` |
 | `props` | Event-specific values below |

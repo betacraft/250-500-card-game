@@ -2,11 +2,16 @@ import { isAnalyticsEnabled } from './flag';
 import { claimFirstHand } from './storage';
 import { setAnalyticsContext, track } from './track';
 
+/** The player picked a bot strength. */
+export function noteDifficulty(value: string): void {
+  track('difficulty_selected', { value });
+}
+
 /** A local table is starting. `replay` is true only for Play again. */
 export function noteGameStart(game: '250' | '500', difficulty: string, replay = false): void {
   setAnalyticsContext({ game, mode: 'local', difficulty });
   track('game_start', { replay });
-  track('difficulty_selected', { value: difficulty });
+  noteDifficulty(difficulty);
 }
 
 /** The next hand is dealt. */
@@ -36,6 +41,18 @@ export function noteCardsCalled(count: number): void {
 }
 
 /** The hand has a result. A failed contract also emits contract_failed. */
+/** Local pace sample. No-op while analytics is off. */
+export function notePace(props: {
+  duration_ms: number;
+  forced_autoplay: number;
+  lock_trick: number | null;
+  lock_type: 'made' | 'sunk' | null;
+  finish_taps: number;
+  speed_2x_share: number;
+}): void {
+  track('pace_hand', props);
+}
+
 export function noteHandComplete(made: boolean, bid: number, points: number, bidderIsHuman: boolean, firstHand: boolean): void {
   track('hand_complete', { made, bid, points, bidder_is_human: bidderIsHuman });
   if (!made) track('contract_failed', { bid, points });

@@ -20,6 +20,10 @@ interface HandFanProps {
   maxHeight?: number | null;
   /** A tap on a card that cannot be played. Touch has no hover tooltip. */
   onBlocked?: (reason: string) => void;
+  /** Card that will play itself. Lifted unless reduced motion is on. */
+  forcedId?: string | null;
+  /** Reduced motion keeps the card flat while it still auto-plays. */
+  liftForced?: boolean;
 }
 
 /**
@@ -39,6 +43,8 @@ export function HandFan({
   compact = false,
   maxHeight = null,
   onBlocked,
+  forcedId = null,
+  liftForced = true,
 }: HandFanProps): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(() => (typeof window === 'undefined' ? 360 : Math.min(window.innerWidth, 980) - 24));
@@ -93,13 +99,14 @@ export function HandFan({
   const chosen = cards.find((card) => cardInstanceKey(card) === selectedId) ?? null;
   return (
     <div>
-    <div ref={ref} className="relative w-full overflow-hidden" style={{ height: metrics.height }} data-testid="hand-fan" data-card-width={metrics.cardW}>
+    <div ref={ref} className="relative -mx-3 w-[calc(100%+24px)] overflow-hidden" style={{ height: metrics.height }} data-testid="hand-fan" data-card-width={metrics.cardW}>
       {cards.map((card, index) => {
         const key = cardInstanceKey(card);
         const legal = !legalCardIds || legalCardIds.has(key);
         const angle = metrics.angle(index);
         const faceW = metrics.cardWidth(index);
         const isSelected = selectedId === key;
+        const forced = forcedId === key;
         return (
           <button
             key={key}
@@ -114,6 +121,7 @@ export function HandFan({
               choose(card, legal);
             }}
             data-selected={isSelected ? 'true' : 'false'}
+            data-forced={forced ? 'true' : 'false'}
             className="absolute bg-transparent p-0 touch-manipulation focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-[#0F766E]"
             style={{
               left: metrics.left(index),
@@ -127,8 +135,8 @@ export function HandFan({
           >
             <span
               data-testid="card-lift"
-              className="block h-full w-full"
-              style={{ transform: isSelected ? 'translateY(-18px)' : undefined, pointerEvents: 'none' }}
+              className={`block h-full w-full ${forced ? 'rounded-md ring-2 ring-[#E8A317]' : ''}`}
+              style={{ transform: isSelected || (forced && liftForced) ? 'translateY(-18px)' : undefined, pointerEvents: 'none' }}
             >
               <CardFace
                 card={card}

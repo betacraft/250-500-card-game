@@ -1,22 +1,21 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { cardId, cardInstanceKey, illegalReason, legalPlaysFor, nextBidder, rulesFor, type Card, type GameType, type Suit } from '@250-500/shared';
+import { cardId, cardInstanceKey, illegalReason, legalPlaysFor, nextBidder, rulesFor } from '@250-500/shared';
 import { BiddingFlow } from '../components/shared/BiddingFlow';
-import { SuitIcon } from '../components/shared/SuitIcon';
-import { CardFace } from '../components/cards/CardFace';
 import { HandFan } from '../components/cards/HandFan';
 import { TrickArea } from '../components/online/TrickArea';
 import { HUMAN_ID, useLocalPlayStore } from '../stores/local-play-store';
 import { useSettingsStore } from '../stores/settings-store';
 import { ExportAnalyticsButton } from '../analytics/ExportAnalyticsButton';
 import { DeclareForm, NewGameButton, Setup } from './local-play-forms';
+import { chipCue, handThirties, legalContext, scoreText, TableStatus, trickThirties, useViewport } from './local-play-helpers';
 import { AuctionRecap, ScoreStrip, privateNotice, scoreExplainer } from './local-table-notes';
-import { headerPartnerIds } from './partner-header';
 import { PartnerToast } from './partner-toast';
 import { holdsSecretCall } from './secret-call';
+import { useTablePace } from './use-table-pace';
 import { usePartnerReveal } from './use-partner-reveal';
 
-/** Free local table: one human and five or seven Easy bots. No coins, no stakes. */
+/** Free local table: one human and five or seven bots. Easy is the default. No coins, no stakes. */
 export function LocalPlayPage(): JSX.Element {
   const phase = useLocalPlayStore((s) => s.phase);
   const gameType = useLocalPlayStore((s) => s.gameType);
@@ -28,8 +27,8 @@ export function LocalPlayPage(): JSX.Element {
   const runningScores = useLocalPlayStore((s) => s.runningScores);
   const summary = useLocalPlayStore((s) => s.summary);
   const settledTrick = useLocalPlayStore((s) => s.settledTrick);
-  const decision = useLocalPlayStore((s) => s.decision);
   const startGame = useLocalPlayStore((s) => s.startGame);
+  const difficulty = useLocalPlayStore((s) => s.difficulty);
   const bid = useLocalPlayStore((s) => s.bid);
   const pass = useLocalPlayStore((s) => s.pass);
   const declare = useLocalPlayStore((s) => s.declare);
@@ -43,6 +42,9 @@ export function LocalPlayPage(): JSX.Element {
   const reveal = usePartnerReveal(hand, names);
   const soundMuted = useSettingsStore((s) => s.soundMuted);
   const setSoundMuted = useSettingsStore((s) => s.setSoundMuted);
+  const playSpeed = useSettingsStore((s) => s.playSpeed);
+  const setPlaySpeed = useSettingsStore((s) => s.setPlaySpeed);
+  const pace = useTablePace();
   const { short, wide, height } = useViewport();
   const [canConfirm, setCanConfirm] = useState(false);
   const [blocked, setBlocked] = useState<string | null>(null);
@@ -57,16 +59,22 @@ export function LocalPlayPage(): JSX.Element {
   }, [blocked]);
 
   useEffect(() => {
-    if (!settledTrick) return undefined;
-    const timer = window.setTimeout(() => dismissTrick(), 1500);
-    return () => window.clearTimeout(timer);
-  }, [settledTrick, dismissTrick]);
-
-  useEffect(() => {
-    if (phase === 'setup' || phase === 'scored' || settledTrick) return undefined;
-    const timer = window.setTimeout(() => stepBot(), 220);
-    return () => window.clearTimeout(timer);
-  }, [phase, decision, hand?.toPlayerId, hand?.currentTrick.length, bidHistory.length, settledTrick, stepBot]);
+    if (phase === 'setup') {
+      document.body.removeAttribute('data-final-banner');
+      document.body.removeAttribute('data-final-banner-at');
+      document.body.removeAttribute('data-result-at');
+      return undefined;
+    }
+    const lastTrick = settledTrick !== null && (hand?.hands[HUMAN_ID] ?? []).length === 0;
+    if (lastTrick && document.body.getAttribute('data-final-banner') !== '1') {
+      document.body.setAttribute('data-final-banner', '1');
+      document.body.setAttribute('data-final-banner-at', String(performance.now()));
+    }
+    if (phase === 'scored' && document.body.getAttribute('data-final-banner-at') && !document.body.getAttribute('data-result-at')) {
+      document.body.setAttribute('data-result-at', String(performance.now()));
+    }
+    return undefined;
+  }, [phase, settledTrick, hand]);
 
   if (phase === 'setup' || !hand) {
     return (
@@ -105,18 +113,22 @@ export function LocalPlayPage(): JSX.Element {
       calledIds={new Set(hand.calledCards.map((card) => cardId(card)))}
       reasons={reasons}
       compact={short || !wide}
-      maxHeight={height <= 500 ? 72 : wide && !short ? Math.floor(height * 0.3) : null}
+      maxHeight={height <= 500 ? 72 : wide && !short ? Math.floor(height * 0.3) : wide ? null : Math.floor(height * 0.32) - 86}
       onBlocked={(reason) => setBlocked(reason ? reason : null)}
+      forcedId={pace.forcedId}
+      liftForced={!reveal.reduced}
     />
   );
 
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#F5F1E8]">
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-[980px] flex-col px-3 pt-2">
+    <div className={`mx-auto flex h-full min-h-0 w-full max-w-[980px] flex-col px-3 ${short ? 'pt-1' : 'pt-2'}`}>
       <ExportAnalyticsButton />
       <header className="flex shrink-0 items-center justify-between gap-2">
-        <h1 className="text-base font-medium">Play vs bots · {gameType}</h1>
-        <span className="flex items-center gap-3">
+        <h1 className="min-w-0 truncate text-sm font-medium">Play vs bots · {gameType}</h1>
+        <span className="flex shrink-0 items-center gap-2 whitespace-nowrap">
+          <span className="text-sm text-stone-500">Bots: {difficulty === 'normal' ? 'Normal' : 'Easy'}</span>
+          <button type="button" data-testid="speed-toggle" aria-pressed={playSpeed === 'fast'} onClick={() => setPlaySpeed(playSpeed === 'fast' ? 'normal' : 'fast')} className="-my-3 inline-flex h-11 min-w-11 items-center justify-center rounded-full text-sm font-medium text-stone-800">{playSpeed === 'fast' ? '2x' : '1x'}</button>
           <button type="button" data-testid="sound-toggle" aria-pressed={!soundMuted} onClick={() => setSoundMuted(!soundMuted)} className="text-sm text-stone-600 underline">{soundMuted ? 'Sound off' : 'Sound on'}</button>
           <NewGameButton onAbandon={() => leave('new_game')} />
           <Link to="/" onClick={() => leave('home')} className="text-sm text-stone-600 underline">Home</Link>
@@ -192,6 +204,11 @@ export function LocalPlayPage(): JSX.Element {
       {phase === 'declaring' && hand.bidder !== HUMAN_ID && (
         <p className="text-sm text-stone-600">{names[hand.bidder ?? ''] ?? 'Bidder'} is declaring…</p>
       )}
+      {pace.banner && (
+        <p data-testid="bid-lock-banner" data-lock={pace.banner} className={`pointer-events-none mx-auto my-1 w-fit rounded-full px-4 py-2 text-base font-semibold text-white shadow-lg ${pace.banner === 'made' ? 'bg-felt' : 'bg-[#7A3E2E]'} ${reveal.reduced ? 'bid-lock-fade' : 'bid-lock-pop'}`}>
+          {pace.banner === 'made' ? 'Bid made!' : 'Bid sunk!'}
+        </p>
+      )}
       {(phase === 'playing' || settledTrick) && (
         <div data-testid={settledTrick ? 'trick-pause' : 'trick-live'} onClick={() => settledTrick && dismissTrick()} className="relative cursor-pointer">
           <TrickArea
@@ -202,7 +219,7 @@ export function LocalPlayPage(): JSX.Element {
             winnerId={settledTrick?.winnerId ?? null}
             compact={height <= 500}
           />
-          <PartnerToast notice={reveal.current} reduced={reveal.reduced} />
+          {!pace.banner && <PartnerToast notice={reveal.current} reduced={reveal.reduced} />}
           {settledTrick && <p className="mt-1 text-center text-sm text-stone-600">{names[settledTrick.winnerId] ?? 'Winner'} won the trick · tap to skip</p>}
         </div>
       )}
@@ -259,6 +276,11 @@ export function LocalPlayPage(): JSX.Element {
             </button>
           ) : (
             <>
+              {pace.lock && phase === 'playing' && (
+                <button type="button" data-testid="finish-hand" onClick={pace.startFinish} className="mb-1 min-h-11 w-full rounded-xl bg-[#4A3000] py-2 text-base font-medium text-white">
+                  Finish hand ⏩
+                </button>
+              )}
               {fan}
               {humanDeclaring && (
                 <div className="pt-1">
@@ -275,104 +297,4 @@ export function LocalPlayPage(): JSX.Element {
     </div>
   );
 }
-
-/** Dev-only cue so a test can show the turn ring and bidder badge together. */
-function scoreText(delta: number): string {
-  return delta > 0 ? `+${delta}` : String(delta);
-}
-
-function chipCue(): { turnId?: string | null; bidderId?: string | null } | null {
-  if (!import.meta.env.DEV || typeof window === 'undefined') return null;
-  const cue = (window as Window & { __chipCue?: { turnId?: string | null; bidderId?: string | null } }).__chipCue;
-  return cue ?? null;
-}
-
-function useViewport(): { short: boolean; wide: boolean; height: number } {
-  const [size, setSize] = useState({ short: false, wide: true, height: 800 });
-  useEffect(() => {
-    const apply = (): void => setSize({ short: window.innerHeight <= 760, wide: window.innerWidth >= 720, height: window.innerHeight });
-    apply();
-    window.addEventListener('resize', apply);
-    return () => window.removeEventListener('resize', apply);
-  }, []);
-  return size;
-}
-
-function legalContext(hand: NonNullable<ReturnType<typeof useLocalPlayStore.getState>['hand']>) {
-  const led = hand.currentTrick[0]?.card.suit ?? null;
-  return {
-    gameType: hand.gameType,
-    hand: hand.hands[HUMAN_ID] ?? [],
-    ledSuit: hand.currentTrick.length === 0 ? null : led,
-    isLeading: hand.currentTrick.length === 0,
-    playerId: HUMAN_ID,
-    bidderId: hand.bidder,
-    slots: hand.slots,
-    trickCount: hand.trickCount,
-    cardsPerPlayer: rulesFor(hand.gameType).CARDS_PER_PLAYER,
-  };
-}
-
-function handThirties(hand: { gameType: GameType; premiumWinner: { spades: string | null; hearts: string | null }; currentTrick: ReadonlyArray<{ card: Card }> }): Set<Suit> {
-  const pending = new Set<Suit>();
-  const trickHas = (suit: Suit): boolean => hand.currentTrick.some((play) => play.card.suit === suit && play.card.rank === '3');
-  if (!hand.premiumWinner.spades && !trickHas('spades')) pending.add('spades');
-  if (hand.gameType === '500' && !hand.premiumWinner.hearts && !trickHas('hearts')) pending.add('hearts');
-  return pending;
-}
-
-function trickThirties(played: ReadonlyArray<{ card: Card }>, hand: { gameType: GameType; premiumWinner: { spades: string | null; hearts: string | null } }): Set<number> {
-  const marks = new Set<number>();
-  let spades = hand.premiumWinner.spades !== null;
-  let hearts = hand.gameType !== '500' || hand.premiumWinner.hearts !== null;
-  played.forEach((play, index) => {
-    if (!spades && play.card.suit === 'spades' && play.card.rank === '3') {
-      marks.add(index);
-      spades = true;
-    }
-    if (!hearts && play.card.suit === 'hearts' && play.card.rank === '3') {
-      marks.add(index);
-      hearts = true;
-    }
-  });
-  return marks;
-}
-
-function TableStatus({ hand, names, scoredPartners = null, faces = true }: { hand: NonNullable<ReturnType<typeof useLocalPlayStore.getState>['hand']>; names: Record<string, string>; scoredPartners?: readonly string[] | null; faces?: boolean }): JSX.Element | null {
-  if (!hand.bidder || hand.bidAmount === null) return null;
-  const revealed = headerPartnerIds(hand, scoredPartners);
-  return (
-    <div className="flex flex-wrap items-end gap-2 text-sm text-stone-700" data-testid="table-status">
-      <span>{names[hand.bidder] ?? 'Bidder'} bid {hand.bidAmount}</span>
-      {hand.trump && <span data-testid="trump-name" data-suit={hand.trump} className="inline-flex items-center gap-1">Trump: {hand.trump} <SuitIcon suit={hand.trump} size={18} className="shrink-0" /></span>}
-      {hand.calledCards.length > 0 && (
-        faces ? (
-          <span className="inline-flex items-end gap-1" data-testid="called-cards">
-            <span className="text-sm font-medium">Called</span>
-            {hand.calledCards.map((card) => <CardFace key={cardId(card)} card={card} width={40} called />)}
-          </span>
-        ) : (
-          <span data-testid="called-cards">Called {hand.calledCards.map((card) => `${card.rank}${card.suit[0]}`).join(' ')}</span>
-        )
-      )}
-      <span data-testid="partner-names">Partners: {revealed.map((id) => names[id] ?? id).join(', ') || 'none yet'}</span>
-      <span data-testid="team-points">Team points {publicTeamPoints(hand, revealed)}</span>
-    </div>
-  );
-}
-
-function publicTeamPoints(hand: NonNullable<ReturnType<typeof useLocalPlayStore.getState>['hand']>, partners: readonly string[]): number {
-  const known = new Set<string>([hand.bidder ?? '', ...partners]);
-  let points = 0;
-  for (const id of known) {
-    for (const card of hand.collected[id] ?? []) {
-      if (card.rank === 'A' || card.rank === 'K' || card.rank === 'Q' || card.rank === 'J' || card.rank === '10') points += 10;
-      else if (card.rank === '5') points += 5;
-    }
-  }
-  if (hand.premiumWinner.spades && known.has(hand.premiumWinner.spades)) points += 30;
-  if (hand.gameType === '500' && hand.premiumWinner.hearts && known.has(hand.premiumWinner.hearts)) points += 30;
-  return points;
-}
-
 

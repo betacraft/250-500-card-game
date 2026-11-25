@@ -1,5 +1,7 @@
 import {
+  bidLock,
   cardId,
+  cardPointValue,
   currentHighBid,
   declareTrumpAndPartners,
   finalizeHand,
@@ -17,14 +19,14 @@ import { currentTarget, localNames, localSeatIds } from '../analytics/local-targ
 
 const HUMAN_ID = 'p1';
 
-export type DevScript = 'long' | 'over' | 'trick' | 'reveal' | 'declared';
+export type DevScript = 'long' | 'over' | 'trick' | 'reveal' | 'declared' | 'forced' | 'lock-made' | 'lock-sunk';
 
 /** Dev-only `?script=` values. Production builds never read the query. */
 export function devScript(): DevScript | null {
   if (!import.meta.env.DEV || typeof window === 'undefined') return null;
   try {
     const value = new URLSearchParams(window.location.search).get('script');
-    if (value === 'long' || value === 'over' || value === 'trick' || value === 'reveal' || value === 'declared') return value;
+    if (value === 'long' || value === 'over' || value === 'trick' || value === 'reveal' || value === 'declared' || value === 'forced' || value === 'lock-made' || value === 'lock-sunk') return value;
   } catch {
     /* ignore a blocked location */
   }
@@ -76,7 +78,7 @@ export interface ScriptedTable {
 /** A scored game or a mid-trick table. Null unless `?script=over` or `?script=trick`. */
 export function scriptedOpening(gameType: GameType, humanName: string): ScriptedTable | null {
   const script = devScript();
-  if (script !== 'over' && script !== 'trick' && script !== 'reveal' && script !== 'declared') return null;
+  if (script !== 'over' && script !== 'trick' && script !== 'reveal' && script !== 'declared' && script !== 'forced' && script !== 'lock-made' && script !== 'lock-sunk') return null;
   const seats = localSeatIds(rulesFor(gameType).PLAYER_COUNT);
   const name = humanName.trim() || 'You';
   const bidder = seats[1] ?? HUMAN_ID;
@@ -86,7 +88,10 @@ export function scriptedOpening(gameType: GameType, humanName: string): Scripted
   hand = declareTrumpAndPartners(hand, 'hearts', calledFromOthers(hand, bidder, rules.PARTNERS_TO_CALL));
   if (script === 'declared') hand = { ...hand, toPlayerId: HUMAN_ID };
   if (script === 'reveal') hand = { ...playCalledCard(hand), toPlayerId: null };
-  if (script === 'trick' || script === 'reveal' || script === 'declared') {
+  if (script === 'forced') hand = forceHumanFollow(hand);
+  if (script === 'lock-made') hand = parkForLock(hand, 'made');
+  if (script === 'lock-sunk') hand = parkForLock(hand, 'sunk');
+  if (script === 'trick' || script === 'reveal' || script === 'declared' || script === 'forced' || script === 'lock-made' || script === 'lock-sunk') {
     if (script === 'trick') hand = playUntilHuman(hand);
     return {
       phase: 'playing',
@@ -226,4 +231,55 @@ function scoreForBidder(hand: GameHand, bidder: string, seats: readonly string[]
     ended: true,
   };
   return { hand: scored, fin: finalizeHand(scored) };
+}
+
+function forceHumanFollow(hand: GameHand): GameHand {
+  const suit = (hand.hands[HUMAN_ID] ?? []).find((card) => !(hand.calledCards.some((called) => cardId(called) === cardId(card))))?.suit ?? 'clubs';
+  const keep = (hand.hands[HUMAN_ID] ?? []).filter((card) => card.suit === suit).slice(0, 1);
+  const rest = (hand.hands[HUMAN_ID] ?? []).filter((card) => card.suit !== suit);
+  const lead = { suit, rank: '4' as const, id: 'script-force-lead' };
+  return {
+    ...hand,
+    hands: { ...hand.hands, [HUMAN_ID]: [...keep, ...rest] },
+    currentTrick: [{ playerId: hand.bidder ?? 'p2', card: lead }],
+    toPlayerId: HUMAN_ID,
+  };
+}
+
+function parkForLock(hand: GameHand, kind: 'made' | 'sunk'): GameHand {
+  const bidder = hand.bidder ?? 'p2';
+  const defender = hand.seatOrder.find((id) => id !== bidder && id !== HUMAN_ID) ?? HUMAN_ID;
+  const hands: Record<string, Card[]> = {};
+  const bidderPile: Card[] = [];
+  const defenderPile: Card[] = [];
+  for (const id of hand.seatOrder) {
+    const cards = [...(hand.hands[id] ?? [])];
+    hands[id] = [];
+    for (const card of cards) {
+      const points = cardPointValue(card);
+      if (kind === 'made' && points > 0 && bidderPile.reduce((sum, item) => sum + cardPointValue(item), 0) < (hand.bidAmount ?? 0)) bidderPile.push(card);
+      else if (kind === 'sunk' && points > 0) defenderPile.push(card);
+      else if (hands[id].length < 2) hands[id].push(card);
+      else defenderPile.push(card);
+    }
+  }
+  const shown = new Set(hand.seatOrder.filter((id) => id !== bidder && id !== defender).slice(0, rulesFor(hand.gameType).PARTNERS_TO_CALL));
+  const next: GameHand = {
+    ...hand,
+    hands,
+    collected: { ...hand.collected, [bidder]: bidderPile, [defender]: defenderPile },
+    shownPartners: shown,
+    slots: hand.slots.map((slot, index) => ({ ...slot, filledBy: [...shown][index] ?? null })),
+    currentTrick: [],
+    toPlayerId: HUMAN_ID,
+    premiumWinner: {
+      spades: kind === 'sunk' ? defender : hand.premiumWinner.spades,
+      hearts: kind === 'sunk' ? defender : hand.premiumWinner.hearts,
+    },
+  };
+  if (bidLock(next) !== kind && kind === 'made') {
+    const extra = defenderPile.splice(0, defenderPile.length);
+    next.collected = { ...next.collected, [bidder]: [...bidderPile, ...extra], [defender]: [] };
+  }
+  return next;
 }
