@@ -486,7 +486,8 @@ async function clickCentre(
       }
       if (input === 'touch') await page.touchscreen.tap(second.x, second.y);
       else await page.mouse.click(second.x, second.y, { delay: 0 });
-      const selected = await target.getAttribute('data-selected').catch(() => null);
+      if ((await target.count()) === 0) return true;
+      const selected = await target.evaluate((node) => node.getAttribute('data-selected')).catch(() => null);
       if (selected === 'false') {
         await page.waitForTimeout(30);
         continue;
