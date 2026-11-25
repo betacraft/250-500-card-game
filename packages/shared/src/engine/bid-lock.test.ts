@@ -15,7 +15,7 @@ import {
 import type { BidEntry } from '../state/scorekeeper';
 import { rulesFor } from '../games';
 import { finalizeHand, legalPlaysFor, playCard, setBidder, startHand, declareTrumpAndPartners, type GameHand } from './hand';
-import { bidLock, bidLockDetail } from './bid-lock';
+import { bidLockDetail } from './bid-lock';
 
 describe('bid lock', () => {
   it('logs the median scheduled hand length before and after the new pace', () => {
