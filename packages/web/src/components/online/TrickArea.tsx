@@ -35,7 +35,6 @@ export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerI
     return () => observer.disconnect();
   }, [played.length]);
   const layout = trickLayout(played.length, rowWidth, compact);
-  const rows = splitRows(played, layout.rows);
   const leaderId = trickLeader(played, winnerId, trump, ledSuit ?? null);
   return (
     <div className={compact ? 'flex flex-col items-center justify-center gap-0.5 rounded-xl bg-felt px-1 py-1' : 'flex min-h-[150px] flex-col items-center justify-center gap-2 rounded-xl bg-felt px-1 py-3'}>
@@ -49,21 +48,19 @@ export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerI
         <div className="text-sm text-white/60">Trick area</div>
       ) : (
         <>
-          <div ref={rowRef} data-testid="trick-row" className="flex w-full flex-col items-center gap-1">
-            {rows.map((row, rowIndex) => (
-              <div key={rowIndex} className="flex justify-center">
-                {row.map((p) => {
-                  const index = played.indexOf(p);
-                  const won = p.playerId === winnerId;
-                  return (
-                    <div key={`${cardInstanceKey(p.card)}-${p.playerId}`} data-testid={won ? 'trick-winner' : 'trick-card'} data-card-width={layout.width} className={`relative ${won ? 'rounded-md ring-4 ring-[#E8A317]' : ''}`}>
-                      <CardFace card={p.card} width={layout.width} thirty={thirtyIndexes?.has(index) ?? false} />
-                      <span data-testid="trick-seat" className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-black/60 text-center text-[10px] leading-3 text-white">{seatLabel(playerNames[p.playerId] ?? p.playerId)}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
+          <div ref={rowRef} data-testid="trick-row" className="flex w-full justify-center">
+            <div className="flex" style={{ width: layout.width + Math.max(played.length - 1, 0) * layout.step }}>
+              {played.map((p, index) => {
+                const won = p.playerId === winnerId;
+                const labelWidth = index === played.length - 1 ? layout.width : layout.step;
+                return (
+                  <div key={`${cardInstanceKey(p.card)}-${p.playerId}`} data-testid={won ? 'trick-winner' : 'trick-card'} data-card-width={layout.width} className={`relative ${won ? 'rounded-md ring-4 ring-[#E8A317]' : ''}`} style={{ width: layout.width, marginLeft: index === 0 ? 0 : layout.step - layout.width, zIndex: index + 1 }}>
+                    <CardFace card={p.card} width={layout.width} thirty={thirtyIndexes?.has(index) ?? false} />
+                    <span data-testid="trick-seat" className="absolute bottom-0 left-0 truncate bg-black/70 text-center text-[10px] leading-[12px] text-white" style={{ width: labelWidth }}>{seatLabel(playerNames[p.playerId] ?? p.playerId)}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </>
       )}
@@ -86,20 +83,25 @@ function seatLabel(name: string): string {
   return `${first.slice(0, 1)}${parts.slice(1).join('')}`;
 }
 
-/** Eight-card tricks use two rows so each card stays at least 47px wide. */
-function trickLayout(count: number, rowWidth: number, compact: boolean): { width: number; rows: number } {
+/**
+ * One row. Narrow tricks overlap about 58% so the rank corner and the seat
+ * label stay in the visible left of each card. Later plays sit on top.
+ */
+function trickLayout(count: number, rowWidth: number, compact: boolean): { width: number; step: number } {
   const cards = Math.max(count, 1);
-  const single = Math.floor((rowWidth - 4) / cards);
-  if (compact) return { width: Math.min(56, Math.max(36, single)), rows: 1 };
-  if (cards >= 8 && single < 47) {
-    const perRow = Math.ceil(cards / 2);
-    return { width: Math.min(72, Math.max(47, Math.floor((rowWidth - 8) / perRow))), rows: 2 };
+  const inner = Math.max(rowWidth - 4, 48);
+  const cap = compact ? 56 : 76;
+  const side = Math.floor(inner / cards);
+  if (cards === 1 || side >= 56) {
+    const width = Math.min(cap, Math.max(44, side));
+    return { width, step: width };
   }
-  return { width: Math.min(72, Math.max(28, single)), rows: 1 };
-}
-
-function splitRows<T>(items: T[], rows: number): T[][] {
-  if (rows <= 1) return [items];
-  const mid = Math.ceil(items.length / 2);
-  return [items.slice(0, mid), items.slice(mid)];
+  const visible = 0.42;
+  let width = Math.min(cap, Math.max(64, Math.floor(inner / (1 + (cards - 1) * visible))));
+  let step = Math.round(width * visible);
+  while (width > 48 && width + (cards - 1) * step > inner) {
+    width -= 1;
+    step = Math.max(28, Math.round(width * visible));
+  }
+  return { width, step };
 }

@@ -14,17 +14,18 @@ import {
   type GameType,
 } from '@250-500/shared';
 import { currentTarget, localNames, localSeatIds } from '../analytics/local-target';
+import { labelTrick } from './scripted-fan';
 
 const HUMAN_ID = 'p1';
 
-export type DevScript = 'long' | 'over' | 'trick' | 'reveal' | 'declared';
+export type DevScript = 'long' | 'over' | 'trick' | 'reveal' | 'declared' | 'labels';
 
 /** Dev-only `?script=` values. Production builds never read the query. */
 export function devScript(): DevScript | null {
   if (!import.meta.env.DEV || typeof window === 'undefined') return null;
   try {
     const value = new URLSearchParams(window.location.search).get('script');
-    if (value === 'long' || value === 'over' || value === 'trick' || value === 'reveal' || value === 'declared') return value;
+    if (value === 'long' || value === 'over' || value === 'trick' || value === 'reveal' || value === 'declared' || value === 'labels') return value;
   } catch {
     /* ignore a blocked location */
   }
@@ -76,7 +77,7 @@ export interface ScriptedTable {
 /** A scored game or a mid-trick table. Null unless `?script=over` or `?script=trick`. */
 export function scriptedOpening(gameType: GameType, humanName: string): ScriptedTable | null {
   const script = devScript();
-  if (script !== 'over' && script !== 'trick' && script !== 'reveal' && script !== 'declared') return null;
+  if (script !== 'over' && script !== 'trick' && script !== 'reveal' && script !== 'declared' && script !== 'labels') return null;
   const seats = localSeatIds(rulesFor(gameType).PLAYER_COUNT);
   const name = humanName.trim() || 'You';
   const bidder = seats[1] ?? HUMAN_ID;
@@ -86,7 +87,8 @@ export function scriptedOpening(gameType: GameType, humanName: string): Scripted
   hand = declareTrumpAndPartners(hand, 'hearts', calledFromOthers(hand, bidder, rules.PARTNERS_TO_CALL));
   if (script === 'declared') hand = { ...hand, toPlayerId: HUMAN_ID };
   if (script === 'reveal') hand = { ...playCalledCard(hand), toPlayerId: null };
-  if (script === 'trick' || script === 'reveal' || script === 'declared') {
+  if (script === 'labels') hand = labelTrick(hand);
+  if (script !== 'over') {
     if (script === 'trick') hand = playUntilHuman(hand);
     return {
       phase: 'playing',
