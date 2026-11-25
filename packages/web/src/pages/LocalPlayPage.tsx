@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { cardId, cardInstanceKey, illegalReason, legalPlaysFor, nextBidder, rulesFor, type Card, type GameType, type Suit } from '@250-500/shared';
+import { cardId, cardInstanceKey, illegalReason, legalPlaysFor, nextBidder, rulesFor, visiblePartners, type Card, type GameType, type Suit } from '@250-500/shared';
 import { BiddingFlow } from '../components/shared/BiddingFlow';
 import { SuitIcon } from '../components/shared/SuitIcon';
 import { CardFace } from '../components/cards/CardFace';
@@ -10,10 +10,10 @@ import { HUMAN_ID, useLocalPlayStore } from '../stores/local-play-store';
 import { useSettingsStore } from '../stores/settings-store';
 import { ExportAnalyticsButton } from '../analytics/ExportAnalyticsButton';
 import { DeclareForm, NewGameButton, Setup } from './local-play-forms';
-import { AuctionRecap, ScoreStrip, privateNotice, scoreExplainer } from './local-table-notes';
+import { AuctionRecap, ScoreStrip, scoreExplainer } from './local-table-notes';
 import { headerPartnerIds } from './partner-header';
 import { PartnerToast } from './partner-toast';
-import { holdsSecretCall } from './secret-call';
+import { holdsSecretCall, privateNotice } from './secret-call';
 import { usePartnerReveal } from './use-partner-reveal';
 
 /** Free local table: one human and five or seven Easy bots. No coins, no stakes. */
@@ -93,7 +93,7 @@ export function LocalPlayPage(): JSX.Element {
   const dockNext = phase === 'scored' && !gameOver && height <= 500;
   const docked = phase === 'bidding' || phase === 'declaring' || phase === 'playing' || gameOver || dockNext;
   const humanDeclaring = phase === 'declaring' && hand.bidder === HUMAN_ID;
-  const notice = privateNotice(humanHand, hand.calledCards, hand.bidder, gameType, hand.slots);
+  const notice = privateNotice(humanHand, hand.calledCards, hand.bidder, gameType, hand.slots, names[hand.bidder ?? ''] ?? 'Bidder', visiblePartners(hand).includes(HUMAN_ID));
   const fan = (
     <HandFan
       cards={humanHand}
@@ -200,6 +200,7 @@ export function LocalPlayPage(): JSX.Element {
             ledSuit={shownTrick[0]?.card.suit ?? null}
             thirtyIndexes={thirty}
             winnerId={settledTrick?.winnerId ?? null}
+            trump={hand.trump}
             compact={height <= 500}
           />
           <PartnerToast notice={reveal.current} reduced={reveal.reduced} />

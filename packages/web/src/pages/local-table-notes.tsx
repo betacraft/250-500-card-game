@@ -1,33 +1,13 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import { cardId, type BidEntry, type Card, type GameType, type PartnerSlot, type Suit } from '@250-500/shared';
+import { type BidEntry, type Card, type GameType, type Suit } from '@250-500/shared';
 import { SUIT_FILL } from '../components/cards/suit-glyphs';
 import { SuitIcon } from '../components/shared/SuitIcon';
-import { HUMAN_ID } from '../stores/local-play-store';
 
 const SUIT_GLYPH: Record<Suit, string> = { spades: '♠', hearts: '♥', diamonds: '♦', clubs: '♣' };
 
 /** Tiny "♥ 160" label for the bidder's seat at a short height. */
 export function bidderBidText(suit: Suit, amount: number): string {
   return `${SUIT_GLYPH[suit]} ${amount}`;
-}
-
-/** Own-hand notice. 500 holders are not partners until a called card is played. */
-export function privateNotice(
-  hand: readonly Card[],
-  called: readonly Card[],
-  bidderId: string | null,
-  gameType: GameType,
-  slots: readonly PartnerSlot[],
-): string | null {
-  if (!bidderId || bidderId === HUMAN_ID || called.length === 0) return null;
-  const held = called.filter((card) => hand.some((owned) => cardId(owned) === cardId(card)));
-  if (held.length === 0) return null;
-  if (gameType === '250') return "You're a partner";
-  const stillMine = held.some((card) => {
-    const slot = slots.find((item) => cardId(item.card) === cardId(card));
-    return !slot?.filledBy || slot.filledBy === HUMAN_ID;
-  });
-  return stillMine ? 'You hold a called card' : null;
 }
 
 export function scoreExplainer(gameType: GameType, compact = false): string {

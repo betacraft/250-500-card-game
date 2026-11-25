@@ -19,7 +19,8 @@ describe('TrickArea', () => {
         ledSuit="spades"
       />,
     );
-    expect(screen.getByText(/alice · bob/i)).toBeInTheDocument();
+    expect(screen.getByText('Winning: Alice')).toBeInTheDocument();
+    expect(screen.getAllByTestId('trick-seat').map((node) => node.textContent)).toEqual(['A', 'B']);
     expect(screen.getByTestId('led-suit')).toHaveAttribute('data-suit', 'spades');
     expect(screen.getByTestId('led-suit').textContent).toMatch(/Led: spades/i);
   });

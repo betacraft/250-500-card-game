@@ -40,6 +40,8 @@ test.describe('partner reveal cues on a short table', () => {
       if (item.variant === '500' && item.width === 667) {
         await saveShot(page, '/opt/cursor/artifacts/badges-667x375-500.png', false);
         await saveShot(page, '/opt/cursor/artifacts/public-star-667x375-500.png', false);
+        await expect(page.getByTestId('private-partner')).toContainText("You're Bot 2's partner");
+        await saveShot(page, '/opt/cursor/artifacts/status-after-reveal-667x375-500.png', false);
       }
     });
   }
