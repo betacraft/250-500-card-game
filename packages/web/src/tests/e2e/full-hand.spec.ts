@@ -558,12 +558,11 @@ function readCentre(node: Element, pinned: boolean): { x: number; y: number; ok:
   };
   const box = node.getBoundingClientRect();
   const centre = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
-  const fat = (x: number, y: number): boolean => [[0, 0], [4, 0], [-4, 0], [0, 4], [0, -4]].every(([dx, dy]) => hits(x + (dx ?? 0), y + (dy ?? 0)));
-  for (let row = 1; row <= 5; row += 1) {
-    for (let col = 1; col <= 7; col += 1) {
-      const x = box.left + (box.width * col) / 8;
-      const y = box.top + (box.height * row) / 6;
-      if (fat(x, y)) return { x, y, ok: true, detail: label };
+  if (node.getAttribute('data-testid') === 'hand-card') {
+    for (const [fx, fy] of [[0.16, 0.7], [0.22, 0.55], [0.14, 0.42], [0.5, 0.5]] as const) {
+      const x = box.left + box.width * fx;
+      const y = box.top + box.height * fy;
+      if (hits(x, y) && hits(x + 4, y) && hits(x - 4, y)) return { x, y, ok: true, detail: label };
     }
   }
   if (hits(centre.x, centre.y)) return { x: centre.x, y: centre.y, ok: true, detail: label };
