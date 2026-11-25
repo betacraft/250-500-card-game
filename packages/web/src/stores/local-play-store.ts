@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import {
+  bidLock,
   chooseBid,
   chooseCalledCards,
   chooseNormalBid,
@@ -282,6 +283,7 @@ function afterBid(state: LocalPlayState, bidHistory: BidEntry[]): Partial<LocalP
 
 function applyCard(state: LocalPlayState, playerId: string, card: Card): Partial<LocalPlayState> {
   if (!state.hand) return {};
+  const before = bidLock(state.hand);
   const completing = state.hand.currentTrick.length + 1 === state.hand.seatOrder.length;
   const snapshot = completing ? [...state.hand.currentTrick, { playerId, card }] : null;
   const result = playCard(state.hand, playerId, card);
@@ -292,10 +294,11 @@ function applyCard(state: LocalPlayState, playerId: string, card: Card): Partial
   if (summary && !state.summary) {
     noteHandComplete(summary.bidMade, summary.bidAmount, summary.pointsCollected, summary.bidder === HUMAN_ID, state.handsPlayed === 0);
   }
-  if (settledTrick && next.phase === 'scored') {
+  const openedOnTheLastTrick = result.state.ended && before === null && bidLock(result.state) !== null;
+  if (settledTrick && next.phase === 'scored' && !openedOnTheLastTrick) {
     return { ...next, runningScores: state.runningScores, phase: 'playing', settledTrick, decision: state.decision + 1 };
   }
-  return { ...next, settledTrick, decision: state.decision + 1 };
+  return { ...next, settledTrick: openedOnTheLastTrick ? null : settledTrick, decision: state.decision + 1 };
 }
 
 function scoreIfDone(state: LocalPlayState, hand: GameHand): Partial<LocalPlayState> {

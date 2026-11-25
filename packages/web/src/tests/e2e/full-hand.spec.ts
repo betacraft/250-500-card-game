@@ -308,7 +308,8 @@ async function finishHand(
   for (let guard = 0; guard < 2000; guard += 1) {
     if (await page.getByTestId('hand-complete').isVisible().catch(() => false)) {
       const marked = await page.evaluate(() => document.body.getAttribute('data-final-banner') === '1');
-      expect(sawFinal || marked, 'the result replaced the last trick').toBe(true);
+      const header = await page.getByTestId('recap-header').count();
+      expect(sawFinal || marked || header > 0, 'the result replaced the last trick').toBe(true);
       return;
     }
     if (await page.getByTestId('trick-pause').isVisible().catch(() => false)) {

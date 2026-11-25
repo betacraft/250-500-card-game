@@ -63,7 +63,8 @@ export function useTablePace(): {
 function useLatchedLock(phase: string, hand: ReturnType<typeof useLocalPlayStore.getState>['hand'], settledTrick: unknown): LockLatch {
   const latch = useRef<LockLatch>(EMPTY_LATCH);
   const atBoundary = !hand?.currentTrick.length || Boolean(settledTrick) || Boolean(hand?.ended);
-  const sample = hand && (phase === 'playing' || Boolean(settledTrick)) && atBoundary ? bidLock(hand) : null;
+  const live = phase === 'playing' || Boolean(settledTrick) || Boolean(hand?.ended);
+  const sample = hand && live && atBoundary ? bidLock(hand) : null;
   const reset = phase === 'bidding' || phase === 'setup';
   latch.current = latchLock(latch.current, sample, Boolean(hand?.ended), reset);
   return latch.current;

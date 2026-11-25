@@ -184,7 +184,7 @@ async function finishHand(page: Page): Promise<void> {
       continue;
     }
     if (await page.getByTestId('trick-pause').isVisible().catch(() => false)) {
-      await page.getByTestId('trick-pause').click();
+      await page.getByTestId('trick-pause').click({ timeout: 1_000 }).catch(() => undefined);
       continue;
     }
     if (await page.getByText('Your turn').isVisible().catch(() => false)) {
