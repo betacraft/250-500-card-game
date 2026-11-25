@@ -346,8 +346,7 @@ async function finishHand(
       await assertFaceCentres(page);
       await assertTableFacts(page);
       const legal = page.locator('[data-testid="hand-card"][aria-disabled="false"]').first();
-      for (let attempt = 0; attempt < 8; attempt += 1) {
-        if (attempt > 0) await page.waitForTimeout(100);
+      for (let attempt = 0; attempt < 3; attempt += 1) {
         await clickCentre(page, legal, input, true);
         if ((await legal.getAttribute('data-selected')) === 'true') break;
       }
@@ -470,13 +469,31 @@ async function clickCentre(
   pinned: boolean,
   optional = false,
 ): Promise<boolean> {
+  const target = locator.first();
   try {
-    await locator.first().waitFor({ state: 'visible', timeout: optional ? 800 : 5_000 });
-    const point = await locator.first().evaluate(readCentre, pinned);
-    expect(point.ok, point.detail).toBe(true);
-    if (input === 'touch') await page.touchscreen.tap(point.x, point.y);
-    else await page.mouse.click(point.x, point.y);
-    return true;
+    await target.waitFor({ state: 'visible', timeout: optional ? 800 : 5_000 });
+    let detail = 'unset';
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      const first = await target.evaluate(readCentre, pinned);
+      await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+      const second = await target.evaluate(readCentre, pinned);
+      const box = await target.boundingBox();
+      detail = second.detail;
+      const stable = Boolean(box) && first.ok && second.ok && Math.abs(first.x - second.x) < 0.6 && Math.abs(first.y - second.y) < 0.6;
+      if (!stable || !box) {
+        await page.waitForTimeout(40);
+        continue;
+      }
+      const position = {
+        x: Math.min(Math.max(1, second.x - box.x), Math.max(1, box.width - 1)),
+        y: Math.min(Math.max(1, second.y - box.y), Math.max(1, box.height - 1)),
+      };
+      if (input === 'touch') await page.touchscreen.tap(second.x, second.y);
+      else await target.click({ position, delay: 0, timeout: 5_000 });
+      return true;
+    }
+    expect(detail, detail).toBe('stable hit');
+    return false;
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
     if (optional && /timeout|detached|not attached|not visible|closed/i.test(message)) return false;

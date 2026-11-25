@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { cardId, cardInstanceKey, illegalReason, legalPlaysFor, nextBidder, rulesFor, visiblePartners, type Card, type GameType, type Suit } from '@250-500/shared';
+import { cardId, cardInstanceKey, illegalReason, legalPlaysFor, nextBidder, rulesFor, type Card, type GameType, type Suit } from '@250-500/shared';
 import { BiddingFlow } from '../components/shared/BiddingFlow';
 import { SuitIcon } from '../components/shared/SuitIcon';
 import { CardFace } from '../components/cards/CardFace';
@@ -10,6 +10,7 @@ import { HUMAN_ID, useLocalPlayStore } from '../stores/local-play-store';
 import { ExportAnalyticsButton } from '../analytics/ExportAnalyticsButton';
 import { DeclareForm, NewGameButton, Setup } from './local-play-forms';
 import { AuctionRecap, ScoreStrip, privateNotice, scoreExplainer } from './local-table-notes';
+import { headerPartnerIds } from './partner-header';
 
 /** Free local table: one human and five or seven bots. Easy is the default. No coins, no stakes. */
 export function LocalPlayPage(): JSX.Element {
@@ -147,7 +148,7 @@ export function LocalPlayPage(): JSX.Element {
       </div>
       <div data-testid="play-scroll" className={`flex min-h-0 flex-1 flex-col overflow-hidden ${gameOver && height <= 500 ? 'py-1' : 'py-2'}`}>
       <div className="shrink-0">
-      {!(gameOver && height <= 500) && !shortPlay && <TableStatus hand={hand} names={names} />}
+      {!(gameOver && height <= 500) && !shortPlay && <TableStatus hand={hand} names={names} scoredPartners={phase === 'scored' && summary ? summary.partners : null} />}
       {!(gameOver && height <= 500) && !shortPlay && <p data-testid="disabled-reason" role="status" className="pointer-events-none h-5 overflow-hidden text-sm font-medium leading-5 text-red-700">{blocked ?? ''}</p>}
       {phase !== 'bidding' && !(humanDeclaring && (short || !wide)) && !(gameOver && height <= 500) && !shortPlay && (
         <AuctionRecap
@@ -343,9 +344,9 @@ function trickThirties(played: ReadonlyArray<{ card: Card }>, hand: { gameType: 
   return marks;
 }
 
-function TableStatus({ hand, names }: { hand: NonNullable<ReturnType<typeof useLocalPlayStore.getState>['hand']>; names: Record<string, string> }): JSX.Element | null {
+function TableStatus({ hand, names, scoredPartners = null }: { hand: NonNullable<ReturnType<typeof useLocalPlayStore.getState>['hand']>; names: Record<string, string>; scoredPartners?: readonly string[] | null }): JSX.Element | null {
   if (!hand.bidder || hand.bidAmount === null) return null;
-  const revealed = visiblePartners(hand);
+  const revealed = headerPartnerIds(hand, scoredPartners);
   return (
     <div className="flex flex-wrap items-end gap-2 text-sm text-stone-700" data-testid="table-status">
       <span>{names[hand.bidder] ?? 'Bidder'} bid {hand.bidAmount}</span>
@@ -356,14 +357,14 @@ function TableStatus({ hand, names }: { hand: NonNullable<ReturnType<typeof useL
           {hand.calledCards.map((card) => <CardFace key={cardId(card)} card={card} width={40} called />)}
         </span>
       )}
-      <span>Partners: {revealed.map((id) => names[id] ?? id).join(', ') || 'none yet'}</span>
-      <span data-testid="team-points">Team points {publicTeamPoints(hand)}</span>
+      <span data-testid="partner-names">Partners: {revealed.map((id) => names[id] ?? id).join(', ') || 'none yet'}</span>
+      <span data-testid="team-points">Team points {publicTeamPoints(hand, revealed)}</span>
     </div>
   );
 }
 
-function publicTeamPoints(hand: NonNullable<ReturnType<typeof useLocalPlayStore.getState>['hand']>): number {
-  const known = new Set<string>([hand.bidder ?? '', ...visiblePartners(hand)]);
+function publicTeamPoints(hand: NonNullable<ReturnType<typeof useLocalPlayStore.getState>['hand']>, partners: readonly string[]): number {
+  const known = new Set<string>([hand.bidder ?? '', ...partners]);
   let points = 0;
   for (const id of known) {
     for (const card of hand.collected[id] ?? []) {
