@@ -468,12 +468,8 @@ async function clickCentre(page: Page, locator: Locator, input: 'mouse' | 'touch
       await page.waitForTimeout(40);
       continue;
     }
-    const position = {
-      x: Math.min(Math.max(1, second.x - box.x), Math.max(1, box.width - 1)),
-      y: Math.min(Math.max(1, second.y - box.y), Math.max(1, box.height - 1)),
-    };
     if (input === 'touch') await page.touchscreen.tap(second.x, second.y);
-    else await target.click({ position, delay: 0, timeout: 5_000 });
+    else await page.mouse.click(second.x, second.y, { delay: 0 });
     return;
   }
   expect(detail, detail).toBe('stable hit');
