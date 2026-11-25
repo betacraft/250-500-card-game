@@ -144,7 +144,7 @@ export function LocalPlayPage(): JSX.Element {
       </div>
       <div data-testid="play-scroll" className={`flex min-h-0 flex-1 flex-col overflow-hidden ${gameOver && height <= 500 ? 'py-1' : 'py-2'}`}>
       <div className="shrink-0">
-      {!(gameOver && height <= 500) && !shortPlay && (wide || phase !== 'declaring') && <TableStatus hand={hand} names={names} scoredPartners={phase === 'scored' && summary ? summary.partners : null} faces={!shortScore} />}
+      {!(gameOver && height <= 500) && !shortPlay && !(short && !wide && phase === 'declaring') && <TableStatus hand={hand} names={names} scoredPartners={phase === 'scored' && summary ? summary.partners : null} faces={!shortScore} />}
       {!(gameOver && height <= 500) && !shortPlay && !shortScore && <p data-testid="disabled-reason" role="status" className="pointer-events-none h-5 overflow-hidden text-sm font-medium leading-5 text-red-700">{blocked ?? ''}</p>}
       {phase !== 'bidding' && !(humanDeclaring && (short || !wide)) && !(gameOver && height <= 500) && !shortPlay && !shortScore && (
         <AuctionRecap
@@ -186,7 +186,7 @@ export function LocalPlayPage(): JSX.Element {
           need={rulesFor(gameType).PARTNERS_TO_CALL}
           heldFaces={new Set(humanHand.map((card) => cardId(card)))}
           compact={height <= 900}
-          brief={!wide}
+          brief={short && !wide}
           wide={wide}
           onCanConfirm={setCanConfirm}
           onDeclare={declare}
