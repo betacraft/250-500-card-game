@@ -84,6 +84,7 @@ export function DeclareForm({
   need,
   heldFaces,
   compact,
+  brief = false,
   wide,
   onCanConfirm,
   onDeclare,
@@ -93,6 +94,7 @@ export function DeclareForm({
   need: number;
   heldFaces: ReadonlySet<string>;
   compact: boolean;
+  brief?: boolean;
   wide: boolean;
   onCanConfirm: (ready: boolean) => void;
   onDeclare: (trump: Suit, called: Card[]) => void;
@@ -117,7 +119,7 @@ export function DeclareForm({
     <form id="declare-form" data-testid="declare-form" className={compact && wide ? 'flex flex-col gap-0' : compact ? 'flex flex-col gap-1' : 'flex flex-col gap-3'} onSubmit={submit}>
       <p data-testid="declare-instruction" className="text-sm leading-snug text-stone-800">
         <span className="font-medium">You won the bid. Name trump and {need} cards. </span>
-        <span data-testid="score-explainer" className="text-stone-700">{scoreExplainer(gameType, compact)}</span>
+        {!brief && <span data-testid="score-explainer" className="text-stone-700">{scoreExplainer(gameType, compact)}</span>}
       </p>
       <TrumpPicker value={trump} onChange={setTrump} compact={compact} />
       <PartnerPicker selected={called} maxCount={need} heldFaces={heldFaces} compact={compact} wide={wide} onChange={setCalled} onBlocked={onBlocked} />
