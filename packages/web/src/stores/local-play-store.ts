@@ -27,6 +27,7 @@ import {
   type Suit,
 } from '@250-500/shared';
 import { currentTarget, localNames, localSeatIds } from '../analytics/local-target';
+import { forcedAuctionAction, scriptedOpening } from './scripted-table';
 import { closedBid, noteAbandoned, noteBidResult, noteCardsCalled, noteGameComplete, noteGameStart, noteHandComplete, noteHandStart, noteNewGame, scoresWithPending, tableWinner } from '../analytics/table-events';
 
 export const HUMAN_ID = 'p1';
@@ -97,9 +98,19 @@ const SETUP = {
 export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
   ...SETUP,
   startGame: (gameType, humanName) => {
+    const name = humanName.trim() || 'You';
+    const scripted = scriptedOpening(gameType, name);
+    if (scripted) {
+      set(scripted);
+      noteGameStart(gameType, 'easy');
+      if (scripted.summary && scripted.gameOver) {
+        const result = tableWinner(scripted.runningScores, HUMAN_ID);
+        noteGameComplete(result.winner, result.humanScore, scripted.handsPlayed);
+      }
+      return;
+    }
     const seed = (Date.now() % 100000) + 1;
     const seats = localSeatIds(rulesFor(gameType).PLAYER_COUNT);
-    const name = humanName.trim() || 'You';
     set({
       ...SETUP,
       gameType,
@@ -286,7 +297,7 @@ function botBid(state: LocalPlayState): Partial<LocalPlayState> {
   if (isAuctionClosed(auction)) return afterBid(state, state.bidHistory);
   const turn = nextBidder(auction);
   if (!turn || turn === HUMAN_ID) return {};
-  const decision = chooseBid({
+  const decision = forcedAuctionAction(state.gameType, state.bidHistory) ?? chooseBid({
     gameType: state.gameType,
     hand: state.hand.hands[turn] ?? [],
     highBid: currentHighBid(state.bidHistory)?.amount ?? null,

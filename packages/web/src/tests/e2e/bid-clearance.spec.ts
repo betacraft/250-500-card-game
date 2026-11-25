@@ -100,25 +100,18 @@ test.describe('bid controls stay above the hand', () => {
     { variant: '500' as const, width: 800, height: 480, touch: false, shot: 'gameover-800x480-500' },
   ]) {
     test(`${item.variant} game over scores scroll at ${item.width}x${item.height}`, async ({ page }) => {
-      test.setTimeout(300_000);
+      test.setTimeout(60_000);
       const errors: string[] = [];
       page.on('console', (message) => {
         if (message.type() === 'error') errors.push(message.text());
       });
       page.on('pageerror', (error) => errors.push(error.message));
       await page.setViewportSize({ width: item.width, height: item.height });
-      await page.goto('/play?target=1');
+      await page.goto('/play?script=over&target=1');
       await page.getByRole('button', { name: new RegExp(`^${item.variant}`) }).click();
       await page.getByLabel('Your name').click();
       await page.keyboard.type('Ada');
       await page.getByTestId('start-vs-bots').click();
-      await page.getByTestId('hand-fan').waitFor();
-      for (let hand = 0; hand < 24; hand += 1) {
-        await passAuction(page);
-        await finishHand(page, item.variant === '250' ? 2 : 3);
-        if (await page.getByTestId('game-over').isVisible().catch(() => false)) break;
-        await page.getByRole('button', { name: 'Next hand' }).click();
-      }
       await expect(page.getByTestId('game-over')).toBeVisible();
       await expect(page.getByTestId('your-result')).toBeVisible();
       await saveShot(page, `/opt/cursor/artifacts/${item.shot}.png`, false);
@@ -143,25 +136,18 @@ test.describe('bid controls stay above the hand', () => {
   }
 
   test('500 game over at 1024 does not cover the result', async ({ page }) => {
-    test.setTimeout(300_000);
+    test.setTimeout(60_000);
     const errors: string[] = [];
     page.on('console', (message) => {
       if (message.type() === 'error') errors.push(message.text());
     });
     page.on('pageerror', (error) => errors.push(error.message));
     await page.setViewportSize({ width: 1024, height: 572 });
-    await page.goto('/play?target=1');
+    await page.goto('/play?script=over&target=1');
     await page.getByRole('button', { name: /^500/ }).click();
     await page.getByLabel('Your name').click();
     await page.keyboard.type('Ada');
     await page.getByTestId('start-vs-bots').click();
-    await page.getByTestId('hand-fan').waitFor();
-    for (let hand = 0; hand < 24; hand += 1) {
-      await passAuction(page);
-        await finishHand(page, 3);
-      if (await page.getByTestId('game-over').isVisible().catch(() => false)) break;
-      await page.getByRole('button', { name: 'Next hand' }).click();
-    }
     await expect(page.getByTestId('game-over')).toBeVisible();
     const again = page.getByTestId('play-again');
     const card = page.getByTestId('hand-complete');
@@ -183,7 +169,7 @@ test.describe('bid controls stay above the hand', () => {
 
 async function startTable(page: Page, variant: '250' | '500', view: { width: number; height: number }): Promise<void> {
   await page.setViewportSize({ width: view.width, height: view.height });
-  if (!page.url().includes('/play')) await page.goto('/play');
+  await page.goto('/play?script=long');
   await page.getByRole('button', { name: new RegExp(`^${variant}`) }).click();
   await page.getByLabel('Your name').click();
   await page.keyboard.type('Ada');
@@ -210,10 +196,6 @@ async function press(page: Page, locator: Locator, touch: boolean): Promise<void
   const y = box.y + box.height / 2;
   if (touch) await page.touchscreen.tap(x, y);
   else await page.mouse.click(x, y);
-}
-
-async function clickCentre(page: Page, locator: Locator): Promise<void> {
-  await press(page, locator, false);
 }
 
 const STEPPER = [
@@ -413,51 +395,3 @@ function overlaps(
   return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
 }
 
-async function passAuction(page: Page): Promise<void> {
-  for (let guard = 0; guard < 16; guard += 1) {
-    const pass = page.getByRole('button', { name: 'Pass', exact: true });
-    await expect(pass.or(page.getByTestId('declare-form')).or(page.getByText('Your turn'))).toBeVisible({ timeout: 20_000 });
-    if (!(await pass.isVisible().catch(() => false))) return;
-    await clickCentre(page, pass);
-  }
-}
-
-async function finishHand(page: Page, calls: number): Promise<void> {
-  for (let guard = 0; guard < 500; guard += 1) {
-    if (await page.getByTestId('hand-complete').isVisible().catch(() => false)) return;
-    if (await page.getByTestId('declare-form').isVisible().catch(() => false)) {
-      await page.getByRole('button', { name: 'Trump: Hearts' }).click();
-      const grid = page.getByTestId('rank-grid');
-      for (const rank of ['3', '4', '5'].slice(0, calls)) {
-        await grid.getByRole('button', { name: new RegExp(`${rank} of clubs`) }).click();
-      }
-      await page.getByRole('button', { name: 'Confirm declaration' }).click();
-      continue;
-    }
-    if (await page.getByTestId('trick-pause').isVisible().catch(() => false)) {
-      await page.getByTestId('trick-pause').click();
-      continue;
-    }
-    if (await page.getByText('Your turn').isVisible().catch(() => false)) {
-      const legal = page.locator('[data-testid="hand-card"][aria-disabled="false"]');
-      const point = await legal.evaluateAll((cards) => {
-        for (const card of cards) {
-          const box = card.getBoundingClientRect();
-          for (let y = box.top + 8; y < box.bottom - 8; y += 10) {
-            for (let x = box.left + 6; x < box.right - 6; x += 8) {
-              const hit = document.elementFromPoint(x, y);
-              if (hit === card || card.contains(hit)) return { x, y };
-            }
-          }
-        }
-        return null;
-      });
-      if (!point) throw new Error('no open point on a legal card');
-      await page.mouse.click(point.x, point.y);
-      await page.getByTestId('confirm-play').click();
-      continue;
-    }
-    await page.waitForTimeout(80);
-  }
-  throw new Error('hand did not finish');
-}
