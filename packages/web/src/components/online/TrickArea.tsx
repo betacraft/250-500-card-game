@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Card } from '@250-500/shared';
-import { cardInstanceKey } from '@250-500/shared';
+import type { Card, Suit } from '@250-500/shared';
+import { cardInstanceKey, trickWinner } from '@250-500/shared';
 import { SuitIcon } from '../shared/SuitIcon';
 import { CardFace } from '../cards/CardFace';
 
@@ -16,12 +16,13 @@ interface TrickAreaProps {
   /** Indexes in `played` that are the first scoring 3 of their suit. */
   thirtyIndexes?: ReadonlySet<number>;
   winnerId?: string | null;
+  trump?: Suit | null;
   /** Short window: no tall minimum, so the played cards stay above the fan. */
   compact?: boolean;
 }
 
 /** Center-of-screen area showing cards played to the current trick + led suit. */
-export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerId = null, compact = false }: TrickAreaProps): JSX.Element {
+export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerId = null, trump = null, compact = false }: TrickAreaProps): JSX.Element {
   const rowRef = useRef<HTMLDivElement>(null);
   const [rowWidth, setRowWidth] = useState(360);
   useEffect(() => {
@@ -35,11 +36,13 @@ export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerI
   }, [played.length]);
   const layout = trickLayout(played.length, rowWidth, compact);
   const rows = splitRows(played, layout.rows);
+  const leaderId = trickLeader(played, winnerId, trump, ledSuit ?? null);
   return (
     <div className={compact ? 'flex flex-col items-center justify-center gap-0.5 rounded-xl bg-felt px-1 py-1' : 'flex min-h-[150px] flex-col items-center justify-center gap-2 rounded-xl bg-felt px-1 py-3'}>
-      {ledSuit && (
-        <div data-testid="led-suit" data-suit={ledSuit} className="flex items-center gap-1 text-sm text-white/90">
-          Led: {ledSuit} <SuitIcon suit={ledSuit} size={18} badge />
+      {(ledSuit || leaderId) && (
+        <div className="flex items-center gap-2 text-sm text-white/90">
+          {ledSuit && <span data-testid="led-suit" data-suit={ledSuit} className="inline-flex items-center gap-1">Led: {ledSuit} <SuitIcon suit={ledSuit} size={18} badge /></span>}
+          {leaderId && <span data-testid="trick-leader">Winning: {playerNames[leaderId] ?? leaderId}</span>}
         </div>
       )}
       {played.length === 0 ? (
@@ -53,21 +56,34 @@ export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerI
                   const index = played.indexOf(p);
                   const won = p.playerId === winnerId;
                   return (
-                    <div key={`${cardInstanceKey(p.card)}-${p.playerId}`} data-testid={won ? 'trick-winner' : 'trick-card'} data-card-width={layout.width} className={won ? 'rounded-md ring-4 ring-[#E8A317]' : undefined}>
+                    <div key={`${cardInstanceKey(p.card)}-${p.playerId}`} data-testid={won ? 'trick-winner' : 'trick-card'} data-card-width={layout.width} className={`relative ${won ? 'rounded-md ring-4 ring-[#E8A317]' : ''}`}>
                       <CardFace card={p.card} width={layout.width} thirty={thirtyIndexes?.has(index) ?? false} />
+                      <span data-testid="trick-seat" className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-black/60 text-center text-[10px] leading-3 text-white">{seatLabel(playerNames[p.playerId] ?? p.playerId)}</span>
                     </div>
                   );
                 })}
               </div>
             ))}
           </div>
-          <div className="text-sm text-white/80">
-            {played.map((p) => playerNames[p.playerId] ?? p.playerId).join(' · ')}
-          </div>
         </>
       )}
     </div>
   );
+}
+
+function trickLeader(played: PlayedCardEntry[], winnerId: string | null, trump: Suit | null, led: Suit | null): string | null {
+  if (winnerId) return winnerId;
+  const suit = trump ?? led ?? played[0]?.card.suit;
+  if (!suit) return null;
+  return trickWinner(played, suit)?.playerId ?? null;
+}
+
+/** "Ada" becomes "A". "Bot 2" becomes "B2". */
+function seatLabel(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  const first = parts[0] ?? name;
+  if (parts.length <= 1) return first.slice(0, 1);
+  return `${first.slice(0, 1)}${parts.slice(1).join('')}`;
 }
 
 /** Eight-card tricks use two rows so each card stays at least 47px wide. */

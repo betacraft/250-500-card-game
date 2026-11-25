@@ -12,6 +12,9 @@ export interface FanMetrics {
 
 const END_DEGREES = 8;
 
+/** Largest step between card left edges. The 12px screen margin is a floor, not a target. */
+export const FAN_STRIP_CAP = 0.6;
+
 /**
  * How far a card rotated around its bottom centre sticks out past its unrotated edge.
  * The top corner swings outward by the height's sine, minus the small cosine pull of the width.
@@ -54,7 +57,8 @@ export function fanMetrics(count: number, screen: number, compact = false, maxHe
   cardW = Math.max(maxHeight !== null ? 36 : 44, cardW);
   const pad = fanSidePad(cardW, degrees);
   const usable = Math.max(cardW, screen - pad * 2);
-  const step = gaps === 0 ? 0 : (usable - cardW) / gaps;
+  const spread = gaps === 0 ? 0 : (usable - cardW) / gaps;
+  const step = Math.min(spread, cardW * FAN_STRIP_CAP);
   const cardH = cardW * 1.4;
   const used = gaps === 0 ? cardW : step * gaps + cardW;
   const origin = Math.max(pad, (screen - used) / 2);

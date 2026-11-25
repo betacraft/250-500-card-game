@@ -4,7 +4,7 @@ export type PlaySpeed = 'normal' | 'fast';
 /** Target wait before the next bot card. Compute time is subtracted, never added. */
 export function botPlayDelay(speed: PlaySpeed, locked: boolean): number {
   if (locked) return 150;
-  return speed === 'fast' ? 200 : 400;
+  return speed === 'fast' ? 125 : 250;
 }
 
 /** How long a finished trick stays on the table. */

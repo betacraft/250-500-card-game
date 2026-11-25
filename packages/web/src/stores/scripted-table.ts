@@ -16,17 +16,18 @@ import {
   type GameType,
 } from '@250-500/shared';
 import { currentTarget, localNames, localSeatIds } from '../analytics/local-target';
+import { keepHumanCards, labelTrick, scriptCount } from './scripted-fan';
 
 const HUMAN_ID = 'p1';
 
-export type DevScript = 'long' | 'over' | 'trick' | 'reveal' | 'declared' | 'forced' | 'lock-made' | 'lock-sunk';
+export type DevScript = 'long' | 'over' | 'trick' | 'reveal' | 'declared' | 'forced' | 'lock-made' | 'lock-sunk' | 'cards' | 'labels';
 
 /** Dev-only `?script=` values. Production builds never read the query. */
 export function devScript(): DevScript | null {
   if (!import.meta.env.DEV || typeof window === 'undefined') return null;
   try {
     const value = new URLSearchParams(window.location.search).get('script');
-    if (value === 'long' || value === 'over' || value === 'trick' || value === 'reveal' || value === 'declared' || value === 'forced' || value === 'lock-made' || value === 'lock-sunk') return value;
+    if (value === 'long' || value === 'over' || value === 'trick' || value === 'reveal' || value === 'declared' || value === 'forced' || value === 'lock-made' || value === 'lock-sunk' || value === 'cards' || value === 'labels') return value;
   } catch {
     /* ignore a blocked location */
   }
@@ -78,7 +79,7 @@ export interface ScriptedTable {
 /** A scored game or a mid-trick table. Null unless `?script=over` or `?script=trick`. */
 export function scriptedOpening(gameType: GameType, humanName: string): ScriptedTable | null {
   const script = devScript();
-  if (script !== 'over' && script !== 'trick' && script !== 'reveal' && script !== 'declared' && script !== 'forced' && script !== 'lock-made' && script !== 'lock-sunk') return null;
+  if (!script || script === 'long') return null;
   const seats = localSeatIds(rulesFor(gameType).PLAYER_COUNT);
   const name = humanName.trim() || 'You';
   const bidder = seats[1] ?? HUMAN_ID;
@@ -91,7 +92,9 @@ export function scriptedOpening(gameType: GameType, humanName: string): Scripted
   if (script === 'forced') hand = forceHumanFollow(hand);
   if (script === 'lock-made') hand = parkForLock(hand, 'made');
   if (script === 'lock-sunk') hand = parkForLock(hand, 'sunk');
-  if (script === 'trick' || script === 'reveal' || script === 'declared' || script === 'forced' || script === 'lock-made' || script === 'lock-sunk') {
+  if (script === 'cards') hand = keepHumanCards(hand, scriptCount());
+  if (script === 'labels') hand = labelTrick(hand);
+  if (script !== 'over') {
     if (script === 'trick') hand = playUntilHuman(hand);
     return {
       phase: 'playing',

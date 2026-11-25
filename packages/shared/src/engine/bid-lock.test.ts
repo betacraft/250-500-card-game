@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cardPointValue, createRng } from '../cards/deck';
+import { cardInstanceKey } from '../cards/types';
 import { chooseBid, chooseCalledCards, chooseTrump } from '../bot/easy-bid';
 import { choosePlay as chooseEasyPlay } from '../bot/easy-play';
 import { toPublicView } from '../bot/public-view';
@@ -32,8 +33,8 @@ describe('bid lock', () => {
       let atFast = 0;
       for (let trick = 1; trick <= tricks; trick += 1) {
         const locked = lockAt !== null && trick > lockAt;
-        atNormal += players * (locked ? 150 : 400) + (locked ? 250 : 700);
-        atFast += players * (locked ? 150 : 200) + (locked ? 250 : 350);
+        atNormal += players * (locked ? 150 : 250) + (locked ? 250 : 700);
+        atFast += players * (locked ? 150 : 125) + (locked ? 250 : 350);
       }
       if (lockAt !== null) {
         atNormal += 1200;
@@ -47,8 +48,22 @@ describe('bid lock', () => {
     const midFast = median(doubled);
     console.info(`median hand before ${mid}ms after-1x ${midNormal}ms after-2x ${midFast}ms n=${before.length}`);
     expect(before.length).toBeGreaterThan(40);
-    expect(midFast).toBeLessThan(mid);
-    expect(midNormal).toBeGreaterThan(0);
+    expect(midFast).toBeLessThan(midNormal);
+    expect(midNormal).toBeLessThan(mid);
+    expect(midNormal).toBeGreaterThan(28_000);
+    expect(midNormal).toBeLessThan(36_000);
+  });
+
+  it('logs public and omniscient lock tricks for 250 and 500', () => {
+    for (const gameType of ['250', '500'] as const) {
+      const report = summarize(gameType, 1000);
+      console.info(`lock ${gameType} n=${report.n} neverBeforeLast=${report.neverBeforeLast} early=${report.early} ${report.line}`);
+      expect(report.early).toBe(0);
+      expect(report.n).toBeGreaterThan(900);
+    }
+    const fifty = summarize('500', 50);
+    console.info(`lock 500 n=50 neverBeforeLast=${fifty.neverBeforeLast} early=${fifty.early} ${fifty.line}`);
+    expect(fifty.early).toBe(0);
   });
 
   it('matches the final result on 1000 seeded 500 hands and ignores hidden partners', () => {
@@ -100,7 +115,73 @@ function heldPoints(hand: GameHand, id: string): number {
   return points;
 }
 
-function playSeed(gameType: '250' | '500', seed: number): { state: GameHand; cards: string[]; locks: { kind: 'made' | 'sunk'; hand: GameHand; trick: number }[] } | null {
+interface PlayedSeed {
+  state: GameHand;
+  cards: string[];
+  locks: { kind: 'made' | 'sunk'; hand: GameHand; trick: number }[];
+  publicAt: number | null;
+  omniAt: number | null;
+  madeLate: number;
+}
+
+/** Test-only. Uses hidden holders. Not imported by the table or the bots. */
+function omniscientLock(hand: GameHand): 'made' | 'sunk' | null {
+  const bid = hand.bidAmount ?? 0;
+  const bidder = hand.bidder ?? '';
+  const team = new Set<string>([bidder, ...hand.partners]);
+  for (const id of hand.seatOrder) {
+    for (const card of hand.hands[id] ?? []) {
+      if (hand.calledCards.some((called) => cardInstanceKey(called) === cardInstanceKey(card))) team.add(id);
+    }
+  }
+  for (const slot of hand.slots) if (slot.filledBy) team.add(slot.filledBy);
+  let k = 0;
+  for (const id of team) k += heldPoints(hand, id);
+  const rest = bidLockDetail(hand).r;
+  if (k >= bid) return 'made';
+  if (k + rest < bid) return 'sunk';
+  return null;
+}
+
+function summarize(gameType: '250' | '500', seeds: number): { n: number; neverBeforeLast: number; early: number; line: string } {
+  const made = new Map<number, number>();
+  const sunk = new Map<number, number>();
+  const gaps = new Map<number, number>();
+  let n = 0;
+  let neverBeforeLast = 0;
+  let early = 0;
+  let gapOverTwo = 0;
+  let gapHands = 0;
+  for (let seed = 1; seed <= seeds; seed += 1) {
+    const played = playSeed(gameType, seed);
+    if (!played) continue;
+    n += 1;
+    if (played.madeLate > 0) early += played.madeLate;
+    const last = played.state.trickCount;
+    const pub = played.publicAt;
+    const omni = played.omniAt;
+    if (pub === null || pub >= last) neverBeforeLast += 1;
+    if (pub !== null) {
+      const bag = played.locks[0]?.kind === 'sunk' ? sunk : made;
+      bag.set(pub, (bag.get(pub) ?? 0) + 1);
+    }
+    if (pub !== null && omni !== null) {
+      const gap = pub - omni;
+      gaps.set(gap, (gaps.get(gap) ?? 0) + 1);
+      gapHands += 1;
+      if (gap < 0) early += 1;
+      if (gap > 2) gapOverTwo += 1;
+    } else if (pub !== null && omni === null) early += 1;
+  }
+  const line = `made=${hist(made)} sunk=${hist(sunk)} gaps=${hist(gaps)} gapHands=${gapHands} gapOverTwo=${gapOverTwo}`;
+  return { n, neverBeforeLast, early, line };
+}
+
+function hist(counts: Map<number, number>): string {
+  return [...counts.entries()].sort((a, b) => a[0] - b[0]).map(([trick, count]) => `${trick}:${count}`).join(',');
+}
+
+function playSeed(gameType: '250' | '500', seed: number): PlayedSeed | null {
   const rules = rulesFor(gameType);
   const seats = Array.from({ length: rules.PLAYER_COUNT }, (_, index) => `p${index + 1}`);
   const firstBidderId = seats[seed % seats.length] ?? 'p1';
@@ -128,6 +209,7 @@ function playSeed(gameType: '250' | '500', seed: number): { state: GameHand; car
   state = declareTrumpAndPartners(state, trump, chooseCalledCards(bidderHand, trump, gameType));
   const cards: string[] = [];
   const locks: { kind: 'made' | 'sunk'; hand: GameHand; trick: number }[] = [];
+  const timing = { publicAt: null as number | null, omniAt: null as number | null, madeLate: 0 };
   let steps = 0;
   while (!state.ended && steps < rules.TOTAL_CARDS + 5) {
     steps += 1;
@@ -139,11 +221,20 @@ function playSeed(gameType: '250' | '500', seed: number): { state: GameHand; car
     if (!played.ok) return null;
     cards.push(`${playerId}:${card.rank}${card.suit}`);
     state = played.state;
-      if (played.trickWinnerId) {
-      const kind = bidLock(state);
-      if (kind) locks.push({ kind, hand: state, trick: state.trickCount });
-    }
+    if (played.trickWinnerId) noteCompletedTrick(state, locks, timing);
   }
   if (!state.ended) return null;
-  return { state, cards, locks };
+  return { state, cards, locks, publicAt: timing.publicAt, omniAt: timing.omniAt, madeLate: timing.madeLate };
+}
+
+function noteCompletedTrick(
+  state: GameHand,
+  locks: { kind: 'made' | 'sunk'; hand: GameHand; trick: number }[],
+  timing: { publicAt: number | null; omniAt: number | null; madeLate: number },
+): void {
+  const detail = bidLockDetail(state);
+  if (detail.k >= (state.bidAmount ?? 0) && detail.kind !== 'made') timing.madeLate += 1;
+  if (detail.kind && timing.publicAt === null) timing.publicAt = state.trickCount;
+  if (detail.kind) locks.push({ kind: detail.kind, hand: state, trick: state.trickCount });
+  if (timing.omniAt === null && omniscientLock(state)) timing.omniAt = state.trickCount;
 }

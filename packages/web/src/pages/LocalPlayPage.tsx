@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { cardId, cardInstanceKey, illegalReason, legalPlaysFor, nextBidder, rulesFor } from '@250-500/shared';
+import { cardId, cardInstanceKey, illegalReason, legalPlaysFor, nextBidder, rulesFor, visiblePartners } from '@250-500/shared';
 import { BiddingFlow } from '../components/shared/BiddingFlow';
 import { HandFan } from '../components/cards/HandFan';
 import { TrickArea } from '../components/online/TrickArea';
 import { HUMAN_ID, useLocalPlayStore } from '../stores/local-play-store';
 import { useSettingsStore } from '../stores/settings-store';
 import { ExportAnalyticsButton } from '../analytics/ExportAnalyticsButton';
-import { DeclareForm, NewGameButton, Setup } from './local-play-forms';
+import { DeclareForm, Setup } from './local-play-forms';
+import { PlayBar } from './play-bar';
 import { chipCue, handThirties, legalContext, scoreText, TableStatus, trickThirties, useViewport } from './local-play-helpers';
-import { AuctionRecap, ScoreStrip, privateNotice, scoreExplainer } from './local-table-notes';
+import { AuctionRecap, ScoreStrip, scoreExplainer } from './local-table-notes';
 import { PartnerToast } from './partner-toast';
-import { holdsSecretCall } from './secret-call';
+import { holdsSecretCall, privateNotice } from './secret-call';
 import { useTablePace } from './use-table-pace';
 import { usePartnerReveal } from './use-partner-reveal';
 
@@ -101,7 +101,7 @@ export function LocalPlayPage(): JSX.Element {
   const dockNext = phase === 'scored' && !gameOver && height <= 500;
   const docked = phase === 'bidding' || phase === 'declaring' || phase === 'playing' || gameOver || dockNext;
   const humanDeclaring = phase === 'declaring' && hand.bidder === HUMAN_ID;
-  const notice = privateNotice(humanHand, hand.calledCards, hand.bidder, gameType, hand.slots);
+  const notice = privateNotice(humanHand, hand.calledCards, hand.bidder, gameType, hand.slots, names[hand.bidder ?? ''] ?? 'Bidder', visiblePartners(hand).includes(HUMAN_ID));
   const fan = (
     <HandFan
       cards={humanHand}
@@ -124,16 +124,7 @@ export function LocalPlayPage(): JSX.Element {
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#F5F1E8]">
     <div className={`mx-auto flex h-full min-h-0 w-full max-w-[980px] flex-col px-3 ${short ? 'pt-1' : 'pt-2'}`}>
       <ExportAnalyticsButton />
-      <header className="flex shrink-0 items-center justify-between gap-2">
-        <h1 className="min-w-0 truncate text-sm font-medium">Play vs bots · {gameType}</h1>
-        <span className="flex shrink-0 items-center gap-2 whitespace-nowrap">
-          <span className="text-sm text-stone-500">Bots: {difficulty === 'normal' ? 'Normal' : 'Easy'}</span>
-          <button type="button" data-testid="speed-toggle" aria-pressed={playSpeed === 'fast'} onClick={() => setPlaySpeed(playSpeed === 'fast' ? 'normal' : 'fast')} className="-my-3 inline-flex h-11 min-w-11 items-center justify-center rounded-full text-sm font-medium text-stone-800">{playSpeed === 'fast' ? '2x' : '1x'}</button>
-          <button type="button" data-testid="sound-toggle" aria-pressed={!soundMuted} onClick={() => setSoundMuted(!soundMuted)} className="text-sm text-stone-600 underline">{soundMuted ? 'Sound off' : 'Sound on'}</button>
-          <NewGameButton onAbandon={() => leave('new_game')} />
-          <Link to="/" onClick={() => leave('home')} className="text-sm text-stone-600 underline">Home</Link>
-        </span>
-      </header>
+      <PlayBar gameType={gameType} difficulty={difficulty} playSpeed={playSpeed} soundMuted={soundMuted} onSpeed={() => setPlaySpeed(playSpeed === 'fast' ? 'normal' : 'fast')} onSound={() => setSoundMuted(!soundMuted)} onLeave={leave} />
       {!short && <p className="shrink-0 pt-1 text-sm text-stone-500">Free to play. No coins or stakes.</p>}
       <div className="shrink-0 pt-1">
         <ScoreStrip
@@ -217,6 +208,7 @@ export function LocalPlayPage(): JSX.Element {
             ledSuit={shownTrick[0]?.card.suit ?? null}
             thirtyIndexes={thirty}
             winnerId={settledTrick?.winnerId ?? null}
+            trump={hand.trump}
             compact={height <= 500}
           />
           {!pace.banner && <PartnerToast notice={reveal.current} reduced={reveal.reduced} />}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cornerClearance, fanMetrics, fanSidePad } from './fan-metrics';
+import { FAN_STRIP_CAP, cornerClearance, fanMetrics, fanSidePad } from './fan-metrics';
 
 describe('fanMetrics', () => {
   it('keeps the rank corner and the outer edges at least 12px inside the screen', () => {
@@ -12,6 +12,13 @@ describe('fanMetrics', () => {
         expect(clearance.right, `${screen} x${count} right`).toBeGreaterThanOrEqual(12 - 0.05);
         const indexInset = clearance.left + 3;
         expect(indexInset, `${screen} x${count} index`).toBeGreaterThanOrEqual(12);
+        const left = metrics.left(0);
+        const right = metrics.left(count - 1) + metrics.cardW;
+        expect(Math.abs((left + right) / 2 - screen / 2), `${screen} x${count} centre`).toBeLessThanOrEqual(0.6);
+        if (count > 1) {
+          const strip = metrics.left(1) - metrics.left(0);
+          expect(strip, `${screen} x${count} strip`).toBeLessThanOrEqual(metrics.cardW * FAN_STRIP_CAP + 0.05);
+        }
       }
     }
   });
