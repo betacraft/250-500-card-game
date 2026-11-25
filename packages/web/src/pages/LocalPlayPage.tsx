@@ -7,10 +7,13 @@ import { CardFace } from '../components/cards/CardFace';
 import { HandFan } from '../components/cards/HandFan';
 import { TrickArea } from '../components/online/TrickArea';
 import { HUMAN_ID, useLocalPlayStore } from '../stores/local-play-store';
+import { useSettingsStore } from '../stores/settings-store';
 import { ExportAnalyticsButton } from '../analytics/ExportAnalyticsButton';
 import { DeclareForm, NewGameButton, Setup } from './local-play-forms';
 import { AuctionRecap, ScoreStrip, privateNotice, scoreExplainer } from './local-table-notes';
 import { headerPartnerIds } from './partner-header';
+import { PartnerToast } from './partner-toast';
+import { usePartnerReveal } from './use-partner-reveal';
 
 /** Free local table: one human and five or seven Easy bots. No coins, no stakes. */
 export function LocalPlayPage(): JSX.Element {
@@ -36,6 +39,9 @@ export function LocalPlayPage(): JSX.Element {
   const leave = useLocalPlayStore((s) => s.leave);
   const playAgain = useLocalPlayStore((s) => s.playAgain);
   const gameOver = useLocalPlayStore((s) => s.gameOver);
+  const reveal = usePartnerReveal(hand, names);
+  const soundMuted = useSettingsStore((s) => s.soundMuted);
+  const setSoundMuted = useSettingsStore((s) => s.setSoundMuted);
   const { short, wide, height } = useViewport();
   const [canConfirm, setCanConfirm] = useState(false);
   const [blocked, setBlocked] = useState<string | null>(null);
@@ -82,6 +88,7 @@ export function LocalPlayPage(): JSX.Element {
   const thirty = trickThirties(shownTrick, hand);
   const reasons = new Map(humanHand.map((card) => [cardInstanceKey(card), illegalReason(legalContext(hand), card) ?? '']));
   const shortPlay = height <= 500 && (phase === 'playing' || Boolean(settledTrick));
+  const shortScore = phase === 'scored' && !settledTrick && height <= 500;
   const dockNext = phase === 'scored' && !gameOver && height <= 500;
   const docked = phase === 'bidding' || phase === 'declaring' || phase === 'playing' || gameOver || dockNext;
   const humanDeclaring = phase === 'declaring' && hand.bidder === HUMAN_ID;
@@ -108,7 +115,11 @@ export function LocalPlayPage(): JSX.Element {
       <ExportAnalyticsButton />
       <header className="flex shrink-0 items-center justify-between gap-2">
         <h1 className="text-base font-medium">Play vs bots · {gameType}</h1>
-        <span className="flex items-center gap-3"><NewGameButton onAbandon={() => leave('new_game')} /><Link to="/" onClick={() => leave('home')} className="text-sm text-stone-600 underline">Home</Link></span>
+        <span className="flex items-center gap-3">
+          <button type="button" data-testid="sound-toggle" aria-pressed={!soundMuted} onClick={() => setSoundMuted(!soundMuted)} className="text-sm text-stone-600 underline">{soundMuted ? 'Sound off' : 'Sound on'}</button>
+          <NewGameButton onAbandon={() => leave('new_game')} />
+          <Link to="/" onClick={() => leave('home')} className="text-sm text-stone-600 underline">Home</Link>
+        </span>
       </header>
       {!short && <p className="shrink-0 pt-1 text-sm text-stone-500">Free to play. No coins or stakes.</p>}
       <div className="shrink-0 pt-1">
@@ -121,13 +132,16 @@ export function LocalPlayPage(): JSX.Element {
           turnId={chipCue()?.turnId ?? (phase === 'scored' ? null : phase === 'playing' ? hand.toPlayerId : phase === 'bidding' ? turn : hand.bidder)}
           bidderId={chipCue()?.bidderId ?? hand.bidder}
           selfId={HUMAN_ID}
+          partnerIds={reveal.partnerIds}
+          glowIds={reveal.reduced || !reveal.current ? [] : [reveal.current.playerId]}
+          bidderBid={height <= 500 && hand.trump && hand.bidAmount !== null && phase !== 'bidding' ? { suit: hand.trump, amount: hand.bidAmount } : null}
         />
       </div>
       <div data-testid="play-scroll" className={`flex min-h-0 flex-1 flex-col overflow-hidden ${gameOver && height <= 500 ? 'py-1' : 'py-2'}`}>
       <div className="shrink-0">
-      {!(gameOver && height <= 500) && !shortPlay && <TableStatus hand={hand} names={names} scoredPartners={phase === 'scored' && summary ? summary.partners : null} />}
-      {!(gameOver && height <= 500) && !shortPlay && <p data-testid="disabled-reason" role="status" className="pointer-events-none h-5 overflow-hidden text-sm font-medium leading-5 text-red-700">{blocked ?? ''}</p>}
-      {phase !== 'bidding' && !(humanDeclaring && (short || !wide)) && !(gameOver && height <= 500) && !shortPlay && (
+      {!(gameOver && height <= 500) && !shortPlay && <TableStatus hand={hand} names={names} scoredPartners={phase === 'scored' && summary ? summary.partners : null} faces={!shortScore} />}
+      {!(gameOver && height <= 500) && !shortPlay && !shortScore && <p data-testid="disabled-reason" role="status" className="pointer-events-none h-5 overflow-hidden text-sm font-medium leading-5 text-red-700">{blocked ?? ''}</p>}
+      {phase !== 'bidding' && !(humanDeclaring && (short || !wide)) && !(gameOver && height <= 500) && !shortPlay && !shortScore && (
         <AuctionRecap
           history={bidHistory}
           names={names}
@@ -159,7 +173,7 @@ export function LocalPlayPage(): JSX.Element {
         </div>
       )}
       {!(phase === 'bidding' && turn === HUMAN_ID && !settledTrick) && (
-      <div className={gameOver && height <= 500 ? 'absolute inset-0' : 'h-full overflow-y-auto'}>
+      <div className={shortScore ? 'absolute inset-0' : 'h-full overflow-y-auto'}>
       {phase === 'bidding' && turn !== HUMAN_ID && <p className="text-sm text-stone-600">Bots are bidding…</p>}
       {phase === 'declaring' && hand.bidder === HUMAN_ID && (
         <DeclareForm
@@ -177,7 +191,7 @@ export function LocalPlayPage(): JSX.Element {
         <p className="text-sm text-stone-600">{names[hand.bidder ?? ''] ?? 'Bidder'} is declaring…</p>
       )}
       {(phase === 'playing' || settledTrick) && (
-        <div data-testid={settledTrick ? 'trick-pause' : 'trick-live'} onClick={() => settledTrick && dismissTrick()} className="cursor-pointer">
+        <div data-testid={settledTrick ? 'trick-pause' : 'trick-live'} onClick={() => settledTrick && dismissTrick()} className="relative cursor-pointer">
           <TrickArea
             played={shownTrick}
             playerNames={names}
@@ -186,6 +200,7 @@ export function LocalPlayPage(): JSX.Element {
             winnerId={settledTrick?.winnerId ?? null}
             compact={height <= 500}
           />
+          <PartnerToast notice={reveal.current} reduced={reveal.reduced} />
           {settledTrick && <p className="mt-1 text-center text-sm text-stone-600">{names[settledTrick.winnerId] ?? 'Winner'} won the trick · tap to skip</p>}
         </div>
       )}
@@ -196,10 +211,10 @@ export function LocalPlayPage(): JSX.Element {
         </p>
       )}
       {phase === 'scored' && summary && !settledTrick && (
-        <section data-testid="hand-complete" className={`rounded-xl bg-white p-3 ${gameOver && height <= 500 ? 'h-full max-h-[230px] touch-pan-y overflow-y-auto overscroll-contain' : gameOver ? 'max-h-full overflow-y-auto' : ''}`}>
+        <section data-testid="hand-complete" className={`rounded-xl bg-white ${shortScore ? `h-full touch-pan-y overflow-y-auto overscroll-contain ${gameOver ? 'max-h-[230px] p-3' : 'max-h-[172px] px-3 py-1'}` : gameOver ? 'max-h-full overflow-y-auto p-3' : 'p-3'}`}>
           {gameOver && <h2 data-testid="game-over" className="text-lg font-medium">Game over</h2>}
           <h2 className="text-lg font-medium">{summary.bidMade ? 'Bid made' : 'Bid failed'}</h2>
-          {gameOver && height <= 500 && (
+          {shortScore && (
             <p data-testid="your-result" className="mt-1 text-base font-medium">
               You {scoreText(summary.scoreDeltas[HUMAN_ID] ?? 0)} ({summary.bidder === HUMAN_ID ? 'bidder' : summary.partners.includes(HUMAN_ID) ? 'partner' : 'opponent'})
             </p>
@@ -212,7 +227,7 @@ export function LocalPlayPage(): JSX.Element {
             {seatOrder.map((id) => {
               const delta = summary.scoreDeltas[id] ?? 0;
               return (
-                <li key={id} data-testid="score-delta" data-role={id === summary.bidder ? 'bidder' : summary.partners.includes(id) ? 'partner' : 'seat'} className="flex justify-between py-px text-sm leading-5">
+                <li key={id} data-testid="score-delta" data-role={id === summary.bidder ? 'bidder' : summary.partners.includes(id) ? 'partner' : 'seat'} className={shortScore && !gameOver ? 'flex justify-between text-xs leading-4' : 'flex justify-between py-px text-sm leading-5'}>
                   <span>{names[id] ?? id}{id === summary.bidder ? ' (bidder)' : summary.partners.includes(id) ? ' (partner)' : ''}</span>
                   <span className="tabular-nums">{delta > 0 ? `+${delta}` : delta}</span>
                 </li>
@@ -321,7 +336,7 @@ function trickThirties(played: ReadonlyArray<{ card: Card }>, hand: { gameType: 
   return marks;
 }
 
-function TableStatus({ hand, names, scoredPartners = null }: { hand: NonNullable<ReturnType<typeof useLocalPlayStore.getState>['hand']>; names: Record<string, string>; scoredPartners?: readonly string[] | null }): JSX.Element | null {
+function TableStatus({ hand, names, scoredPartners = null, faces = true }: { hand: NonNullable<ReturnType<typeof useLocalPlayStore.getState>['hand']>; names: Record<string, string>; scoredPartners?: readonly string[] | null; faces?: boolean }): JSX.Element | null {
   if (!hand.bidder || hand.bidAmount === null) return null;
   const revealed = headerPartnerIds(hand, scoredPartners);
   return (
@@ -329,10 +344,14 @@ function TableStatus({ hand, names, scoredPartners = null }: { hand: NonNullable
       <span>{names[hand.bidder] ?? 'Bidder'} bid {hand.bidAmount}</span>
       {hand.trump && <span data-testid="trump-name" data-suit={hand.trump} className="inline-flex items-center gap-1">Trump: {hand.trump} <SuitIcon suit={hand.trump} size={18} className="shrink-0" /></span>}
       {hand.calledCards.length > 0 && (
-        <span className="inline-flex items-end gap-1" data-testid="called-cards">
-          <span className="text-sm font-medium">Called</span>
-          {hand.calledCards.map((card) => <CardFace key={cardId(card)} card={card} width={40} called />)}
-        </span>
+        faces ? (
+          <span className="inline-flex items-end gap-1" data-testid="called-cards">
+            <span className="text-sm font-medium">Called</span>
+            {hand.calledCards.map((card) => <CardFace key={cardId(card)} card={card} width={40} called />)}
+          </span>
+        ) : (
+          <span data-testid="called-cards">Called {hand.calledCards.map((card) => `${card.rank}${card.suit[0]}`).join(' ')}</span>
+        )
       )}
       <span data-testid="partner-names">Partners: {revealed.map((id) => names[id] ?? id).join(', ') || 'none yet'}</span>
       <span data-testid="team-points">Team points {publicTeamPoints(hand, revealed)}</span>
