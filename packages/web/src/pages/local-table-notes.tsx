@@ -80,6 +80,7 @@ export function ScoreStrip({
   partnerIds = [],
   glowIds = [],
   bidderBid = null,
+  privateHolderId = null,
 }: {
   names: Record<string, string>;
   scores: Record<string, number>;
@@ -99,6 +100,8 @@ export function ScoreStrip({
   glowIds?: readonly string[];
   /** Suit and bid painted on the bidder's seat. Null keeps the tall-layout status line in charge. */
   bidderBid?: { suit: Suit; amount: number } | null;
+  /** This seat secretly holds a called card. Hollow star, never a public badge. */
+  privateHolderId?: string | null;
 }): JSX.Element {
   const partners = new Set(partnerIds);
   const glowing = new Set(glowIds);
@@ -109,6 +112,7 @@ export function ScoreStrip({
     turn: id === turnId,
     bidder: id === bidderId,
     partner: partners.has(id),
+    secret: id === privateHolderId && !partners.has(id),
     glow: glowing.has(id),
     bid: id === bidderId && bidderBid ? bidderBidText(bidderBid.suit, bidderBid.amount) : null,
   }));
@@ -147,6 +151,7 @@ interface ChipItem {
   turn: boolean;
   bidder: boolean;
   partner: boolean;
+  secret: boolean;
   glow: boolean;
   bid: string | null;
 }
@@ -162,7 +167,7 @@ function selfFirst(items: ChipItem[], selfId: string | null): ChipItem[] {
 function PhoneChips({ items }: { items: ChipItem[] }): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
   const [split, setSplit] = useState(false);
-  const signature = items.map((item) => `${item.id}:${item.score}:${item.turn}:${item.bidder}:${item.partner}:${item.glow}:${item.bid ?? ''}`).join('|');
+  const signature = items.map((item) => `${item.id}:${item.score}:${item.turn}:${item.bidder}:${item.partner}:${item.secret}:${item.glow}:${item.bid ?? ''}`).join('|');
   useLayoutEffect(() => {
     const root = ref.current;
     if (!root) return;
@@ -209,6 +214,7 @@ function ScoreChip({
       {item.turn && <TurnPill compact={compact} />}
       {item.bidder && <BidderPill compact={compact} />}
       {item.partner && <PartnerBadge />}
+      {item.secret && <SecretStar />}
       {item.bid && <BidderBid text={item.bid} />}
     </>
   );
@@ -246,11 +252,11 @@ function ScoreChip({
 }
 
 function PartnerBadge(): JSX.Element {
-  return (
-    <span data-testid="partner-badge" aria-hidden="true" className="inline-flex h-4 min-w-4 items-center justify-center text-[12px] leading-none text-felt">
-      ★
-    </span>
-  );
+  return <span data-testid="partner-badge" aria-hidden="true" className="inline-flex h-4 min-w-4 items-center justify-center text-[12px] leading-none text-felt">★</span>;
+}
+
+function SecretStar(): JSX.Element {
+  return <span data-testid="private-star" aria-hidden="true" className="inline-flex h-4 min-w-4 items-center justify-center text-[12px] leading-none text-felt">☆</span>;
 }
 
 function BidderBid({ text }: { text: string }): JSX.Element {

@@ -15,16 +15,32 @@ test.describe('partner reveal cues on a short table', () => {
       await openScript(page, 'declared', item.variant);
       await expect(page.getByTestId('partner-badge')).toHaveCount(0);
       await expect(page.getByTestId('bidder-bid')).toHaveText(item.bid);
+      if (item.variant === '500' && item.width === 667) {
+        await expect(page.getByTestId('private-star')).toBeVisible();
+        await saveShot(page, '/opt/cursor/artifacts/private-star-667x375-500.png', false);
+      }
       await openScript(page, 'reveal', item.variant);
       const toast = page.getByTestId('partner-toast');
       await expect(toast).toContainText(/partner!/);
+      await page.waitForTimeout(250);
+      const pill = page.getByTestId('partner-toast-pill');
+      const opacity = await pill.evaluate((node) => Number(getComputedStyle(node).opacity));
+      expect(opacity).toBeGreaterThan(0.9);
+      await expectCentredOnTrick(page);
       await assertHit(page.locator('[data-testid="trick-card"]').first());
       await assertHit(page.locator('[data-testid="hand-card"]').first());
-      if (item.width === 667) await saveShot(page, `/opt/cursor/artifacts/reveal-toast-667x375-${item.variant}.png`, false);
+      if (item.width === 667) {
+        await saveShot(page, `/opt/cursor/artifacts/reveal-toast-667x375-${item.variant}.png`, false);
+        await saveShot(page, `/opt/cursor/artifacts/reveal-toast-peak-667x375-${item.variant}.png`, false);
+      }
       await expect(toast).not.toContainText('partner', { timeout: 4_000 });
       await expect(page.getByTestId('partner-badge').first()).toBeVisible();
+      await expect(page.getByTestId('private-star')).toHaveCount(0);
       await expect(page.getByTestId('bidder-bid')).toHaveText(item.bid);
-      if (item.variant === '500' && item.width === 667) await saveShot(page, '/opt/cursor/artifacts/badges-667x375-500.png', false);
+      if (item.variant === '500' && item.width === 667) {
+        await saveShot(page, '/opt/cursor/artifacts/badges-667x375-500.png', false);
+        await saveShot(page, '/opt/cursor/artifacts/public-star-667x375-500.png', false);
+      }
     });
   }
 });
@@ -35,6 +51,17 @@ async function openScript(page: Page, script: 'declared' | 'reveal', variant: '2
   await page.getByLabel('Your name').click();
   await page.keyboard.type('Ada');
   await page.getByTestId('start-vs-bots').click();
+}
+
+async function expectCentredOnTrick(page: Page): Promise<void> {
+  const felt = await page.locator('[data-testid="trick-live"] .bg-felt, [data-testid="trick-live"]').first().boundingBox();
+  const pill = await page.getByTestId('partner-toast-pill').boundingBox();
+  if (!felt || !pill) throw new Error('missing trick or toast');
+  const pillMid = pill.x + pill.width / 2;
+  const feltMid = felt.x + felt.width / 2;
+  expect(Math.abs(pillMid - feltMid)).toBeLessThan(felt.width * 0.2);
+  expect(pill.y).toBeGreaterThan(felt.y);
+  expect(pill.y).toBeLessThan(felt.y + felt.height / 3);
 }
 
 async function assertHit(locator: Locator): Promise<void> {

@@ -13,6 +13,7 @@ import { DeclareForm, NewGameButton, Setup } from './local-play-forms';
 import { AuctionRecap, ScoreStrip, privateNotice, scoreExplainer } from './local-table-notes';
 import { headerPartnerIds } from './partner-header';
 import { PartnerToast } from './partner-toast';
+import { holdsSecretCall } from './secret-call';
 import { usePartnerReveal } from './use-partner-reveal';
 
 /** Free local table: one human and five or seven bots. Easy is the default. No coins, no stakes. */
@@ -155,6 +156,7 @@ export function LocalPlayPage(): JSX.Element {
           partnerIds={reveal.partnerIds}
           glowIds={reveal.reduced || !reveal.current ? [] : [reveal.current.playerId]}
           bidderBid={height <= 500 && hand.trump && hand.bidAmount !== null && phase !== 'bidding' ? { suit: hand.trump, amount: hand.bidAmount } : null}
+          privateHolderId={holdsSecretCall(hand, HUMAN_ID) ? HUMAN_ID : null}
         />
       </div>
       <div data-testid="play-scroll" className={`flex min-h-0 flex-1 flex-col overflow-hidden ${gameOver && height <= 500 ? 'py-1' : 'py-2'}`}>
