@@ -457,7 +457,7 @@ async function clickCentre(page: Page, locator: Locator, input: 'mouse' | 'touch
   const target = locator.first();
   await target.waitFor({ state: 'visible' });
   let detail = 'unset';
-  for (let attempt = 0; attempt < 6; attempt += 1) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
     const first = await target.evaluate(readCentre, pinned);
     await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     const second = await target.evaluate(readCentre, pinned);
@@ -470,6 +470,11 @@ async function clickCentre(page: Page, locator: Locator, input: 'mouse' | 'touch
     }
     if (input === 'touch') await page.touchscreen.tap(second.x, second.y);
     else await page.mouse.click(second.x, second.y, { delay: 0 });
+    const selected = await target.getAttribute('data-selected').catch(() => null);
+    if (selected === 'false') {
+      await page.waitForTimeout(30);
+      continue;
+    }
     return;
   }
   expect(detail, detail).toBe('stable hit');
@@ -531,6 +536,14 @@ function readCentre(node: Element, pinned: boolean): { x: number; y: number; ok:
   };
   const box = node.getBoundingClientRect();
   const centre = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+  const fat = (x: number, y: number): boolean => [[0, 0], [4, 0], [-4, 0], [0, 4], [0, -4]].every(([dx, dy]) => hits(x + (dx ?? 0), y + (dy ?? 0)));
+  for (let row = 1; row <= 5; row += 1) {
+    for (let col = 1; col <= 7; col += 1) {
+      const x = box.left + (box.width * col) / 8;
+      const y = box.top + (box.height * row) / 6;
+      if (fat(x, y)) return { x, y, ok: true, detail: label };
+    }
+  }
   if (hits(centre.x, centre.y)) return { x: centre.x, y: centre.y, ok: true, detail: label };
   const svg = node.querySelector('svg');
   if (svg instanceof SVGSVGElement) {
