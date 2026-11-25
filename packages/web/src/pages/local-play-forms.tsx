@@ -34,6 +34,8 @@ export function Setup({ onStart }: { onStart: (gameType: GameType, name: string,
   const [name, setName] = useState('');
   const difficulty = useSettingsStore((s) => s.botDifficulty);
   const setDifficulty = useSettingsStore((s) => s.setBotDifficulty);
+  const autoPlay = useSettingsStore((s) => s.autoPlayForced);
+  const setAutoPlay = useSettingsStore((s) => s.setAutoPlayForced);
   return (
     <main className="mx-auto flex min-h-0 w-full max-w-[980px] flex-1 flex-col gap-1.5 overflow-hidden px-4 py-2">
       <Link to="/" className="shrink-0 text-sm text-stone-600 underline">Home</Link>
@@ -62,6 +64,9 @@ export function Setup({ onStart }: { onStart: (gameType: GameType, name: string,
           </button>
         ))}
       </div>
+      <button type="button" data-testid="autoplay-toggle" aria-pressed={autoPlay} onClick={() => setAutoPlay(!autoPlay)} className="h-11 shrink-0 text-left text-sm font-medium text-stone-800">
+        Auto-play forced cards: {autoPlay ? 'On' : 'Off'}
+      </button>
       <label className="shrink-0 text-sm font-medium" htmlFor="local-name">Your name</label>
       <input id="local-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="You" className="h-11 shrink-0 rounded-lg border border-stone-300 px-3" maxLength={40} />
       <button type="button" data-testid="start-vs-bots" onClick={() => onStart(gameType, name, difficulty)} className="mt-auto h-11 shrink-0 rounded-xl bg-felt px-4 text-base font-medium text-white">

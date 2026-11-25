@@ -67,11 +67,15 @@ interface LocalPlayState {
   difficulty: 'easy' | 'normal';
   targetScore: number;
   gameOver: boolean;
+  /** Milliseconds the last bot decision took. Subtracted from the pace target. */
+  lastComputeMs: number;
   startGame: (gameType: GameType, humanName: string, difficulty?: 'easy' | 'normal') => void;
   bid: (amount: number) => void;
   pass: () => void;
   declare: (trump: Suit, called: Card[]) => void;
   play: (card: Card) => void;
+  /** Play the seat to move with the Easy heuristic, including the human. */
+  finishStep: () => void;
   stepBot: () => void;
   dismissTrick: () => void;
   nextHand: () => void;
@@ -97,6 +101,7 @@ const SETUP = {
   difficulty: 'easy' as const,
   targetScore: 1000,
   gameOver: false,
+  lastComputeMs: 0,
 };
 
 /** Local free-to-play table. The human is seat 1. Bots default to Easy. */
@@ -175,12 +180,25 @@ export const useLocalPlayStore = create<LocalPlayState>((set, get) => ({
     if (!state.hand || state.settledTrick || state.hand.toPlayerId !== HUMAN_ID) return;
     set(applyCard(state, HUMAN_ID, card));
   },
+  finishStep: () => {
+    const state = get();
+    if (!state.hand?.toPlayerId || !state.hand.trump || state.phase !== 'playing' || state.settledTrick) return;
+    const turn = state.hand.toPlayerId;
+    const legal = legalPlaysFor(state.hand, turn);
+    const first = legal[0];
+    if (!first) return;
+    const rng = createRng(state.seed + state.decision + 11);
+    const card = choosePlay(legal, { ...toPublicView(state.hand, turn), rng });
+    set({ ...applyCard(state, turn, card), lastComputeMs: 0 });
+  },
   stepBot: () => {
+    const started = typeof performance === 'undefined' ? 0 : performance.now();
     const state = get();
     if (!state.hand || state.settledTrick) return;
-    if (state.phase === 'bidding') set(botBid(state));
-    else if (state.phase === 'declaring') set(botDeclare(state));
-    else if (state.phase === 'playing') set(botPlay(state));
+    const patch = state.phase === 'bidding' ? botBid(state) : state.phase === 'declaring' ? botDeclare(state) : state.phase === 'playing' ? botPlay(state) : {};
+    if (Object.keys(patch).length === 0) return;
+    const elapsed = (typeof performance === 'undefined' ? 0 : performance.now()) - started;
+    set({ ...patch, lastComputeMs: elapsed });
   },
   dismissTrick: () => {
     const state = get();

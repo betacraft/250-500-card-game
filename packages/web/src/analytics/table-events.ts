@@ -41,6 +41,18 @@ export function noteCardsCalled(count: number): void {
 }
 
 /** The hand has a result. A failed contract also emits contract_failed. */
+/** Local pace sample. No-op while analytics is off. */
+export function notePace(props: {
+  duration_ms: number;
+  forced_autoplay: number;
+  lock_trick: number | null;
+  lock_type: 'made' | 'sunk' | null;
+  finish_taps: number;
+  speed_2x_share: number;
+}): void {
+  track('pace_hand', props);
+}
+
 export function noteHandComplete(made: boolean, bid: number, points: number, bidderIsHuman: boolean, firstHand: boolean): void {
   track('hand_complete', { made, bid, points, bidder_is_human: bidderIsHuman });
   if (!made) track('contract_failed', { bid, points });

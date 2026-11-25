@@ -3,7 +3,7 @@ import { useSettingsStore } from './settings-store';
 
 describe('settings-store', () => {
   beforeEach(() => {
-    useSettingsStore.setState({ alwaysConfirmCardPlay: true, reducedMotion: 'auto', botDifficulty: 'easy', soundMuted: false });
+    useSettingsStore.setState({ alwaysConfirmCardPlay: true, reducedMotion: 'auto', botDifficulty: 'easy', soundMuted: false, playSpeed: 'normal', autoPlayForced: true });
   });
 
   it('starts with alwaysConfirmCardPlay = true', () => {
@@ -24,6 +24,15 @@ describe('settings-store', () => {
     expect(useSettingsStore.getState().botDifficulty).toBe('easy');
     useSettingsStore.getState().setBotDifficulty('normal');
     expect(useSettingsStore.getState().botDifficulty).toBe('normal');
+  });
+
+  it('stores table speed and forced-card auto-play', () => {
+    expect(useSettingsStore.getState().playSpeed).toBe('normal');
+    expect(useSettingsStore.getState().autoPlayForced).toBe(true);
+    useSettingsStore.getState().setPlaySpeed('fast');
+    useSettingsStore.getState().setAutoPlayForced(false);
+    expect(useSettingsStore.getState().playSpeed).toBe('fast');
+    expect(useSettingsStore.getState().autoPlayForced).toBe(false);
   });
 
   it('setSoundMuted silences the reveal chime', () => {

@@ -65,6 +65,21 @@ html, body {
 .partner-toast-fade { animation: partner-toast-fade 1500ms linear both; }
 .partner-glow { animation: partner-glow 1.5s ease-in-out; }
 
+@keyframes bid-lock-pop {
+  0% { opacity: 0; transform: scale(0.6); }
+  35% { opacity: 1; transform: scale(1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes bid-lock-fade {
+  0% { opacity: 0; }
+  35% { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+.bid-lock-pop { animation: bid-lock-pop 1.2s ease-out both; }
+.bid-lock-fade { animation: bid-lock-fade 1.2s ease-out both; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -79,5 +94,10 @@ html, body {
 
   .partner-glow {
     animation: partner-toast-fade 180ms ease-out both !important;
+  }
+
+  .bid-lock-pop,
+  .bid-lock-fade {
+    animation: bid-lock-fade 1.2s ease-out both !important;
   }
 }
