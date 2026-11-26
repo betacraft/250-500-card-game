@@ -54,7 +54,7 @@ html, body {
 }
 
 @keyframes partner-toast-fade {
-  0% { transform: translateY(6px); }
+  0% { transform: translateY(-4px); }
   10% { transform: translateY(0); }
   100% { transform: translateY(0); }
 }

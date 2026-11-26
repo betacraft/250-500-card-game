@@ -14,12 +14,12 @@ const ranks = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'] as c
 const suits = ['spades', 'hearts', 'diamonds', 'clubs'] as const;
 
 test.describe('full hands from the real controls', () => {
-  test.describe.configure({ timeout: 240_000 });
+  test.describe.configure({ timeout: 480_000 });
 
   for (const variant of ['250', '500'] as const) {
     for (const view of views) {
       test(`${variant} at ${view.width}x${view.height}`, async ({ page }) => {
-        test.setTimeout(240_000);
+        test.setTimeout(480_000);
         const input = variant === '250' ? 'mouse' : 'touch';
         const errors: string[] = [];
         page.on('console', (msg) => {

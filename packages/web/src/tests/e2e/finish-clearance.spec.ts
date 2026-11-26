@@ -7,7 +7,7 @@ const SEED_TIME = new Date(1795600000014);
 const views = [
   { width: 320, height: 568, shot: null, banner: false, summary: true, lift: true },
   { width: 360, height: 740, shot: 'r25-360x740.png', banner: false, summary: true, lift: false },
-  { width: 390, height: 844, shot: 'r26-390x844.png', banner: true, summary: true, lift: false },
+  { width: 390, height: 844, shot: 'r27-390x844.png', banner: true, summary: true, lift: false },
   { width: 667, height: 375, shot: 'r25-667x375.png', banner: false, summary: true, lift: false },
   { width: 1366, height: 768, shot: null, banner: false, summary: false, lift: false },
 ] as const;

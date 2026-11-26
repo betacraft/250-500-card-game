@@ -7,6 +7,13 @@ import { headerPartnerIds } from './partner-header';
 
 type Hand = NonNullable<ReturnType<typeof useLocalPlayStore.getState>['hand']>;
 
+const SUIT_GLYPH: Record<Suit, string> = { spades: '♠', hearts: '♥', diamonds: '♦', clubs: '♣' };
+
+/** Called cards as `A♠ A♥ A♦`, for the auction overlay. */
+export function calledFaces(cards: readonly Card[]): string {
+  return cards.map((card) => `${card.rank}${SUIT_GLYPH[card.suit]}`).join(' ');
+}
+
 /** Signed score for the short "You +N" line. */
 export function scoreText(delta: number): string {
   return delta > 0 ? `+${delta}` : String(delta);
@@ -99,7 +106,7 @@ export function TableStatus({ hand, names, scoredPartners = null, faces = true }
             {hand.calledCards.map((card) => <CardFace key={cardId(card)} card={card} width={40} called />)}
           </span>
         ) : (
-          <span data-testid="called-cards">Called {hand.calledCards.map((card) => `${card.rank}${card.suit[0]}`).join(' ')}</span>
+          <span data-testid="called-cards">Called {calledFaces(hand.calledCards)}</span>
         )
       )}
       <span data-testid="partner-names">Partners: {revealed.map((id) => names[id] ?? id).join(', ') || 'none yet'}</span>

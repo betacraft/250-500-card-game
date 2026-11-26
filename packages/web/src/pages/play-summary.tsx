@@ -54,7 +54,7 @@ export function PlaySummary({ hand, names, notice, history, open, onToggle, row 
         <div data-testid="summary-detail" className="fixed inset-0 z-40" onClick={onToggle}>
           <div className="absolute inset-x-3 top-16 max-h-[50vh] overflow-y-auto rounded-xl bg-white p-3 shadow-lg" onClick={(event) => event.stopPropagation()}>
             <TableStatus hand={hand} names={names} faces={false} />
-            <AuctionRecap history={history} names={names} trump={hand.trump} called={hand.calledCards} winnerId={hand.bidder} winningBid={hand.bidAmount} />
+            <AuctionRecap history={history} names={names} trump={hand.trump} called={hand.calledCards} winnerId={hand.bidder} winningBid={hand.bidAmount} contract={false} />
           </div>
         </div>
       ) : null}

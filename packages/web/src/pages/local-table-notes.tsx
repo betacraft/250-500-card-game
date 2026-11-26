@@ -23,6 +23,7 @@ export function AuctionRecap({
   called,
   winnerId,
   winningBid,
+  contract = true,
 }: {
   history: readonly BidEntry[];
   names: Record<string, string>;
@@ -30,6 +31,8 @@ export function AuctionRecap({
   called: readonly Card[];
   winnerId?: string | null;
   winningBid?: number | null;
+  /** False in the overlay, where trump and the called cards are already on the line above. */
+  contract?: boolean;
 }): JSX.Element | null {
   const lines = history.map((entry) => {
     const name = names[entry.playerId] ?? entry.playerId;
@@ -38,11 +41,11 @@ export function AuctionRecap({
   const listed = history.some((entry) => entry.action === 'bid' && entry.playerId === winnerId && entry.amount === winningBid);
   if (!listed && winnerId && typeof winningBid === 'number') lines.push(`${names[winnerId] ?? winnerId} ${winningBid}`);
   if (lines.length === 0 && !trump) return null;
-  const calledText = called.map((card) => `${card.rank}${card.suit[0]}`).join(' ');
+  const calledText = contract ? called.map((card) => `${card.rank}${card.suit[0]}`).join(' ') : '';
   return (
     <p data-testid="auction-recap" data-trump={trump ?? ''} className="text-sm text-stone-700">
       Auction: {lines.join(', ') || 'no bid'}
-      {trump ? <>{' · '}<span className="inline-flex items-center gap-1">Trump: {trump} <SuitIcon suit={trump} size={18} className="shrink-0" /></span></> : null}
+      {contract && trump ? <>{' · '}<span className="inline-flex items-center gap-1">Trump: {trump} <SuitIcon suit={trump} size={18} className="shrink-0" /></span></> : null}
       {calledText ? ` · Called ${calledText}` : ''}
     </p>
   );

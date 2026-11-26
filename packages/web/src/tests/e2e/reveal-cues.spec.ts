@@ -56,14 +56,23 @@ async function openScript(page: Page, script: 'declared' | 'reveal', variant: '2
 }
 
 async function expectCentredOnTrick(page: Page): Promise<void> {
-  const felt = await page.locator('[data-testid="trick-live"] .bg-felt, [data-testid="trick-live"]').first().boundingBox();
+  const felt = await page.locator('[data-testid="trick-area"]').boundingBox();
   const pill = await page.getByTestId('partner-toast-pill').boundingBox();
   if (!felt || !pill) throw new Error('missing trick or toast');
   const pillMid = pill.x + pill.width / 2;
   const feltMid = felt.x + felt.width / 2;
   expect(Math.abs(pillMid - feltMid)).toBeLessThan(felt.width * 0.2);
-  expect(pill.y).toBeGreaterThanOrEqual(felt.y - 1);
-  expect(pill.y).toBeLessThan(felt.y + 28);
+  expect(pill.y + pill.height).toBeLessThanOrEqual(felt.y + 1);
+  const header = page.locator('[data-testid="led-suit"], [data-testid="trick-leader"]');
+  const count = await header.count();
+  for (let index = 0; index < count; index += 1) {
+    const box = await header.nth(index).boundingBox();
+    expect(box && overlaps(pill, box)).toBe(false);
+  }
+}
+
+function overlaps(a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }): boolean {
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
 }
 
 async function assertHit(locator: Locator): Promise<void> {

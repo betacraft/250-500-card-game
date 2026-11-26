@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Card } from '@250-500/shared';
+import { calledFaces } from './local-play-helpers';
 import { summaryText } from './play-summary';
 
 const card = (rank: Card['rank'], suit: Card['suit']): Card => ({ rank, suit, id: `${rank}${suit[0]}` });
@@ -11,5 +12,11 @@ describe('summaryText', () => {
 
   it('says none yet when the table has not seen a partner', () => {
     expect(summaryText([card('A', 'spades')], [], 0)).toBe('Called A♠ · Partners: none yet · 0 pts');
+  });
+});
+
+describe('calledFaces', () => {
+  it('writes the overlay calls with suit symbols', () => {
+    expect(calledFaces([card('A', 'spades'), card('A', 'hearts'), card('A', 'diamonds')])).toBe('A♠ A♥ A♦');
   });
 });

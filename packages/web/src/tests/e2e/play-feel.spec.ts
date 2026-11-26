@@ -68,8 +68,7 @@ async function playOne(page: Page, delay: number): Promise<void> {
   await expect(page.getByText('Your turn')).toBeVisible({ timeout: 20_000 });
   const card = page.locator('[data-testid="hand-card"][aria-disabled="false"]').last();
   const rank = await card.getAttribute('data-rank');
-  const spot = await centre(card);
-  await page.mouse.click(spot.x, spot.y);
+  await mouseCentre(page, card);
   const playButton = page.getByTestId('confirm-play');
   await expect(playButton).toHaveText(new RegExp(`Play ${rank}`));
   await page.waitForTimeout(delay);
@@ -84,12 +83,10 @@ async function playOne(page: Page, delay: number): Promise<void> {
       await advanceToTurn(page);
       return;
     }
-    const next = await centre(again);
-    await page.mouse.click(next.x, next.y);
+    await mouseCentre(page, again);
     await expect(playButton).toHaveText(new RegExp(`Play ${rank}`));
   }
-  const play = await centre(playButton);
-  await page.mouse.click(play.x, play.y);
+  await mouseCentre(page, playButton);
   await expect(page.getByTestId('disabled-reason')).not.toContainText(/choose a card/i);
   await expect(page.getByText('Your turn')).toBeHidden({ timeout: 5_000 });
   await advanceToTurn(page);
@@ -104,8 +101,9 @@ async function advanceToTurn(page: Page): Promise<void> {
       return;
     }
     const pause = page.getByTestId('trick-pause');
-    if (await pause.isVisible().catch(() => false)) {
-      await mouseCentre(page, pause);
+    const point = await centre(pause, 50);
+    if (point) {
+      await page.mouse.click(point.x, point.y);
       continue;
     }
     await page.waitForTimeout(40);
@@ -133,11 +131,19 @@ async function raiseToMax(page: Page): Promise<void> {
 
 async function mouseCentre(page: Page, locator: Locator): Promise<void> {
   const point = await centre(locator);
+  if (!point) throw new Error('control has no box');
   await page.mouse.click(point.x, point.y);
 }
 
-async function centre(locator: Locator): Promise<{ x: number; y: number }> {
-  const box = await locator.boundingBox();
-  if (!box) throw new Error('control has no box');
-  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+async function centre(locator: Locator, timeout = 1_000): Promise<{ x: number; y: number } | null> {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      await expect(locator).toBeVisible({ timeout });
+    } catch {
+      return null;
+    }
+    const box = await locator.boundingBox();
+    if (box) return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  }
+  return null;
 }

@@ -171,6 +171,7 @@ export function LocalPlayPage(): JSX.Element {
         </>
       )}
       </div>
+      {!pace.banner && (phase === 'playing' || settledTrick) && <PartnerToast notice={reveal.current} reduced={reveal.reduced} />}
       <div className={pace.showFinish ? 'shrink-0' : 'relative min-h-0 flex-1 overflow-hidden'}>
       {phase === 'bidding' && turn === HUMAN_ID && !settledTrick && (
         <div data-testid="bid-pass" className="h-full">
@@ -226,7 +227,6 @@ export function LocalPlayPage(): JSX.Element {
             compact={height <= 500 || cramped || inlineFinish}
             cardCap={inlineFinish ? 40 : undefined}
           />
-          {!pace.banner && <PartnerToast notice={reveal.current} reduced={reveal.reduced} />}
           {settledTrick && !pace.showFinish && <p data-testid="trick-status" className="mt-1 shrink-0 text-center text-sm leading-5 text-stone-600">{names[settledTrick.winnerId] ?? 'Winner'} won the trick · tap to skip</p>}
         </div>
       )}

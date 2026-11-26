@@ -123,8 +123,8 @@ test.describe('landscape felt stays whole', () => {
   test.describe.configure({ timeout: 180_000 });
 
   for (const item of [
-    { game: '250' as const, min: 5, seeds: [3, 34, 38, 45], shot: 'r26-667x375-250.png' },
-    { game: '500' as const, min: 7, seeds: [58, 61, 62, 90], shot: 'r26-667x375-500' },
+    { game: '250' as const, min: 5, seeds: [3, 34, 38, 45] },
+    { game: '500' as const, min: 7, seeds: [58, 61, 62, 90] },
   ]) {
     test(`${item.game} at 667x375 through banner, play, and the summary`, async ({ page }) => {
       await page.setViewportSize({ width: 667, height: 375 });
@@ -142,28 +142,33 @@ test.describe('landscape felt stays whole', () => {
       }
       expect(found).toBe(true);
       await expectFelt(page, item.min);
-      const bannerShot = item.game === '500' ? 'r26-667x375-500-banner.png' : item.shot;
+      const bannerShot = item.game === '500' ? null : 'r27-667x375-250.png';
       if (bannerShot) await saveShot(page, `/opt/cursor/artifacts/${bannerShot}`, false);
       found = await reachPhase(page, item.min, item.game === '500' ? 3 : 2, 'play');
       expect(found).toBe(true);
       await expect(page.getByTestId('confirm-play')).toBeVisible();
       await expect(page.getByTestId('bid-lock-banner')).toHaveCount(0);
       await expectFelt(page, item.min);
-      if (item.game === '500') await saveShot(page, '/opt/cursor/artifacts/r26-667x375-500-afterbanner.png', false);
       await page.getByTestId('summary-line').click();
-      await expect(page.getByTestId('summary-detail')).toBeVisible();
+      const detail = page.getByTestId('summary-detail');
+      await expect(detail).toBeVisible();
+      const overlay = await detail.innerText();
+      expect(overlay.match(/Trump:/g) ?? []).toHaveLength(1);
+      expect(overlay.match(/Called/g) ?? []).toHaveLength(1);
+      expect(overlay).toMatch(/[♠♥♦♣]/);
+      expect(overlay).not.toMatch(/\b(?:A|K|Q|J|10|[3-9])[shdc]\b/);
       await expectFelt(page, item.min);
-      if (item.game === '500') await saveShot(page, '/opt/cursor/artifacts/r26-667x375-500-summary-open.png', false);
+      if (item.game === '500') await saveShot(page, '/opt/cursor/artifacts/r27-667x375-500-overlay.png', false);
     });
   }
 });
 
 test('the partner toast stays off the trick cards', async ({ page }) => {
   for (const view of [
-    { width: 320, height: 568, shot: 'r26-320x568-toast.png' },
+    { width: 320, height: 568, shot: 'r27-320x568-toast.png' },
     { width: 360, height: 740, shot: null },
     { width: 390, height: 844, shot: null },
-    { width: 667, height: 375, shot: null },
+    { width: 667, height: 375, shot: 'r27-667x375-toast.png' },
   ]) {
     await page.clock.setFixedTime(new Date(1795600000014));
     await page.setViewportSize({ width: view.width, height: view.height });
@@ -176,11 +181,11 @@ test('the partner toast stays off the trick cards', async ({ page }) => {
     const hit = await page.evaluate(() => {
       const toast = document.querySelector('[data-testid="partner-toast-pill"]')?.getBoundingClientRect();
       if (!toast) return ['missing toast'];
-      const cards = [...document.querySelectorAll('[data-testid="trick-card"], [data-testid="trick-winner"]')];
-      return cards.filter((card) => {
-        const box = card.getBoundingClientRect();
+      const targets = [...document.querySelectorAll('[data-testid="trick-card"], [data-testid="trick-winner"], [data-testid="led-suit"], [data-testid="trick-leader"]')];
+      return targets.filter((node) => {
+        const box = node.getBoundingClientRect();
         return toast.left < box.right && toast.right > box.left && toast.top < box.bottom && toast.bottom > box.top;
-      }).map(() => 'toast covers a trick card');
+      }).map((node) => `toast covers ${node.getAttribute('data-testid')}`);
     });
     expect(hit).toEqual([]);
     if (view.shot) await saveShot(page, `/opt/cursor/artifacts/${view.shot}`, false);

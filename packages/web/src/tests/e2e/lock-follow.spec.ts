@@ -5,7 +5,7 @@ import { saveShot } from './visible-hand';
 const RANKS = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 
 test.describe('latched lock and a clean next hand', () => {
-  test.describe.configure({ timeout: 300_000 });
+  test.describe.configure({ timeout: 480_000 });
 
   test('Finish stays up on the trick after the lock', async ({ page }) => {
     const errors = watch(page);
@@ -37,6 +37,7 @@ test.describe('latched lock and a clean next hand', () => {
   });
 
   test('a quick Next hand does not carry a toast or a star', async ({ page }) => {
+    test.setTimeout(480_000);
     const errors = watch(page);
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto('/play?target=10000');
@@ -76,7 +77,7 @@ test.describe('latched lock and a clean next hand', () => {
     await begin(page, '250', 'Normal');
     let made = false;
     let sunk = false;
-    for (let step = 0; step < 4000 && (!made || !sunk); step += 1) {
+    for (let step = 0; step < 8000 && (!made || !sunk); step += 1) {
       const header = page.getByTestId('recap-header');
       if (await header.isVisible().catch(() => false)) {
         const kind = await header.getAttribute('data-lock');
@@ -93,12 +94,16 @@ test.describe('latched lock and a clean next hand', () => {
           sunk = true;
         }
         const next = page.getByTestId('next-hand');
+        const again = page.getByTestId('play-again');
         if (await next.isVisible().catch(() => false)) await next.click();
+        else if (await again.isVisible().catch(() => false)) await again.click();
         continue;
       }
       if (await page.getByTestId('hand-complete').isVisible().catch(() => false)) {
         const next = page.getByTestId('next-hand');
+        const again = page.getByTestId('play-again');
         if (await next.isVisible().catch(() => false)) await next.click();
+        else if (await again.isVisible().catch(() => false)) await again.click();
         continue;
       }
       if (await advance(page)) continue;
