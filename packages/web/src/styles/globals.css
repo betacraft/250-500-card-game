@@ -42,6 +42,11 @@ html, body {
   }
 }
 
+/* A 320-wide lock gives the felt the home-indicator padding back. */
+.hand-dock-tight {
+  padding-bottom: max(env(safe-area-inset-bottom), 12px);
+}
+
 @keyframes partner-toast-pop {
   0% { opacity: 0; transform: scale(0.8); }
   10% { opacity: 1; transform: scale(1); }

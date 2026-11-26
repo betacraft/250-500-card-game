@@ -423,6 +423,7 @@ Same as Phase 1 but at workspace root, runs across all packages.
 | 25 | **Finish lives in the hand dock** | On a mid-hand lock the Finish pill is a row in the fixed hand dock, above the fan, only while the lock is latched. The trick pane ends above that row, so the pill stays on screen and does not cover the fan, the trick, or the status line. | 2026-11-26 |
 | 26 | **The trick keeps its height when Finish is docked** | The auction and called-card notes scroll above the felt. The felt stays at its natural height, and every trick card and seat label stays inside the felt and the viewport. At 667×375, Finish sits on the fan's row and the fan and the trick cards scale down so the full trick, the pill, and the fan show together without scrolling. | 2026-11-26 |
 | 27 | **Play notes are one line above the felt** | During play on a phone the header is a private-partner line, when there is one, plus `Called K♣ J♥ · Partners: … · N pts`. It does not scroll. The full auction opens from that line. A selected card keeps 18px of room inside the fan so the lift is not clipped. The lock pill fades in from 0.6 opacity over 120ms, scaling from 0.8 to 1. | 2026-11-26 |
+| 28 | **A 320-wide lock keeps the felt intact** | At 340px and under the title and the links share one line, the lock pill uses a smaller margin, and the dock padding returns to 12px. The trick stays at its natural height, with every seat label inside the felt. On a taller phone the dock sits under the felt instead of leaving a gap. | 2026-11-26 |
 
 ---
 

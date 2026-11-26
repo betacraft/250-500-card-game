@@ -113,7 +113,7 @@ export function LocalPlayPage(): JSX.Element {
   const compactPlay = (phase === 'playing' || Boolean(settledTrick)) && (shortPlay || (pace.showFinish && !wide && !inlineFinish));
   const fanCap = inlineFinish ? 76 : height <= 500 || cramped ? 72 : wide && !short ? Math.floor(height * 0.3) : wide ? null : Math.floor(height * 0.32) - 86;
   const finishButton = pace.showFinish ? (
-    <button type="button" data-testid="finish-hand" onClick={pace.startFinish} className={inlineFinish ? 'mb-1 flex h-11 shrink-0 items-center rounded-full bg-[#4A3000] px-4 text-base font-medium text-white' : 'mx-auto mb-1 flex h-11 w-fit items-center justify-center rounded-full bg-[#4A3000] px-5 text-base font-medium text-white'}>Finish hand ⏩</button>
+    <button type="button" data-testid="finish-hand" onClick={pace.startFinish} className={inlineFinish ? 'mb-1 flex h-11 shrink-0 items-center rounded-full bg-[#4A3000] px-4 text-base font-medium text-white' : `mx-auto flex h-11 w-fit items-center justify-center rounded-full bg-[#4A3000] px-5 text-base font-medium text-white ${width <= 340 ? 'mb-0' : 'mb-1'}`}>Finish hand ⏩</button>
   ) : null;
   const fan = (
     <HandFan
@@ -156,7 +156,7 @@ export function LocalPlayPage(): JSX.Element {
           privateHolderId={holdsSecretCall(hand, HUMAN_ID) ? HUMAN_ID : null}
         />
       </div>
-      <div data-testid="play-scroll" className={`flex min-h-0 flex-1 flex-col overflow-hidden ${gameOver && height <= 500 || (compactPlay && height <= 500) ? 'py-1' : 'py-2'}`}>
+      <div data-testid="play-scroll" className={`flex flex-col overflow-hidden ${pace.showFinish && !inlineFinish && !wide ? 'shrink-0' : 'min-h-0 flex-1'} ${gameOver && height <= 500 || (compactPlay && height <= 500) ? 'py-1' : 'py-2'}`}>
       <div className={pace.showFinish && !inlineFinish && !compactPlay ? 'min-h-0 flex-1 overflow-y-auto' : 'shrink-0'}>
       {compactPlay ? (
         <PlaySummary hand={hand} names={names} notice={notice} history={bidHistory} open={summaryOpen} onToggle={() => setSummaryOpen((open) => !open)} />
@@ -210,7 +210,7 @@ export function LocalPlayPage(): JSX.Element {
         <p className="text-sm text-stone-600">{names[hand.bidder ?? ''] ?? 'Bidder'} is declaring…</p>
       )}
       {pace.banner && (
-        <p data-testid="bid-lock-banner" data-lock={pace.banner} className={`pointer-events-none mx-auto my-1 w-fit shrink-0 rounded-full px-4 py-2 text-base font-semibold text-white shadow-lg ${pace.banner === 'made' ? 'bg-felt' : 'bg-[#7A3E2E]'} ${reveal.reduced ? 'bid-lock-fade' : 'bid-lock-pop'}`}>
+        <p data-testid="bid-lock-banner" data-lock={pace.banner} className={`pointer-events-none mx-auto w-fit shrink-0 rounded-full text-base font-semibold text-white shadow-lg ${width <= 340 ? 'my-0 px-3 py-1' : 'my-1 px-4 py-2'} ${pace.banner === 'made' ? 'bg-felt' : 'bg-[#7A3E2E]'} ${reveal.reduced ? 'bid-lock-fade' : 'bid-lock-pop'}`}>
           {pace.banner === 'made' ? 'Bid made!' : 'Bid sunk!'}
         </p>
       )}
@@ -267,7 +267,7 @@ export function LocalPlayPage(): JSX.Element {
       </div>
       </div>
       {docked && (
-        <div data-testid="hand-dock" className="hand-dock shrink-0">
+        <div data-testid="hand-dock" className={`hand-dock shrink-0 ${width <= 340 ? 'hand-dock-tight' : ''}`}>
           {gameOver ? (
             <button type="button" data-testid="play-again" onClick={() => playAgain()} className={`min-h-11 w-full rounded-xl bg-felt text-base font-medium text-white focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#0F766E] ${height <= 500 ? 'py-2' : 'p-4'}`}>
               Play again
@@ -278,8 +278,8 @@ export function LocalPlayPage(): JSX.Element {
             </button>
           ) : (
             <>
-              {pace.showFinish && settledTrick && <p data-testid="trick-status" className="mb-1 text-center text-sm leading-5 text-stone-600">{names[settledTrick.winnerId] ?? 'Winner'} won the trick · tap to skip</p>}
-              {pace.showFinish && phase === 'playing' && !settledTrick && <p data-testid="play-status" className="mb-1 text-center text-sm leading-5 text-stone-500">{turnLine}</p>}
+              {pace.showFinish && settledTrick && <p data-testid="trick-status" className={`${width <= 340 ? 'mb-0' : 'mb-1'} text-center text-sm leading-5 text-stone-600`}>{names[settledTrick.winnerId] ?? 'Winner'} won the trick · tap to skip</p>}
+              {pace.showFinish && phase === 'playing' && !settledTrick && <p data-testid="play-status" className={`${width <= 340 ? 'mb-0' : 'mb-1'} text-center text-sm leading-5 text-stone-500`}>{turnLine}</p>}
               {inlineFinish ? <div className="flex items-end gap-4"><div className="min-w-0 flex-1">{fan}</div>{finishButton}</div> : <>{finishButton}{fan}</>}
               {humanDeclaring && (
                 <div className="pt-1">

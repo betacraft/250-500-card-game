@@ -7,11 +7,12 @@ import { useSettingsStore } from '../stores/settings-store';
 import { scoreExplainer } from './local-table-notes';
 
 /** Leaves the current hand after a confirm, then the variant picker is shown again. */
-export function NewGameButton({ onAbandon }: { onAbandon: () => void }): JSX.Element {
+export function NewGameButton({ onAbandon, compact = false }: { onAbandon: () => void; compact?: boolean }): JSX.Element {
   const [ask, setAsk] = useState(false);
+  const text = compact ? 'text-xs text-stone-700 underline' : 'text-sm text-stone-700 underline';
   if (!ask) {
     return (
-      <button type="button" data-testid="new-game" onClick={() => setAsk(true)} className="text-sm text-stone-700 underline">
+      <button type="button" data-testid="new-game" onClick={() => setAsk(true)} className={text}>
         New game
       </button>
     );
