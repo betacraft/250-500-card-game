@@ -20,10 +20,10 @@ export function chipCue(): { turnId?: string | null; bidderId?: string | null } 
 }
 
 /** Portrait height, landscape width, and the raw height used by the short layouts. */
-export function useViewport(): { short: boolean; wide: boolean; height: number } {
-  const [size, setSize] = useState({ short: false, wide: true, height: 800 });
+export function useViewport(): { short: boolean; wide: boolean; height: number; width: number } {
+  const [size, setSize] = useState({ short: false, wide: true, height: 800, width: 360 });
   useEffect(() => {
-    const apply = (): void => setSize({ short: window.innerHeight <= 760, wide: window.innerWidth >= 720, height: window.innerHeight });
+    const apply = (): void => setSize({ short: window.innerHeight <= 760, wide: window.innerWidth >= 720, height: window.innerHeight, width: window.innerWidth });
     apply();
     window.addEventListener('resize', apply);
     return () => window.removeEventListener('resize', apply);

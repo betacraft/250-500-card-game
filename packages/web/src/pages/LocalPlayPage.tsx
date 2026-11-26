@@ -47,7 +47,7 @@ export function LocalPlayPage(): JSX.Element {
   const setSoundMuted = useSettingsStore((s) => s.setSoundMuted);
   const playSpeed = useSettingsStore((s) => s.playSpeed);
   const setPlaySpeed = useSettingsStore((s) => s.setPlaySpeed);
-  const { short, wide, height } = useViewport();
+  const { short, wide, height, width } = useViewport();
   const [canConfirm, setCanConfirm] = useState(false);
   const [blocked, setBlocked] = useState<string | null>(null);
 
@@ -107,6 +107,11 @@ export function LocalPlayPage(): JSX.Element {
   const notice = privateNotice(humanHand, hand.calledCards, hand.bidder, gameType, hand.slots, names[hand.bidder ?? ''] ?? 'Bidder', visiblePartners(hand).includes(HUMAN_ID));
   const follow = myTurn ? [...reasons.values()].find((reason) => reason) : '';
   const turnLine = `${myTurn ? 'Your turn' : `${names[hand.toPlayerId ?? ''] ?? 'Bot'} to play`}${follow ? ` · ${follow}` : ''}`;
+  const inlineFinish = pace.showFinish && height <= 400 && width > height;
+  const fanCap = inlineFinish ? 76 : height <= 500 || cramped ? 72 : wide && !short ? Math.floor(height * 0.3) : wide ? null : Math.floor(height * 0.32) - 86;
+  const finishButton = pace.showFinish ? (
+    <button type="button" data-testid="finish-hand" onClick={pace.startFinish} className={inlineFinish ? 'mb-1 flex h-11 shrink-0 items-center rounded-full bg-[#4A3000] px-4 text-base font-medium text-white' : 'mx-auto mb-1 flex h-11 w-fit items-center justify-center rounded-full bg-[#4A3000] px-5 text-base font-medium text-white'}>Finish hand ⏩</button>
+  ) : null;
   const fan = (
     <HandFan
       cards={humanHand}
@@ -118,7 +123,7 @@ export function LocalPlayPage(): JSX.Element {
       calledIds={new Set(hand.calledCards.map((card) => cardId(card)))}
       reasons={reasons}
       compact={short || !wide}
-      maxHeight={height <= 500 || cramped ? 72 : wide && !short ? Math.floor(height * 0.3) : wide ? null : Math.floor(height * 0.32) - 86}
+      maxHeight={fanCap}
       onBlocked={(reason) => setBlocked(reason ? reason : null)}
       forcedId={pace.forcedId}
       liftForced={!reveal.reduced}
@@ -148,7 +153,7 @@ export function LocalPlayPage(): JSX.Element {
         />
       </div>
       <div data-testid="play-scroll" className={`flex min-h-0 flex-1 flex-col overflow-hidden ${gameOver && height <= 500 ? 'py-1' : 'py-2'}`}>
-      <div className="shrink-0">
+      <div className={pace.showFinish && !inlineFinish ? 'min-h-0 flex-1 overflow-y-auto' : 'shrink-0'}>
       {!(gameOver && height <= 500) && !shortPlay && !(short && !wide && phase === 'declaring') && <TableStatus hand={hand} names={names} scoredPartners={phase === 'scored' && summary ? summary.partners : null} faces={!shortScore} />}
       {!(gameOver && height <= 500) && !shortPlay && !shortScore && <p data-testid="disabled-reason" role="status" className="pointer-events-none h-5 overflow-hidden text-sm font-medium leading-5 text-red-700">{blocked ?? ''}</p>}
       {phase !== 'bidding' && !(humanDeclaring && (short || !wide)) && !(gameOver && height <= 500) && !shortPlay && !shortScore && (
@@ -163,7 +168,7 @@ export function LocalPlayPage(): JSX.Element {
       )}
       {notice && <p data-testid="private-partner" className="text-sm font-medium text-felt">{notice}</p>}
       </div>
-      <div className="relative min-h-0 flex-1 overflow-hidden">
+      <div className={pace.showFinish ? 'shrink-0' : 'relative min-h-0 flex-1 overflow-hidden'}>
       {phase === 'bidding' && turn === HUMAN_ID && !settledTrick && (
         <div data-testid="bid-pass" className="h-full">
           <BiddingFlow
@@ -183,7 +188,7 @@ export function LocalPlayPage(): JSX.Element {
         </div>
       )}
       {!(phase === 'bidding' && turn === HUMAN_ID && !settledTrick) && (
-      <div className={shortScore ? 'absolute inset-0' : pace.showFinish ? 'absolute inset-0 flex min-h-0 flex-col overflow-hidden pb-1' : 'h-full min-h-0 overflow-y-auto'}>
+      <div className={shortScore ? 'absolute inset-0' : pace.showFinish ? '' : 'h-full min-h-0 overflow-y-auto'}>
       {phase === 'bidding' && turn !== HUMAN_ID && <p className="text-sm text-stone-600">Bots are bidding…</p>}
       {phase === 'declaring' && hand.bidder === HUMAN_ID && (
         <DeclareForm
@@ -207,7 +212,7 @@ export function LocalPlayPage(): JSX.Element {
         </p>
       )}
       {(phase === 'playing' || settledTrick) && (
-        <div data-testid={settledTrick ? 'trick-pause' : 'trick-live'} onClick={() => settledTrick && dismissTrick()} className={pace.showFinish ? 'relative h-0 max-h-[calc(100%-1.75rem)] min-h-0 flex-1 basis-0 cursor-pointer overflow-hidden' : 'relative cursor-pointer'}>
+        <div data-testid={settledTrick ? 'trick-pause' : 'trick-live'} onClick={() => settledTrick && dismissTrick()} className="relative cursor-pointer">
           <TrickArea
             played={shownTrick}
             playerNames={names}
@@ -215,9 +220,8 @@ export function LocalPlayPage(): JSX.Element {
             thirtyIndexes={thirty}
             winnerId={settledTrick?.winnerId ?? null}
             trump={hand.trump}
-            compact={height <= 500 || cramped}
-            flush={pace.showFinish}
-            bounded={pace.showFinish}
+            compact={height <= 500 || cramped || inlineFinish}
+            cardCap={inlineFinish ? 40 : undefined}
           />
           {!pace.banner && <PartnerToast notice={reveal.current} reduced={reveal.reduced} />}
           {settledTrick && !pace.showFinish && <p data-testid="trick-status" className="mt-1 shrink-0 text-center text-sm leading-5 text-stone-600">{names[settledTrick.winnerId] ?? 'Winner'} won the trick · tap to skip</p>}
@@ -273,12 +277,7 @@ export function LocalPlayPage(): JSX.Element {
             <>
               {pace.showFinish && settledTrick && <p data-testid="trick-status" className="mb-1 text-center text-sm leading-5 text-stone-600">{names[settledTrick.winnerId] ?? 'Winner'} won the trick · tap to skip</p>}
               {pace.showFinish && phase === 'playing' && !settledTrick && <p data-testid="play-status" className="mb-1 text-center text-sm leading-5 text-stone-500">{turnLine}</p>}
-              {pace.showFinish && (
-                <button type="button" data-testid="finish-hand" onClick={pace.startFinish} className="mx-auto mb-1 flex h-11 w-fit items-center justify-center rounded-full bg-[#4A3000] px-5 text-base font-medium text-white">
-                  Finish hand ⏩
-                </button>
-              )}
-              {fan}
+              {inlineFinish ? <div className="flex items-end gap-4"><div className="min-w-0 flex-1">{fan}</div>{finishButton}</div> : <>{finishButton}{fan}</>}
               {humanDeclaring && (
                 <div className="pt-1">
                   <button type="submit" form="declare-form" aria-disabled={!canConfirm} onClick={(event) => { if (!canConfirm) { event.preventDefault(); setBlocked('Name a trump and the called cards first'); } }} className={`w-full rounded-xl p-3 text-base font-medium text-white ${canConfirm ? 'bg-felt' : 'bg-stone-300'}`}>

@@ -14,7 +14,10 @@ test.describe('latched lock and a clean next hand', () => {
     let shot = false;
     for (let step = 0; step < 2500 && !shot; step += 1) {
       if (await page.getByTestId('hand-complete').isVisible().catch(() => false)) {
-        await page.getByTestId('next-hand').click();
+        const next = page.getByTestId('next-hand');
+        const again = page.getByTestId('play-again');
+        if (await next.isVisible().catch(() => false)) await next.click({ timeout: 5_000 });
+        else if (await again.isVisible().catch(() => false)) await again.click({ timeout: 5_000 });
         continue;
       }
       const finish = page.getByTestId('finish-hand');

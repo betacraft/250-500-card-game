@@ -6,9 +6,9 @@ const SEED_TIME = new Date(1795600000014);
 
 const views = [
   { width: 320, height: 568, shot: null, banner: false },
-  { width: 360, height: 740, shot: 'finish-dock-360x740-realhand.png', banner: false },
-  { width: 390, height: 844, shot: 'finish-dock-390x844-recap-banner.png', banner: true },
-  { width: 667, height: 375, shot: 'finish-dock-667x375-realhand.png', banner: false },
+  { width: 360, height: 740, shot: 'finish-dock-360x740-realhand-v2.png', banner: false },
+  { width: 390, height: 844, shot: 'finish-dock-390x844-recap-banner-v2.png', banner: true },
+  { width: 667, height: 375, shot: 'finish-dock-667x375-realhand-v2.png', banner: false },
   { width: 1366, height: 768, shot: null, banner: false },
 ] as const;
 
@@ -26,16 +26,20 @@ test.describe('finish sits in the dock on a real hand', () => {
       if ((await autoPlay.getAttribute('aria-pressed')) === 'true') await autoPlay.click();
       await page.getByTestId('start-vs-bots').click();
       await reachLock(page, view.banner);
+      await expectTrickFaces(page);
+      await expectFanFaces(page);
       if (view.banner) {
         await expect(page.getByTestId('auction-recap')).toBeVisible();
         await expect(page.getByTestId('bid-lock-banner')).toBeVisible();
-        await expect(page.getByTestId('play-status')).toContainText('Your turn');
       }
-      if (view.height === 375) await expectHeaderClear(page);
+      if (view.height === 375) {
+        await expectHeaderClear(page);
+        await expectNoScroll(page);
+      }
       const cards = await page.getByTestId('hand-card').count();
       expect(cards).toBeGreaterThanOrEqual(1);
-      await expectDocked(page);
       if (view.shot) await saveShot(page, `/opt/cursor/artifacts/${view.shot}`, false);
+      await expectDocked(page);
       await tapFinish(page);
     });
   }
@@ -47,14 +51,18 @@ async function reachLock(page: Page, wantBanner: boolean): Promise<void> {
       const finish = document.querySelector('[data-testid="finish-hand"]');
       const cards = document.querySelectorAll('[data-testid="hand-card"]').length;
       const banner = Boolean(document.querySelector('[data-testid="bid-lock-banner"]'));
-      const yours = (document.querySelector('[data-testid="play-status"]')?.textContent ?? '').includes('Your turn');
+      const trick = document.querySelectorAll('[data-testid="trick-card"], [data-testid="trick-winner"]').length;
       const recap = Boolean(document.querySelector('[data-testid="auction-recap"]'));
-      return { finish: Boolean(finish), cards, banner, yours, recap };
+      return { finish: Boolean(finish), cards, banner, trick, recap };
     });
-    if (ready.finish && ready.cards >= 1 && (!wantBanner || (ready.banner && ready.yours && ready.recap))) return;
+    if (ready.finish && ready.cards >= 1 && ready.trick >= 6 && (!wantBanner || (ready.banner && ready.recap))) return;
     if (await page.getByTestId('hand-complete').isVisible().catch(() => false)) break;
     if (await act(page)) continue;
-    await page.clock.runFor(100);
+    const heldTrick = await page.getByTestId('trick-pause').isVisible().catch(() => false)
+      && await page.getByTestId('finish-hand').isVisible().catch(() => false)
+      && await page.locator('[data-testid="trick-card"], [data-testid="trick-winner"]').count() >= 6
+      && await page.getByTestId('hand-card').count() >= 1;
+    if (!heldTrick) await page.clock.runFor(100);
   }
   throw new Error('the dealt hand never latched a lock with cards still in hand');
 }
@@ -62,6 +70,10 @@ async function reachLock(page: Page, wantBanner: boolean): Promise<void> {
 async function act(page: Page): Promise<boolean> {
   const pause = page.getByTestId('trick-pause');
   if (await pause.isVisible().catch(() => false)) {
+    const dealt = await page.locator('[data-testid="trick-card"], [data-testid="trick-winner"]').count();
+    const held = await page.getByTestId('hand-card').count();
+    const finish = await page.getByTestId('finish-hand').isVisible().catch(() => false);
+    if (dealt >= 6 && held >= 1 && finish) return false;
     await pause.click({ force: true }).catch(() => undefined);
     return true;
   }
@@ -141,6 +153,50 @@ async function expectDocked(page: Page): Promise<void> {
   const centre = { x: (report.finish.left + report.finish.right) / 2, y: (report.finish.top + report.finish.bottom) / 2 };
   const hit = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('[data-testid="finish-hand"]') != null, centre);
   expect(hit).toBe(true);
+}
+
+async function expectTrickFaces(page: Page): Promise<void> {
+  const hidden = await page.evaluate(() => {
+    const felt = document.querySelector('[data-testid="trick-area"]')?.getBoundingClientRect();
+    if (!felt) return ['missing felt'];
+    const inside = (box: DOMRect, outer: DOMRect): boolean => box.top >= outer.top - 1 && box.bottom <= outer.bottom + 1 && box.left >= outer.left - 1 && box.right <= outer.right + 1;
+    const onScreen = (box: DOMRect): boolean => box.top >= -1 && box.left >= -1 && box.bottom <= window.innerHeight + 1 && box.right <= window.innerWidth + 1;
+    const problems: string[] = [];
+    const cards = [...document.querySelectorAll('[data-testid="trick-card"], [data-testid="trick-winner"]')];
+    if (cards.length < 6) problems.push(`trick has ${cards.length} cards`);
+    for (const card of cards) {
+      const box = card.getBoundingClientRect();
+      if (box.height < 40 || !inside(box, felt) || !onScreen(box)) problems.push('card clipped');
+    }
+    for (const seat of document.querySelectorAll('[data-testid="trick-seat"]')) {
+      const box = seat.getBoundingClientRect();
+      if (box.height < 8 || !inside(box, felt) || !onScreen(box)) problems.push('seat label clipped');
+    }
+    return problems;
+  });
+  expect(hidden).toEqual([]);
+}
+
+async function expectFanFaces(page: Page): Promise<void> {
+  const hidden = await page.evaluate(() => {
+    const fan = document.querySelector('[data-testid="hand-fan"]')?.getBoundingClientRect();
+    if (!fan) return ['missing fan'];
+    const problems: string[] = [];
+    if (fan.top < -1 || fan.bottom > window.innerHeight + 1) problems.push('fan off screen');
+    for (const card of document.querySelectorAll('[data-testid="hand-card"]')) {
+      const box = card.getBoundingClientRect();
+      const top = Math.max(box.top, fan.top, 0);
+      const bottom = Math.min(box.bottom, fan.bottom, window.innerHeight);
+      if (bottom - top < box.height - 4 || box.left < -1 || box.right > window.innerWidth + 1) problems.push('fan card clipped');
+    }
+    return problems;
+  });
+  expect(hidden).toEqual([]);
+}
+
+async function expectNoScroll(page: Page): Promise<void> {
+  const overflow = await page.evaluate(() => [...document.querySelectorAll('[data-testid="play-scroll"] .overflow-y-auto')].some((node) => node.scrollHeight > node.clientHeight + 1));
+  expect(overflow).toBe(false);
 }
 
 async function expectHeaderClear(page: Page): Promise<void> {

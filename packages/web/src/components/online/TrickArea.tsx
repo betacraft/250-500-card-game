@@ -19,14 +19,12 @@ interface TrickAreaProps {
   trump?: Suit | null;
   /** Short window: no tall minimum, so the played cards stay above the fan. */
   compact?: boolean;
-  /** Drop the 150px floor so Finish can sit under the status line. */
-  flush?: boolean;
-  /** Fill the space above the dock and keep the led-suit line. */
-  bounded?: boolean;
+  /** Largest card width. The landscape lock uses this so the face and the seat label still fit. */
+  cardCap?: number;
 }
 
 /** Center-of-screen area showing cards played to the current trick + led suit. */
-export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerId = null, trump = null, compact = false, flush = false, bounded = false }: TrickAreaProps): JSX.Element {
+export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerId = null, trump = null, compact = false, cardCap }: TrickAreaProps): JSX.Element {
   const rowRef = useRef<HTMLDivElement>(null);
   const [rowWidth, setRowWidth] = useState(360);
   useEffect(() => {
@@ -38,10 +36,10 @@ export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerI
     observer.observe(node);
     return () => observer.disconnect();
   }, [played.length]);
-  const layout = trickLayout(played.length, rowWidth, compact);
+  const layout = trickLayout(played.length, rowWidth, compact, cardCap);
   const leaderId = trickLeader(played, winnerId, trump, ledSuit ?? null);
   return (
-    <div data-testid="trick-area" className={bounded ? 'flex h-full max-h-full min-h-0 flex-col items-center justify-start gap-0.5 overflow-hidden rounded-xl bg-felt px-1 py-1' : compact || flush ? 'flex flex-col items-center justify-center gap-0.5 rounded-xl bg-felt px-1 py-1' : 'flex min-h-[150px] flex-col items-center justify-center gap-2 rounded-xl bg-felt px-1 py-3'}>
+    <div data-testid="trick-area" className={compact ? 'flex flex-col items-center justify-center gap-0.5 rounded-xl bg-felt px-1 py-1' : 'flex min-h-[150px] flex-col items-center justify-center gap-2 rounded-xl bg-felt px-1 py-3'}>
       {(ledSuit || leaderId) && (
         <div className="flex items-center gap-2 text-sm text-white/90">
           {ledSuit && <span data-testid="led-suit" data-suit={ledSuit} className="inline-flex items-center gap-1">Led: {ledSuit} <SuitIcon suit={ledSuit} size={18} badge /></span>}
@@ -91,10 +89,10 @@ function seatLabel(name: string): string {
  * One row. Narrow tricks overlap about 58% so the rank corner and the seat
  * label stay in the visible left of each card. Later plays sit on top.
  */
-function trickLayout(count: number, rowWidth: number, compact: boolean): { width: number; step: number } {
+function trickLayout(count: number, rowWidth: number, compact: boolean, cardCap?: number): { width: number; step: number } {
   const cards = Math.max(count, 1);
   const inner = Math.max(rowWidth - 4, 48);
-  const cap = compact ? 56 : 76;
+  const cap = cardCap ?? (compact ? 56 : 76);
   const side = Math.floor(inner / cards);
   if (cards === 1 || side >= 56) {
     const width = Math.min(cap, Math.max(44, side));
