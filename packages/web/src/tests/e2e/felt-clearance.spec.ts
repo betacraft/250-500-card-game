@@ -105,6 +105,7 @@ async function expectFelt(page: Page, minCards: number): Promise<void> {
     const found: string[] = [];
     if (felt.scrollHeight > felt.clientHeight + 1) found.push(`felt scrolls ${felt.scrollHeight}>${felt.clientHeight}`);
     const box = felt.getBoundingClientRect();
+    if (box.top < -1 || box.left < -1 || box.bottom > window.innerHeight + 1 || box.right > window.innerWidth + 1) found.push('felt off screen');
     const seats = [...felt.querySelectorAll('[data-testid="trick-seat"]')];
     if (seats.length < min) found.push(`seats ${seats.length}`);
     for (const seat of seats) {
@@ -116,6 +117,95 @@ async function expectFelt(page: Page, minCards: number): Promise<void> {
     return found;
   }, minCards);
   expect(problems).toEqual([]);
+}
+
+test.describe('landscape felt stays whole', () => {
+  test.describe.configure({ timeout: 180_000 });
+
+  for (const item of [
+    { game: '250' as const, min: 5, seeds: [3, 34, 38, 45], shot: 'r26-667x375-250.png' },
+    { game: '500' as const, min: 7, seeds: [58, 61, 62, 90], shot: 'r26-667x375-500' },
+  ]) {
+    test(`${item.game} at 667x375 through banner, play, and the summary`, async ({ page }) => {
+      await page.setViewportSize({ width: 667, height: 375 });
+      let found = false;
+      for (const seed of item.seeds) {
+        await page.clock.setFixedTime(new Date(1795600000000 + seed - 1));
+        await page.goto('/play');
+        await page.getByRole('button', { name: new RegExp(`^${item.game}`) }).click();
+        await page.getByLabel('Your name').fill('Ada');
+        const autoPlay = page.getByTestId('autoplay-toggle');
+        if ((await autoPlay.getAttribute('aria-pressed')) === 'true') await autoPlay.click();
+        await page.getByTestId('start-vs-bots').click();
+        found = await reachPhase(page, item.min, item.game === '500' ? 3 : 2, 'banner');
+        if (found) break;
+      }
+      expect(found).toBe(true);
+      await expectFelt(page, item.min);
+      const bannerShot = item.game === '500' ? 'r26-667x375-500-banner.png' : item.shot;
+      if (bannerShot) await saveShot(page, `/opt/cursor/artifacts/${bannerShot}`, false);
+      found = await reachPhase(page, item.min, item.game === '500' ? 3 : 2, 'play');
+      expect(found).toBe(true);
+      await expect(page.getByTestId('confirm-play')).toBeVisible();
+      await expect(page.getByTestId('bid-lock-banner')).toHaveCount(0);
+      await expectFelt(page, item.min);
+      if (item.game === '500') await saveShot(page, '/opt/cursor/artifacts/r26-667x375-500-afterbanner.png', false);
+      await page.getByTestId('summary-line').click();
+      await expect(page.getByTestId('summary-detail')).toBeVisible();
+      await expectFelt(page, item.min);
+      if (item.game === '500') await saveShot(page, '/opt/cursor/artifacts/r26-667x375-500-summary-open.png', false);
+    });
+  }
+});
+
+test('the partner toast stays off the trick cards', async ({ page }) => {
+  for (const view of [
+    { width: 320, height: 568, shot: 'r26-320x568-toast.png' },
+    { width: 360, height: 740, shot: null },
+    { width: 390, height: 844, shot: null },
+    { width: 667, height: 375, shot: null },
+  ]) {
+    await page.clock.setFixedTime(new Date(1795600000014));
+    await page.setViewportSize({ width: view.width, height: view.height });
+    await page.goto('/play?script=reveal');
+    await page.getByRole('button', { name: /^250/ }).click();
+    await page.getByLabel('Your name').fill('Ada');
+    await page.getByTestId('start-vs-bots').click();
+    const pill = page.getByTestId('partner-toast-pill');
+    await expect(pill).toBeVisible();
+    const hit = await page.evaluate(() => {
+      const toast = document.querySelector('[data-testid="partner-toast-pill"]')?.getBoundingClientRect();
+      if (!toast) return ['missing toast'];
+      const cards = [...document.querySelectorAll('[data-testid="trick-card"], [data-testid="trick-winner"]')];
+      return cards.filter((card) => {
+        const box = card.getBoundingClientRect();
+        return toast.left < box.right && toast.right > box.left && toast.top < box.bottom && toast.bottom > box.top;
+      }).map(() => 'toast covers a trick card');
+    });
+    expect(hit).toEqual([]);
+    if (view.shot) await saveShot(page, `/opt/cursor/artifacts/${view.shot}`, false);
+  }
+});
+
+async function reachPhase(page: Page, minTrick: number, partners: number, phase: 'banner' | 'play'): Promise<boolean> {
+  for (let step = 0; step < 900; step += 1) {
+    const ready = await page.evaluate(() => {
+      const yours = (document.querySelector('[data-testid="play-status"]')?.textContent ?? '').includes('Your turn');
+      const finish = Boolean(document.querySelector('[data-testid="finish-hand"]'));
+      const banner = Boolean(document.querySelector('[data-testid="bid-lock-banner"]'));
+      const play = Boolean(document.querySelector('[data-testid="confirm-play"]'));
+      const trick = document.querySelectorAll('[data-testid="trick-card"], [data-testid="trick-winner"]').length;
+      return { yours, finish, banner, play, trick };
+    });
+    const bannerHit = phase === 'banner' && ready.finish && ready.banner && ready.trick >= minTrick;
+    const playHit = phase === 'play' && ready.finish && !ready.banner && ready.yours && ready.play && ready.trick >= minTrick;
+    if (bannerHit || playHit) return true;
+    if (await page.getByTestId('hand-complete').isVisible().catch(() => false)) return false;
+    if (phase === 'banner' && ready.finish && ready.banner && ready.trick >= minTrick) return true;
+    if (await act(page, partners)) continue;
+    await page.clock.runFor(100);
+  }
+  return false;
 }
 
 async function expectLifted(page: Page): Promise<void> {

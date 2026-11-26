@@ -62,8 +62,8 @@ async function expectCentredOnTrick(page: Page): Promise<void> {
   const pillMid = pill.x + pill.width / 2;
   const feltMid = felt.x + felt.width / 2;
   expect(Math.abs(pillMid - feltMid)).toBeLessThan(felt.width * 0.2);
-  expect(pill.y).toBeGreaterThan(felt.y);
-  expect(pill.y).toBeLessThan(felt.y + felt.height / 3);
+  expect(pill.y).toBeGreaterThanOrEqual(felt.y - 1);
+  expect(pill.y).toBeLessThan(felt.y + 28);
 }
 
 async function assertHit(locator: Locator): Promise<void> {

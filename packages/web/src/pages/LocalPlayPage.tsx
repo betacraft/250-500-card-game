@@ -156,10 +156,10 @@ export function LocalPlayPage(): JSX.Element {
           privateHolderId={holdsSecretCall(hand, HUMAN_ID) ? HUMAN_ID : null}
         />
       </div>
-      <div data-testid="play-scroll" className={`flex flex-col overflow-hidden ${pace.showFinish && !inlineFinish && !wide ? 'shrink-0' : 'min-h-0 flex-1'} ${gameOver && height <= 500 || (compactPlay && height <= 500) ? 'py-1' : 'py-2'}`}>
+      <div data-testid="play-scroll" className={`flex flex-col overflow-hidden ${pace.showFinish && !wide ? 'shrink-0' : 'min-h-0 flex-1'} ${inlineFinish ? 'py-0' : gameOver && height <= 500 || (compactPlay && height <= 500) ? 'py-1' : 'py-2'}`}>
       <div className={pace.showFinish && !inlineFinish && !compactPlay ? 'min-h-0 flex-1 overflow-y-auto' : 'shrink-0'}>
       {compactPlay ? (
-        <PlaySummary hand={hand} names={names} notice={notice} history={bidHistory} open={summaryOpen} onToggle={() => setSummaryOpen((open) => !open)} />
+        <PlaySummary hand={hand} names={names} notice={notice} history={bidHistory} open={summaryOpen} onToggle={() => setSummaryOpen((open) => !open)} row={inlineFinish} />
       ) : (
         <>
           {!(gameOver && height <= 500) && !shortPlay && !(short && !wide && phase === 'declaring') && <TableStatus hand={hand} names={names} scoredPartners={phase === 'scored' && summary ? summary.partners : null} faces={!shortScore} />}
@@ -210,7 +210,7 @@ export function LocalPlayPage(): JSX.Element {
         <p className="text-sm text-stone-600">{names[hand.bidder ?? ''] ?? 'Bidder'} is declaring…</p>
       )}
       {pace.banner && (
-        <p data-testid="bid-lock-banner" data-lock={pace.banner} className={`pointer-events-none mx-auto w-fit shrink-0 rounded-full text-base font-semibold text-white shadow-lg ${width <= 340 ? 'my-0 px-3 py-1' : 'my-1 px-4 py-2'} ${pace.banner === 'made' ? 'bg-felt' : 'bg-[#7A3E2E]'} ${reveal.reduced ? 'bid-lock-fade' : 'bid-lock-pop'}`}>
+        <p data-testid="bid-lock-banner" data-lock={pace.banner} className={`pointer-events-none mx-auto w-fit shrink-0 rounded-full text-base font-semibold text-white shadow-lg ${width <= 340 || inlineFinish ? 'my-0 px-3 py-1' : 'my-1 px-4 py-2'} ${pace.banner === 'made' ? 'bg-felt' : 'bg-[#7A3E2E]'} ${reveal.reduced ? 'bid-lock-fade' : 'bid-lock-pop'}`}>
           {pace.banner === 'made' ? 'Bid made!' : 'Bid sunk!'}
         </p>
       )}
