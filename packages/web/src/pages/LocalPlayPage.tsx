@@ -12,6 +12,7 @@ import { chipCue, handThirties, legalContext, scoreText, TableStatus, trickThirt
 import { AuctionRecap, ScoreStrip, scoreExplainer } from './local-table-notes';
 import { PartnerToast } from './partner-toast';
 import { RecapHeading } from './recap-heading';
+import { PlaySummary } from './play-summary';
 import { holdsSecretCall, privateNotice } from './secret-call';
 import { useTablePace } from './use-table-pace';
 import { usePartnerReveal } from './use-partner-reveal';
@@ -50,6 +51,7 @@ export function LocalPlayPage(): JSX.Element {
   const { short, wide, height, width } = useViewport();
   const [canConfirm, setCanConfirm] = useState(false);
   const [blocked, setBlocked] = useState<string | null>(null);
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   useEffect(() => {
     setBlocked(null);
@@ -108,6 +110,7 @@ export function LocalPlayPage(): JSX.Element {
   const follow = myTurn ? [...reasons.values()].find((reason) => reason) : '';
   const turnLine = `${myTurn ? 'Your turn' : `${names[hand.toPlayerId ?? ''] ?? 'Bot'} to play`}${follow ? ` · ${follow}` : ''}`;
   const inlineFinish = pace.showFinish && height <= 400 && width > height;
+  const compactPlay = (phase === 'playing' || Boolean(settledTrick)) && (shortPlay || (pace.showFinish && !wide && !inlineFinish));
   const fanCap = inlineFinish ? 76 : height <= 500 || cramped ? 72 : wide && !short ? Math.floor(height * 0.3) : wide ? null : Math.floor(height * 0.32) - 86;
   const finishButton = pace.showFinish ? (
     <button type="button" data-testid="finish-hand" onClick={pace.startFinish} className={inlineFinish ? 'mb-1 flex h-11 shrink-0 items-center rounded-full bg-[#4A3000] px-4 text-base font-medium text-white' : 'mx-auto mb-1 flex h-11 w-fit items-center justify-center rounded-full bg-[#4A3000] px-5 text-base font-medium text-white'}>Finish hand ⏩</button>
@@ -127,6 +130,7 @@ export function LocalPlayPage(): JSX.Element {
       onBlocked={(reason) => setBlocked(reason ? reason : null)}
       forcedId={pace.forcedId}
       liftForced={!reveal.reduced}
+      liftClearance={pace.showFinish && !inlineFinish}
     />
   );
 
@@ -152,21 +156,20 @@ export function LocalPlayPage(): JSX.Element {
           privateHolderId={holdsSecretCall(hand, HUMAN_ID) ? HUMAN_ID : null}
         />
       </div>
-      <div data-testid="play-scroll" className={`flex min-h-0 flex-1 flex-col overflow-hidden ${gameOver && height <= 500 ? 'py-1' : 'py-2'}`}>
-      <div className={pace.showFinish && !inlineFinish ? 'min-h-0 flex-1 overflow-y-auto' : 'shrink-0'}>
-      {!(gameOver && height <= 500) && !shortPlay && !(short && !wide && phase === 'declaring') && <TableStatus hand={hand} names={names} scoredPartners={phase === 'scored' && summary ? summary.partners : null} faces={!shortScore} />}
-      {!(gameOver && height <= 500) && !shortPlay && !shortScore && <p data-testid="disabled-reason" role="status" className="pointer-events-none h-5 overflow-hidden text-sm font-medium leading-5 text-red-700">{blocked ?? ''}</p>}
-      {phase !== 'bidding' && !(humanDeclaring && (short || !wide)) && !(gameOver && height <= 500) && !shortPlay && !shortScore && (
-        <AuctionRecap
-          history={bidHistory}
-          names={names}
-          trump={hand.trump}
-          called={hand.calledCards}
-          winnerId={hand.bidder}
-          winningBid={hand.bidAmount}
-        />
+      <div data-testid="play-scroll" className={`flex min-h-0 flex-1 flex-col overflow-hidden ${gameOver && height <= 500 || (compactPlay && height <= 500) ? 'py-1' : 'py-2'}`}>
+      <div className={pace.showFinish && !inlineFinish && !compactPlay ? 'min-h-0 flex-1 overflow-y-auto' : 'shrink-0'}>
+      {compactPlay ? (
+        <PlaySummary hand={hand} names={names} notice={notice} history={bidHistory} open={summaryOpen} onToggle={() => setSummaryOpen((open) => !open)} />
+      ) : (
+        <>
+          {!(gameOver && height <= 500) && !shortPlay && !(short && !wide && phase === 'declaring') && <TableStatus hand={hand} names={names} scoredPartners={phase === 'scored' && summary ? summary.partners : null} faces={!shortScore} />}
+          {!(gameOver && height <= 500) && !shortPlay && !shortScore && <p data-testid="disabled-reason" role="status" className="pointer-events-none h-5 overflow-hidden text-sm font-medium leading-5 text-red-700">{blocked ?? ''}</p>}
+          {phase !== 'bidding' && !(humanDeclaring && (short || !wide)) && !(gameOver && height <= 500) && !shortPlay && !shortScore && (
+            <AuctionRecap history={bidHistory} names={names} trump={hand.trump} called={hand.calledCards} winnerId={hand.bidder} winningBid={hand.bidAmount} />
+          )}
+          {notice && <p data-testid="private-partner" className="text-sm font-medium text-felt">{notice}</p>}
+        </>
       )}
-      {notice && <p data-testid="private-partner" className="text-sm font-medium text-felt">{notice}</p>}
       </div>
       <div className={pace.showFinish ? 'shrink-0' : 'relative min-h-0 flex-1 overflow-hidden'}>
       {phase === 'bidding' && turn === HUMAN_ID && !settledTrick && (

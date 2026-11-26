@@ -108,7 +108,7 @@ export function TableStatus({ hand, names, scoredPartners = null, faces = true }
   );
 }
 
-function publicTeamPoints(hand: Hand, partners: readonly string[]): number {
+export function publicTeamPoints(hand: Hand, partners: readonly string[]): number {
   const known = new Set<string>([hand.bidder ?? '', ...partners]);
   let points = 0;
   for (const id of known) {

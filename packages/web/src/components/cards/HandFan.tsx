@@ -24,6 +24,8 @@ interface HandFanProps {
   forcedId?: string | null;
   /** Reduced motion keeps the card flat while it still auto-plays. */
   liftForced?: boolean;
+  /** Room above the faces so a selected card's 18px lift stays inside the fan. */
+  liftClearance?: boolean;
 }
 
 /**
@@ -45,6 +47,7 @@ export function HandFan({
   onBlocked,
   forcedId = null,
   liftForced = true,
+  liftClearance = false,
 }: HandFanProps): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(() => (typeof window === 'undefined' ? 360 : Math.min(window.innerWidth, 980) - 24));
@@ -99,7 +102,7 @@ export function HandFan({
   const chosen = cards.find((card) => cardInstanceKey(card) === selectedId) ?? null;
   return (
     <div>
-    <div ref={ref} className="relative -mx-3 w-[calc(100%+24px)] overflow-hidden" style={{ height: metrics.height }} data-testid="hand-fan" data-card-width={metrics.cardW}>
+    <div ref={ref} className="relative -mx-3 w-[calc(100%+24px)] overflow-hidden" style={{ height: metrics.height + (liftClearance ? 18 : 0) }} data-testid="hand-fan" data-card-width={metrics.cardW}>
       {cards.map((card, index) => {
         const key = cardInstanceKey(card);
         const legal = !legalCardIds || legalCardIds.has(key);
