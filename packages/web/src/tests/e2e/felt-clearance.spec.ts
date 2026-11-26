@@ -158,37 +158,46 @@ test.describe('landscape felt stays whole', () => {
       expect(overlay).toMatch(/[♠♥♦♣]/);
       expect(overlay).not.toMatch(/\b(?:A|K|Q|J|10|[3-9])[shdc]\b/);
       await expectFelt(page, item.min);
-      if (item.game === '500') await saveShot(page, '/opt/cursor/artifacts/r27-667x375-500-overlay.png', false);
+      if (item.game === '500') await saveShot(page, '/opt/cursor/artifacts/r28-667x375-500-overlay.png', false);
     });
   }
 });
 
-test('the partner toast stays off the trick cards', async ({ page }) => {
-  for (const view of [
-    { width: 320, height: 568, shot: 'r27-320x568-toast.png' },
-    { width: 360, height: 740, shot: null },
-    { width: 390, height: 844, shot: null },
-    { width: 667, height: 375, shot: 'r27-667x375-toast.png' },
-  ]) {
-    await page.clock.setFixedTime(new Date(1795600000014));
-    await page.setViewportSize({ width: view.width, height: view.height });
-    await page.goto('/play?script=reveal');
-    await page.getByRole('button', { name: /^250/ }).click();
-    await page.getByLabel('Your name').fill('Ada');
-    await page.getByTestId('start-vs-bots').click();
-    const pill = page.getByTestId('partner-toast-pill');
-    await expect(pill).toBeVisible();
-    const hit = await page.evaluate(() => {
-      const toast = document.querySelector('[data-testid="partner-toast-pill"]')?.getBoundingClientRect();
-      if (!toast) return ['missing toast'];
-      const targets = [...document.querySelectorAll('[data-testid="trick-card"], [data-testid="trick-winner"], [data-testid="led-suit"], [data-testid="trick-leader"]')];
-      return targets.filter((node) => {
-        const box = node.getBoundingClientRect();
-        return toast.left < box.right && toast.right > box.left && toast.top < box.bottom && toast.bottom > box.top;
-      }).map((node) => `toast covers ${node.getAttribute('data-testid')}`);
-    });
-    expect(hit).toEqual([]);
-    if (view.shot) await saveShot(page, `/opt/cursor/artifacts/${view.shot}`, false);
+test('the partner toast stays off the notes and the trick', async ({ page }) => {
+  const shots: Record<string, string> = {
+    '250-320': 'r28-320x568-toast.png',
+    '250-390': 'r28-390x844-toast.png',
+    '250-667': 'r28-667x375-toast-250.png',
+    '500-667': 'r28-667x375-toast-500.png',
+  };
+  for (const game of ['250', '500'] as const) {
+    for (const view of [
+      { width: 320, height: 568 },
+      { width: 360, height: 740 },
+      { width: 390, height: 844 },
+      { width: 667, height: 375 },
+    ]) {
+      await page.clock.setFixedTime(new Date(1795600000014));
+      await page.setViewportSize({ width: view.width, height: view.height });
+      await page.goto('/play?script=reveal');
+      await page.getByRole('button', { name: new RegExp(`^${game}`) }).click();
+      await page.getByLabel('Your name').fill('Ada');
+      await page.getByTestId('start-vs-bots').click();
+      const pill = page.getByTestId('partner-toast-pill');
+      await expect(pill).toBeVisible();
+      const hit = await page.evaluate(() => {
+        const toast = document.querySelector('[data-testid="partner-toast-pill"]')?.getBoundingClientRect();
+        if (!toast) return ['missing toast'];
+        const targets = [...document.querySelectorAll('[data-testid="summary-line"], [data-testid="private-partner"], [data-testid="led-suit"], [data-testid="trick-leader"], [data-testid="trick-card"], [data-testid="trick-winner"], [data-testid="trick-seat"], [data-testid="hand-card"]')];
+        return targets.filter((node) => {
+          const box = node.getBoundingClientRect();
+          return toast.left < box.right && toast.right > box.left && toast.top < box.bottom && toast.bottom > box.top;
+        }).map((node) => `toast covers ${node.getAttribute('data-testid')}`);
+      });
+      expect(hit).toEqual([]);
+      const shot = shots[`${game}-${view.width}`];
+      if (shot) await saveShot(page, `/opt/cursor/artifacts/${shot}`, false);
+    }
   }
 });
 

@@ -62,7 +62,7 @@ async function expectCentredOnTrick(page: Page): Promise<void> {
   const pillMid = pill.x + pill.width / 2;
   const feltMid = felt.x + felt.width / 2;
   expect(Math.abs(pillMid - feltMid)).toBeLessThan(felt.width * 0.2);
-  expect(pill.y + pill.height).toBeLessThanOrEqual(felt.y + 1);
+  expect(pill.y).toBeGreaterThanOrEqual(felt.y + felt.height - 1);
   const header = page.locator('[data-testid="led-suit"], [data-testid="trick-leader"]');
   const count = await header.count();
   for (let index = 0; index < count; index += 1) {
