@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { confirmPlay } from './confirm-play';
 import { saveShot } from './visible-hand';
 
 const RANKS = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
@@ -148,6 +149,8 @@ async function begin(page: Page, variant: '250' | '500', difficulty: 'Easy' | 'N
   await expect(choice).toHaveAttribute('aria-pressed', 'true');
   if (difficulty === 'Normal') await page.getByRole('button', { name: 'Normal', exact: true }).click();
   await page.getByLabel('Your name').fill('Ada');
+  const autoPlay = page.getByTestId('autoplay-toggle');
+  if ((await autoPlay.getAttribute('aria-pressed')) === 'true') await autoPlay.click();
   await page.getByTestId('start-vs-bots').click();
   await expect(page.getByTestId('speed-toggle')).toBeVisible();
   const speed = page.getByTestId('speed-toggle');
@@ -218,7 +221,6 @@ async function playLowest(page: Page): Promise<boolean> {
   }, RANKS);
   if (!point) return false;
   await page.mouse.click(point.x, point.y);
-  const play = page.getByTestId('confirm-play');
-  if (await play.isVisible().catch(() => false)) await play.click();
+  await confirmPlay(page);
   return true;
 }

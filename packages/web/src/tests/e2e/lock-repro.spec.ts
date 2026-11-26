@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { confirmPlay } from './confirm-play';
 import { saveShot } from './visible-hand';
 
 const RANKS = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
@@ -148,8 +149,7 @@ async function playLowest(page: Page): Promise<boolean> {
   }, RANKS);
   if (!point) return false;
   await page.mouse.click(point.x, point.y);
-  const play = page.getByTestId('confirm-play');
-  if (await play.isVisible().catch(() => false)) await play.click();
+  await confirmPlay(page);
   return true;
 }
 

@@ -21,10 +21,12 @@ interface TrickAreaProps {
   compact?: boolean;
   /** Drop the 150px floor so Finish can sit under the status line. */
   flush?: boolean;
+  /** Fill the space above the dock and keep the led-suit line. */
+  bounded?: boolean;
 }
 
 /** Center-of-screen area showing cards played to the current trick + led suit. */
-export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerId = null, trump = null, compact = false, flush = false }: TrickAreaProps): JSX.Element {
+export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerId = null, trump = null, compact = false, flush = false, bounded = false }: TrickAreaProps): JSX.Element {
   const rowRef = useRef<HTMLDivElement>(null);
   const [rowWidth, setRowWidth] = useState(360);
   useEffect(() => {
@@ -39,7 +41,7 @@ export function TrickArea({ played, playerNames, ledSuit, thirtyIndexes, winnerI
   const layout = trickLayout(played.length, rowWidth, compact);
   const leaderId = trickLeader(played, winnerId, trump, ledSuit ?? null);
   return (
-    <div data-testid="trick-area" className={compact || flush ? 'flex flex-col items-center justify-center gap-0.5 rounded-xl bg-felt px-1 py-1' : 'flex min-h-[150px] flex-col items-center justify-center gap-2 rounded-xl bg-felt px-1 py-3'}>
+    <div data-testid="trick-area" className={bounded ? 'flex h-full max-h-full min-h-0 flex-col items-center justify-start gap-0.5 overflow-hidden rounded-xl bg-felt px-1 py-1' : compact || flush ? 'flex flex-col items-center justify-center gap-0.5 rounded-xl bg-felt px-1 py-1' : 'flex min-h-[150px] flex-col items-center justify-center gap-2 rounded-xl bg-felt px-1 py-3'}>
       {(ledSuit || leaderId) && (
         <div className="flex items-center gap-2 text-sm text-white/90">
           {ledSuit && <span data-testid="led-suit" data-suit={ledSuit} className="inline-flex items-center gap-1">Led: {ledSuit} <SuitIcon suit={ledSuit} size={18} badge /></span>}

@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { confirmPlay } from './confirm-play';
 import { assertBidAtRest, assertChipInset, assertChipRings, assertCueBoxes, assertHandCorners, assertHandSize, assertReadableCopy, saveShot } from './visible-hand';
 
 const views = [
@@ -156,9 +157,11 @@ async function winAuction(page: Page, input: 'mouse' | 'touch', shot: boolean, v
 async function exerciseSteppers(page: Page, input: 'mouse' | 'touch'): Promise<void> {
   const before = await controlBoxes(page);
   await clickCentre(page, page.getByRole('button', { name: 'Decrease bid by 5' }), input, true);
+  await page.mouse.move(2, 2);
   await expect(page.getByTestId('disabled-reason')).toContainText(/lowest bid/i);
   expect(await controlBoxes(page)).toBe(before);
   await clickCentre(page, page.getByRole('button', { name: 'Increase bid by 5' }), input, true);
+  await page.mouse.move(2, 2);
   await expect(page.getByTestId('disabled-reason')).toHaveText('');
   expect(await controlBoxes(page)).toBe(before);
   for (const step of [5, 10, 20]) {
@@ -202,7 +205,7 @@ async function shootClubsLead(page: Page, input: 'mouse' | 'touch'): Promise<voi
   const club = page.locator('[data-testid="hand-card"][aria-disabled="false"][data-suit="clubs"]').first();
   if ((await club.count()) === 0) return;
   await clickCentre(page, club, input, true);
-  await clickCentre(page, page.getByTestId('confirm-play'), input, true);
+  await confirmPlay(page);
   await expect(page.getByTestId('led-suit')).toHaveAttribute('data-suit', 'clubs', { timeout: 2_000 });
   await saveShot(page, '/opt/cursor/artifacts/play-500-360-clubs-lead.png', false);
 }
@@ -357,7 +360,7 @@ async function finishHand(
       }
       if ((await legal.count()) === 0 || !(await page.getByText('Your turn').isVisible().catch(() => false))) continue;
       await expect(legal).toHaveAttribute('data-selected', 'true');
-      await clickCentre(page, page.getByTestId('confirm-play'), input, true);
+      await confirmPlay(page);
       await expect(page.getByText('Your turn')).toBeHidden({ timeout: 5_000 });
       continue;
     }
@@ -619,7 +622,7 @@ test('the latest card tap is the one that is played', async ({ page }) => {
   };
   await clickCentre(page, first, 'mouse', true);
   await clickCentre(page, second, 'mouse', true);
-  await clickCentre(page, page.getByTestId('confirm-play'), 'mouse', true);
+  await confirmPlay(page);
   await expect(page.locator('[data-testid="trick-row"] [data-suit]').first()).toHaveAttribute('data-suit', played.suit ?? '');
   await expect(page.locator('[data-testid="trick-row"] [data-rank]').first()).toHaveAttribute('data-rank', played.rank ?? '');
   await expect(page.locator(`[data-testid="hand-card"][data-suit="${kept.suit}"][data-rank="${kept.rank}"]`)).toHaveCount(1);

@@ -1,5 +1,6 @@
 import { writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import { confirmPlay } from './confirm-play';
 
 const views = [
   { width: 1366, height: 768 },
@@ -111,6 +112,8 @@ test.describe('analytics during a real hand', () => {
     await page.getByRole('button', { name: /^250/ }).click();
     await page.getByLabel('Your name').click();
     await page.keyboard.type('Ada');
+    const autoPlay = page.getByTestId('autoplay-toggle');
+    if ((await autoPlay.getAttribute('aria-pressed')) === 'true') await autoPlay.click();
     await page.getByTestId('start-vs-bots').click();
     await page.getByTestId('hand-fan').waitFor();
     for (let hand = 0; hand < 24; hand += 1) {
@@ -211,7 +214,7 @@ async function finishHand(page: Page): Promise<void> {
       if (!point) throw new Error('no open point on a legal card');
       await page.mouse.click(point.x, point.y);
       await expect(page.getByRole('button', { name: point.label ?? '', exact: true })).toHaveAttribute('data-selected', 'true');
-      await page.getByTestId('confirm-play').click();
+      await confirmPlay(page);
       continue;
     }
     await page.waitForTimeout(80);

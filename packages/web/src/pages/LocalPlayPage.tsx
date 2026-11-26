@@ -105,6 +105,8 @@ export function LocalPlayPage(): JSX.Element {
   const docked = phase === 'bidding' || phase === 'declaring' || phase === 'playing' || gameOver || dockNext;
   const humanDeclaring = phase === 'declaring' && hand.bidder === HUMAN_ID;
   const notice = privateNotice(humanHand, hand.calledCards, hand.bidder, gameType, hand.slots, names[hand.bidder ?? ''] ?? 'Bidder', visiblePartners(hand).includes(HUMAN_ID));
+  const follow = myTurn ? [...reasons.values()].find((reason) => reason) : '';
+  const turnLine = `${myTurn ? 'Your turn' : `${names[hand.toPlayerId ?? ''] ?? 'Bot'} to play`}${follow ? ` · ${follow}` : ''}`;
   const fan = (
     <HandFan
       cards={humanHand}
@@ -181,7 +183,7 @@ export function LocalPlayPage(): JSX.Element {
         </div>
       )}
       {!(phase === 'bidding' && turn === HUMAN_ID && !settledTrick) && (
-      <div className={shortScore ? 'absolute inset-0' : 'h-full min-h-0 overflow-y-auto'}>
+      <div className={shortScore ? 'absolute inset-0' : pace.showFinish ? 'absolute inset-0 flex min-h-0 flex-col overflow-hidden pb-1' : 'h-full min-h-0 overflow-y-auto'}>
       {phase === 'bidding' && turn !== HUMAN_ID && <p className="text-sm text-stone-600">Bots are bidding…</p>}
       {phase === 'declaring' && hand.bidder === HUMAN_ID && (
         <DeclareForm
@@ -205,7 +207,7 @@ export function LocalPlayPage(): JSX.Element {
         </p>
       )}
       {(phase === 'playing' || settledTrick) && (
-        <div data-testid={settledTrick ? 'trick-pause' : 'trick-live'} onClick={() => settledTrick && dismissTrick()} className="relative cursor-pointer">
+        <div data-testid={settledTrick ? 'trick-pause' : 'trick-live'} onClick={() => settledTrick && dismissTrick()} className={pace.showFinish ? 'relative h-0 max-h-[calc(100%-1.75rem)] min-h-0 flex-1 basis-0 cursor-pointer overflow-hidden' : 'relative cursor-pointer'}>
           <TrickArea
             played={shownTrick}
             playerNames={names}
@@ -215,22 +217,13 @@ export function LocalPlayPage(): JSX.Element {
             trump={hand.trump}
             compact={height <= 500 || cramped}
             flush={pace.showFinish}
+            bounded={pace.showFinish}
           />
           {!pace.banner && <PartnerToast notice={reveal.current} reduced={reveal.reduced} />}
-          {settledTrick && <p data-testid="trick-status" className="mt-1 text-center text-sm leading-5 text-stone-600">{names[settledTrick.winnerId] ?? 'Winner'} won the trick · tap to skip</p>}
+          {settledTrick && !pace.showFinish && <p data-testid="trick-status" className="mt-1 shrink-0 text-center text-sm leading-5 text-stone-600">{names[settledTrick.winnerId] ?? 'Winner'} won the trick · tap to skip</p>}
         </div>
       )}
-      {phase === 'playing' && !settledTrick && (
-        <p data-testid="play-status" className="mb-1 text-sm leading-5 text-stone-500">
-          {myTurn ? 'Your turn' : `${names[hand.toPlayerId ?? ''] ?? 'Bot'} to play`}
-          {myTurn && [...reasons.values()].find((reason) => reason) ? ` · ${[...reasons.values()].find((reason) => reason)}` : ''}
-        </p>
-      )}
-      {pace.showFinish && (
-        <button type="button" data-testid="finish-hand" onClick={pace.startFinish} className="mx-auto mb-1 mt-1 flex h-11 items-center justify-center rounded-full bg-[#4A3000] px-5 text-base font-medium text-white">
-          Finish hand ⏩
-        </button>
-      )}
+      {phase === 'playing' && !settledTrick && !pace.showFinish && <p data-testid="play-status" className="shrink-0 text-sm leading-5 text-stone-500">{turnLine}</p>}
       {phase === 'scored' && summary && !settledTrick && (
         <section data-testid="hand-complete" className={`rounded-xl bg-white ${shortScore ? `h-full touch-pan-y overflow-y-auto overscroll-contain ${gameOver ? 'max-h-[230px] p-3' : 'max-h-[172px] px-3 py-1'}` : gameOver ? 'max-h-full overflow-y-auto p-3' : 'p-3'}`}>
           {gameOver && <h2 data-testid="game-over" className="text-lg font-medium">Game over</h2>}
@@ -278,6 +271,13 @@ export function LocalPlayPage(): JSX.Element {
             </button>
           ) : (
             <>
+              {pace.showFinish && settledTrick && <p data-testid="trick-status" className="mb-1 text-center text-sm leading-5 text-stone-600">{names[settledTrick.winnerId] ?? 'Winner'} won the trick · tap to skip</p>}
+              {pace.showFinish && phase === 'playing' && !settledTrick && <p data-testid="play-status" className="mb-1 text-center text-sm leading-5 text-stone-500">{turnLine}</p>}
+              {pace.showFinish && (
+                <button type="button" data-testid="finish-hand" onClick={pace.startFinish} className="mx-auto mb-1 flex h-11 w-fit items-center justify-center rounded-full bg-[#4A3000] px-5 text-base font-medium text-white">
+                  Finish hand ⏩
+                </button>
+              )}
               {fan}
               {humanDeclaring && (
                 <div className="pt-1">

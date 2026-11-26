@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { confirmPlay } from './confirm-play';
 import { assertHandCorners, saveShot } from './visible-hand';
 
 async function clickLegalFace(page: import('@playwright/test').Page): Promise<boolean> {
@@ -44,6 +45,8 @@ async function playOneHand(
   await expect(page.getByRole('button', { name: 'Easy', exact: true })).toHaveAttribute('aria-pressed', 'true');
   if (difficulty === 'Normal') await page.getByRole('button', { name: 'Normal', exact: true }).click();
   await page.getByLabel('Your name').fill('Ada');
+  const autoPlay = page.getByTestId('autoplay-toggle');
+  if ((await autoPlay.getAttribute('aria-pressed')) === 'true') await autoPlay.click();
   await page.getByTestId('start-vs-bots').click();
   await expect(page.getByText(`Bots: ${difficulty}`)).toBeVisible();
   await expect(page.getByTestId('hand-fan')).toBeVisible();
@@ -70,7 +73,7 @@ async function playOneHand(
       continue;
     }
     if (await clickLegalFace(page)) {
-      await page.getByTestId('confirm-play').click();
+      await confirmPlay(page);
       continue;
     }
     await page.waitForTimeout(60);
