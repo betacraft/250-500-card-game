@@ -165,7 +165,7 @@ export function LocalPlayPage(): JSX.Element {
           {!(gameOver && height <= 500) && !shortPlay && !(short && !wide && phase === 'declaring') && <TableStatus hand={hand} names={names} scoredPartners={phase === 'scored' && summary ? summary.partners : null} faces={!shortScore} />}
           {!(gameOver && height <= 500) && !shortPlay && !shortScore && <p data-testid="disabled-reason" role="status" className="pointer-events-none h-5 overflow-hidden text-sm font-medium leading-5 text-red-700">{blocked ?? ''}</p>}
           {phase !== 'bidding' && !(humanDeclaring && (short || !wide)) && !(gameOver && height <= 500) && !shortPlay && !shortScore && (
-            <AuctionRecap history={bidHistory} names={names} trump={hand.trump} called={hand.calledCards} winnerId={hand.bidder} winningBid={hand.bidAmount} />
+            <AuctionRecap history={bidHistory} names={names} trump={hand.trump} winnerId={hand.bidder} winningBid={hand.bidAmount} />
           )}
           {notice && <p data-testid="private-partner" className="text-sm font-medium text-felt">{notice}</p>}
         </>

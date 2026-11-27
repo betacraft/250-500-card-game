@@ -142,7 +142,7 @@ async function centre(locator: Locator, timeout = 1_000): Promise<{ x: number; y
     } catch {
       return null;
     }
-    const box = await locator.boundingBox();
+    const box = await locator.boundingBox({ timeout: 300 }).catch(() => null);
     if (box) return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
   }
   return null;

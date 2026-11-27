@@ -158,14 +158,14 @@ test.describe('landscape felt stays whole', () => {
       expect(overlay).toMatch(/[♠♥♦♣]/);
       expect(overlay).not.toMatch(/\b(?:A|K|Q|J|10|[3-9])[shdc]\b/);
       await expectFelt(page, item.min);
-      if (item.game === '500') await saveShot(page, '/opt/cursor/artifacts/r28-667x375-500-overlay.png', false);
+      if (item.game === '500') await saveShot(page, '/opt/cursor/artifacts/r29-667x375-500-overlay.png', false);
     });
   }
 });
 
 test('the partner toast stays off the notes and the trick', async ({ page }) => {
   const shots: Record<string, string> = {
-    '250-320': 'r28-320x568-toast.png',
+    '250-320': 'r29-320x568-toast.png',
     '250-390': 'r28-390x844-toast.png',
     '250-667': 'r28-667x375-toast-250.png',
     '500-667': 'r28-667x375-toast-500.png',

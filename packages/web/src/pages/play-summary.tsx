@@ -1,20 +1,18 @@
 import { useEffect } from 'react';
-import { type BidEntry, type Card, type Suit } from '@250-500/shared';
+import { type BidEntry, type Card } from '@250-500/shared';
 import { AuctionRecap } from './local-table-notes';
-import { publicTeamPoints, TableStatus } from './local-play-helpers';
+import { calledFaces, publicTeamPoints, TableStatus } from './local-play-helpers';
 import { headerPartnerIds } from './partner-header';
 import { useLocalPlayStore } from '../stores/local-play-store';
 
 type Hand = NonNullable<ReturnType<typeof useLocalPlayStore.getState>['hand']>;
-
-const SUIT_GLYPH: Record<Suit, string> = { spades: '♠', hearts: '♥', diamonds: '♦', clubs: '♣' };
 
 /**
  * One line for the band above the felt: the called faces, the partners the
  * table has seen, and the points those seats have shown.
  */
 export function summaryText(called: readonly Card[], partners: readonly string[], points: number): string {
-  const faces = called.map((card) => `${card.rank}${SUIT_GLYPH[card.suit]}`).join(' ');
+  const faces = calledFaces(called);
   const who = partners.length > 0 ? partners.join(', ') : 'none yet';
   return `Called ${faces} · Partners: ${who} · ${points} pts`;
 }
@@ -54,7 +52,7 @@ export function PlaySummary({ hand, names, notice, history, open, onToggle, row 
         <div data-testid="summary-detail" className="fixed inset-0 z-40" onClick={onToggle}>
           <div className="absolute inset-x-3 top-16 max-h-[50vh] overflow-y-auto rounded-xl bg-white p-3 shadow-lg" onClick={(event) => event.stopPropagation()}>
             <TableStatus hand={hand} names={names} faces={false} />
-            <AuctionRecap history={history} names={names} trump={hand.trump} called={hand.calledCards} winnerId={hand.bidder} winningBid={hand.bidAmount} contract={false} />
+            <AuctionRecap history={history} names={names} trump={hand.trump} winnerId={hand.bidder} winningBid={hand.bidAmount} />
           </div>
         </div>
       ) : null}

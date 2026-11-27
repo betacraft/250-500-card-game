@@ -427,6 +427,7 @@ Same as Phase 1 but at workspace root, runs across all packages.
 | 29 | **A landscape lock keeps the felt at full height** | At 667×375 the play column does not scroll, the partner note and the summary share one line, and the lock pill uses the tight margin. The auction detail opens as an overlay on every size and dismisses on an outside tap or Escape. The partner toast is one line in the felt header and moves with a transform, so it does not cover the trick cards or fade the text. | 2026-11-26 |
 | 30 | **The overlay says the calls once, and the toast sits above the felt** | The auction overlay keeps trump and the called cards on the status line, as A♠ A♥ A♦, and the auction list does not repeat them. The partner toast sits just above the felt, so it misses the Led and Winning line and the trick cards. | 2026-11-26 |
 | 31 | **The partner toast replaces the status line** | While a partner announcement is up it takes the place of "Your turn" or "Bot to play" in the row under the felt. The row stays the same height, and the toast does not cover the summary, the partner line, the trick header, the cards, or the hand. | 2026-11-26 |
+| 32 | **Called cards use one symbol label** | `cardLabel` writes every visible call as `K♣`. The auction line lists only the bids. Trump and the called cards stay on the status line, once. | 2026-11-26 |
 
 ---
 

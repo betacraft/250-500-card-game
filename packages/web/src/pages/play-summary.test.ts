@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Card } from '@250-500/shared';
-import { calledFaces } from './local-play-helpers';
+import { calledFaces, cardLabel } from './local-play-helpers';
 import { summaryText } from './play-summary';
 
 const card = (rank: Card['rank'], suit: Card['suit']): Card => ({ rank, suit, id: `${rank}${suit[0]}` });
@@ -15,8 +15,11 @@ describe('summaryText', () => {
   });
 });
 
-describe('calledFaces', () => {
-  it('writes the overlay calls with suit symbols', () => {
-    expect(calledFaces([card('A', 'spades'), card('A', 'hearts'), card('A', 'diamonds')])).toBe('A♠ A♥ A♦');
+describe('cardLabel', () => {
+  it('writes every called card with a suit symbol', () => {
+    expect(cardLabel(card('K', 'clubs'))).toBe('K♣');
+    expect(cardLabel(card('J', 'hearts'))).toBe('J♥');
+    expect(cardLabel(card('10', 'diamonds'))).toBe('10♦');
+    expect(calledFaces([card('K', 'clubs'), card('J', 'hearts'), card('10', 'diamonds')])).toBe('K♣ J♥ 10♦');
   });
 });

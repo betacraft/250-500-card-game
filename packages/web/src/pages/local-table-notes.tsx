@@ -1,9 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import { type BidEntry, type Card, type GameType, type Suit } from '@250-500/shared';
+import { type BidEntry, type GameType, type Suit } from '@250-500/shared';
 import { SUIT_FILL } from '../components/cards/suit-glyphs';
-import { SuitIcon } from '../components/shared/SuitIcon';
-
-const SUIT_GLYPH: Record<Suit, string> = { spades: '♠', hearts: '♥', diamonds: '♦', clubs: '♣' };
+import { SUIT_GLYPH } from './local-play-helpers';
 
 /** Tiny "♥ 160" label for the bidder's seat at a short height. */
 export function bidderBidText(suit: Suit, amount: number): string {
@@ -16,23 +14,19 @@ export function scoreExplainer(gameType: GameType, compact = false): string {
   return `The bidder wins or loses the bid + ${bonus}. Each partner wins or loses the bid.`;
 }
 
+/** Bid list only. Trump and the called cards stay on the status line. */
 export function AuctionRecap({
   history,
   names,
   trump,
-  called,
   winnerId,
   winningBid,
-  contract = true,
 }: {
   history: readonly BidEntry[];
   names: Record<string, string>;
   trump: Suit | null;
-  called: readonly Card[];
   winnerId?: string | null;
   winningBid?: number | null;
-  /** False in the overlay, where trump and the called cards are already on the line above. */
-  contract?: boolean;
 }): JSX.Element | null {
   const lines = history.map((entry) => {
     const name = names[entry.playerId] ?? entry.playerId;
@@ -41,12 +35,9 @@ export function AuctionRecap({
   const listed = history.some((entry) => entry.action === 'bid' && entry.playerId === winnerId && entry.amount === winningBid);
   if (!listed && winnerId && typeof winningBid === 'number') lines.push(`${names[winnerId] ?? winnerId} ${winningBid}`);
   if (lines.length === 0 && !trump) return null;
-  const calledText = contract ? called.map((card) => `${card.rank}${card.suit[0]}`).join(' ') : '';
   return (
     <p data-testid="auction-recap" data-trump={trump ?? ''} className="text-sm text-stone-700">
       Auction: {lines.join(', ') || 'no bid'}
-      {contract && trump ? <>{' · '}<span className="inline-flex items-center gap-1">Trump: {trump} <SuitIcon suit={trump} size={18} className="shrink-0" /></span></> : null}
-      {calledText ? ` · Called ${calledText}` : ''}
     </p>
   );
 }

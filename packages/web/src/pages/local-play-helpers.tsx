@@ -7,11 +7,17 @@ import { headerPartnerIds } from './partner-header';
 
 type Hand = NonNullable<ReturnType<typeof useLocalPlayStore.getState>['hand']>;
 
-const SUIT_GLYPH: Record<Suit, string> = { spades: '♠', hearts: '♥', diamonds: '♦', clubs: '♣' };
+/** Suit symbol used by every visible card label. */
+export const SUIT_GLYPH: Record<Suit, string> = { spades: '♠', hearts: '♥', diamonds: '♦', clubs: '♣' };
 
-/** Called cards as `A♠ A♥ A♦`, for the auction overlay. */
+/** One card as `K♣` or `10♥`. */
+export function cardLabel(card: Card): string {
+  return `${card.rank}${SUIT_GLYPH[card.suit]}`;
+}
+
+/** Called cards as `A♠ A♥ A♦`. */
 export function calledFaces(cards: readonly Card[]): string {
-  return cards.map((card) => `${card.rank}${SUIT_GLYPH[card.suit]}`).join(' ');
+  return cards.map(cardLabel).join(' ');
 }
 
 /** Signed score for the short "You +N" line. */

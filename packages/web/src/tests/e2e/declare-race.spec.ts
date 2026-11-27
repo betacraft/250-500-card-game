@@ -61,7 +61,7 @@ test.describe('declaration confirm uses the committed calls', () => {
 
       await expect(page.getByTestId('declare-form')).toHaveCount(0);
       await expect(page.getByTestId('called-cards').locator('svg')).toHaveCount(item.need);
-      await expect(page.getByText(/Called 9d 10d/)).toBeVisible();
+      await expect(page.getByText(/\b(?:9d|10d|Jd)\b/)).toHaveCount(0);
       if (item.variant === '250' && item.width === 1366) {
         await saveShot(page, '/opt/cursor/artifacts/declare-fast-250-1366.png', false);
       }
